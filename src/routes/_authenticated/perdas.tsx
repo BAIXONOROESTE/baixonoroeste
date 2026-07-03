@@ -24,7 +24,7 @@ function PerdasPage() {
               {l.observation && <div className="text-xs mt-1">{l.observation}</div>}
             </div>
             <div className="text-xs text-muted-foreground text-right">
-              <div>{l.user?.full_name}</div>
+              <div>{""}</div>
               <div>{fmtDateTime(l.created_at)}</div>
             </div>
           </div>
