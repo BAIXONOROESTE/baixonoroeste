@@ -13,6 +13,9 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated/inicio'
+import { Route as AuthenticatedContarRouteImport } from './routes/_authenticated/contar'
+import { Route as AuthenticatedInventariosIndexRouteImport } from './routes/_authenticated/inventarios.index'
+import { Route as AuthenticatedInventariosIdRouteImport } from './routes/_authenticated/inventarios.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -33,30 +36,76 @@ const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   path: '/inicio',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedContarRoute = AuthenticatedContarRouteImport.update({
+  id: '/contar',
+  path: '/contar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedInventariosIndexRoute =
+  AuthenticatedInventariosIndexRouteImport.update({
+    id: '/inventarios/',
+    path: '/inventarios/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInventariosIdRoute =
+  AuthenticatedInventariosIdRouteImport.update({
+    id: '/inventarios/$id',
+    path: '/inventarios/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/contar': typeof AuthenticatedContarRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
+  '/inventarios/': typeof AuthenticatedInventariosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/contar': typeof AuthenticatedContarRoute
   '/inicio': typeof AuthenticatedInicioRoute
+  '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
+  '/inventarios': typeof AuthenticatedInventariosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/contar': typeof AuthenticatedContarRoute
   '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/inventarios/$id': typeof AuthenticatedInventariosIdRoute
+  '/_authenticated/inventarios/': typeof AuthenticatedInventariosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/inicio'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/contar'
+    | '/inicio'
+    | '/inventarios/$id'
+    | '/inventarios/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/inicio'
-  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/inicio'
+  to:
+    | '/'
+    | '/auth'
+    | '/contar'
+    | '/inicio'
+    | '/inventarios/$id'
+    | '/inventarios'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/contar'
+    | '/_authenticated/inicio'
+    | '/_authenticated/inventarios/$id'
+    | '/_authenticated/inventarios/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -95,15 +144,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInicioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/contar': {
+      id: '/_authenticated/contar'
+      path: '/contar'
+      fullPath: '/contar'
+      preLoaderRoute: typeof AuthenticatedContarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inventarios/': {
+      id: '/_authenticated/inventarios/'
+      path: '/inventarios'
+      fullPath: '/inventarios/'
+      preLoaderRoute: typeof AuthenticatedInventariosIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inventarios/$id': {
+      id: '/_authenticated/inventarios/$id'
+      path: '/inventarios/$id'
+      fullPath: '/inventarios/$id'
+      preLoaderRoute: typeof AuthenticatedInventariosIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedContarRoute: typeof AuthenticatedContarRoute
   AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedInventariosIdRoute: typeof AuthenticatedInventariosIdRoute
+  AuthenticatedInventariosIndexRoute: typeof AuthenticatedInventariosIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedContarRoute: AuthenticatedContarRoute,
   AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedInventariosIdRoute: AuthenticatedInventariosIdRoute,
+  AuthenticatedInventariosIndexRoute: AuthenticatedInventariosIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

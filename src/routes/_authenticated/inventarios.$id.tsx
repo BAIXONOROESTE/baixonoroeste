@@ -132,7 +132,7 @@ function InventoryDetail() {
         <CountForm
           product={selected}
           inventoryId={id}
-          currentItem={items?.find((i) => i.product_id === selectedProduct)}
+          currentItem={items?.find((i) => i.product_id === selectedProduct) as never}
           onClose={() => setSelectedProduct(null)}
           onSaved={async (item_id) => {
             qc.invalidateQueries({ queryKey: ["count-items", id] });
@@ -192,7 +192,7 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
     setSaving(true);
     const { data: u } = await supabase.auth.getUser();
     const stock = Number(product.stock_omie);
-    const status = q === stock ? "correto" : "divergencia";
+    const status: "correto" | "divergencia" = q === stock ? "correto" : "divergencia";
     const payload = {
       inventory_id: inventoryId, product_id: product.id, counted_by: u.user!.id,
       quantity_before: stock, quantity_counted: q, unit_cost: Number(product.cost), status,
