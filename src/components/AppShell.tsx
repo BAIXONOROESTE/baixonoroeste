@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const role = profile?.role ?? "contador";
-  const visible = drawerLinks.filter((l) => l.roles.includes(role));
+  const visible = drawerLinks.filter((l) => (l.roles as readonly string[]).includes(role));
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
