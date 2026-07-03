@@ -20,19 +20,19 @@ function Relatorios() {
     queryFn: async () => {
       if (tab === "divergencias") {
         const { data } = await supabase.from("count_items")
-          .select("created_at, quantity_before, quantity_counted, difference, financial_diff, status, product:products(name, code, family_name), user:profiles!count_items_counted_by_fkey(full_name)")
+          .select("created_at, quantity_before, quantity_counted, difference, financial_diff, status, product:products(name, code, family_name)")
           .eq("status", "divergencia").order("created_at", { ascending: false });
         return (data ?? []).map((r) => ({
           Data: fmtDateTime(r.created_at), Produto: r.product?.name, Código: r.product?.code,
           Família: r.product?.family_name, "Estoque anterior": r.quantity_before, "Contado": r.quantity_counted,
-          Diferença: r.difference, "Δ R$": Number(r.financial_diff), Funcionário: r.user?.full_name,
+          Diferença: r.difference, "Δ R$": Number(r.financial_diff), Funcionário: "",
         }));
       }
       if (tab === "inventarios") {
-        const { data } = await supabase.from("inventories").select("*, user:profiles!inventories_started_by_fkey(full_name)").order("started_at", { ascending: false });
+        const { data } = await supabase.from("inventories").select("*").order("started_at", { ascending: false });
         return (data ?? []).map((r) => ({
           Nome: r.name, Tipo: r.type, Status: r.status,
-          "Iniciado": fmtDateTime(r.started_at), "Fechado": fmtDateTime(r.closed_at), Por: r.user?.full_name,
+          "Iniciado": fmtDateTime(r.started_at), "Fechado": fmtDateTime(r.closed_at), Por: "",
         }));
       }
       if (tab === "financeiro") {

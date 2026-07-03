@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authenticated/logs")({ component: LogsPa
 function LogsPage() {
   const { data } = useQuery({
     queryKey: ["logs"],
-    queryFn: async () => (await supabase.from("logs").select("*, user:profiles(full_name)").order("created_at", { ascending: false }).limit(300)).data ?? [],
+    queryFn: async () => (await supabase.from("logs").select("*").order("created_at", { ascending: false }).limit(300)).data ?? [],
   });
   return (
     <div className="mx-auto max-w-md px-4 pt-4 space-y-2">
@@ -19,7 +19,7 @@ function LogsPage() {
             <span className="font-medium text-primary">{l.action}</span>
             <span className="text-muted-foreground">{fmtDateTime(l.created_at)}</span>
           </div>
-          <div className="text-muted-foreground">{l.user?.full_name ?? "—"} · {l.entity ?? ""}</div>
+          <div className="text-muted-foreground">{"—"} · {l.entity ?? ""}</div>
           {l.details ? <pre className="mt-1 text-[10px] text-muted-foreground overflow-x-auto">{JSON.stringify(l.details)}</pre> : null}
         </div>
       ))}

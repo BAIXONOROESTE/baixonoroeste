@@ -9,7 +9,7 @@ function PerdasPage() {
   const { data } = useQuery({
     queryKey: ["losses"],
     queryFn: async () => (await supabase.from("losses")
-      .select("*, product:products(name, code, unit), reason:loss_reasons(name), user:profiles(full_name)")
+      .select("*, product:products(name, code, unit), reason:loss_reasons(name)")
       .order("created_at", { ascending: false }).limit(200)).data ?? [],
   });
   return (
