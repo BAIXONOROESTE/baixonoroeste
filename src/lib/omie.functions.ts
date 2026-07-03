@@ -117,7 +117,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
 
     await supabaseAdmin
       .from("count_items")
-      .update({ status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as object })
+      .update({ status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as never })
       .eq("id", item.id);
 
     await supabaseAdmin.from("logs").insert({
@@ -155,7 +155,7 @@ export const closeInventory = createServerFn({ method: "POST" })
           });
           await supabaseAdmin
             .from("count_items")
-            .update({ status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as object })
+            .update({ status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as never })
             .eq("id", item.id);
         } catch (e) {
           await supabaseAdmin.from("logs").insert({
