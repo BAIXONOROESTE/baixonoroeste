@@ -1,0 +1,46 @@
+// Helpers de autenticação por PIN.
+// Estratégia: cada funcionário tem um "email" interno do tipo `{slug}@estoque.local`
+// e a senha do Supabase Auth = o PIN. Assim reaproveitamos o Auth do Cloud sem
+// expor emails reais.
+
+import { supabase } from "@/integrations/supabase/client";
+
+export function slugify(input: string): string {
+  return input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function emailFromSlug(slug: string): string {
+  return `${slug}@estoque.local`;
+}
+
+export async function signInWithPin(slug: string, pin: string) {
+  return supabase.auth.signInWithPassword({ email: emailFromSlug(slug), password: pin });
+}
+
+export async function signUpWithPin(opts: {
+  fullName: string;
+  slug: string;
+  pin: string;
+  role?: "admin" | "supervisor" | "contador";
+  avatarColor?: string;
+}) {
+  return supabase.auth.signUp({
+    email: emailFromSlug(opts.slug),
+    password: opts.pin,
+    options: {
+      emailRedirectTo: window.location.origin,
+      data: {
+        full_name: opts.fullName,
+        slug: opts.slug,
+        role: opts.role,
+        avatar_color: opts.avatarColor ?? "amber",
+      },
+    },
+  });
+}

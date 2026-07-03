@@ -1,0 +1,115 @@
+// Cliente da API do Omie — server-only.
+// Usa fetch nativo (Cloudflare Workers). Nunca importar do lado do cliente.
+
+const OMIE_BASE = "https://app.omie.com.br/api/v1";
+
+interface OmieCall {
+  endpoint: string;   // ex: "geral/produtos/"
+  call: string;       // ex: "ListarProdutos"
+  param: unknown;     // objeto de parâmetros
+}
+
+export async function omieRequest<T = unknown>({ endpoint, call, param }: OmieCall): Promise<T> {
+  const app_key = process.env.OMIE_APP_KEY;
+  const app_secret = process.env.OMIE_APP_SECRET;
+  if (!app_key || !app_secret) {
+    throw new Error("Credenciais do Omie não configuradas (OMIE_APP_KEY / OMIE_APP_SECRET).");
+  }
+  const body = { call, app_key, app_secret, param: [param] };
+  const res = await fetch(`${OMIE_BASE}/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json: unknown;
+  try { json = JSON.parse(text); } catch { throw new Error(`Omie retornou resposta inválida: ${text.slice(0, 200)}`); }
+  if (!res.ok || (typeof json === "object" && json !== null && "faultstring" in (json as Record<string, unknown>))) {
+    const msg = (json as { faultstring?: string })?.faultstring ?? `HTTP ${res.status}`;
+    throw new Error(`Omie: ${msg}`);
+  }
+  return json as T;
+}
+
+// -------- Tipos parciais da API do Omie --------
+export interface OmieFamilia {
+  codigo: number;
+  descricao: string;
+  inativo?: string;
+}
+export interface OmieProduto {
+  codigo_produto: number;
+  codigo: string;
+  codigo_barras?: string;
+  descricao: string;
+  unidade?: string;
+  familia?: string;              // nome
+  codigo_familia?: number;
+  estoque_atual?: number;
+  valor_unitario?: number;
+  quantidade_estoque?: number;
+  inativo?: string;              // "S" | "N"
+  bloqueado?: string;
+  local_estoque?: string;
+}
+
+export async function listarTodasFamilias(): Promise<OmieFamilia[]> {
+  const all: OmieFamilia[] = [];
+  let pagina = 1;
+  while (true) {
+    const resp = await omieRequest<{ familia_produto?: OmieFamilia[]; total_de_paginas?: number }>({
+      endpoint: "geral/familias/",
+      call: "ListarFamilias",
+      param: { pagina, registros_por_pagina: 100 },
+    });
+    const arr = resp.familia_produto ?? [];
+    all.push(...arr);
+    const total = resp.total_de_paginas ?? 1;
+    if (pagina >= total || arr.length === 0) break;
+    pagina++;
+  }
+  return all.filter((f) => f.inativo !== "S");
+}
+
+export async function listarTodosProdutosAtivos(): Promise<OmieProduto[]> {
+  const all: OmieProduto[] = [];
+  let pagina = 1;
+  while (true) {
+    const resp = await omieRequest<{ produto_servico_cadastro?: OmieProduto[]; total_de_paginas?: number }>({
+      endpoint: "geral/produtos/",
+      call: "ListarProdutos",
+      param: {
+        pagina,
+        registros_por_pagina: 100,
+        apenas_importado_api: "N",
+        filtrar_apenas_omiepdv: "N",
+        // filtrar por status ativo:
+        filtrar_apenas_ativo: "S",
+      },
+    });
+    const arr = resp.produto_servico_cadastro ?? [];
+    all.push(...arr);
+    const total = resp.total_de_paginas ?? 1;
+    if (pagina >= total || arr.length === 0) break;
+    pagina++;
+  }
+  return all.filter((p) => p.inativo !== "S");
+}
+
+export async function ajustarEstoqueOmie(params: {
+  codigo_produto: number;
+  quantidade: number;
+  observacao: string;
+}): Promise<unknown> {
+  return omieRequest({
+    endpoint: "estoque/ajuste/",
+    call: "IncluirAjusteEstoque",
+    param: {
+      codigo_local_estoque: 0,
+      codigo_produto: params.codigo_produto,
+      data: new Date().toLocaleDateString("pt-BR"),
+      quantidade: params.quantidade,
+      observacao: params.observacao,
+    },
+  });
+}
