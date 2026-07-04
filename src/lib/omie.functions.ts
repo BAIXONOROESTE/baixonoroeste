@@ -11,11 +11,12 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { listarTodasFamilias, listarTodosProdutosAtivos } = await import("@/lib/omie.server");
 
-    const { data: syncRow } = await supabaseAdmin
+    const { data: syncRow, error: syncErr } = await supabaseAdmin
       .from("sync_log")
       .insert({ type: "produtos+familias", status: "em_andamento", message: "Iniciando..." })
       .select("id")
       .single();
+    if (syncErr || !syncRow) throw new Error(`Falha ao registrar sync_log: ${syncErr?.message ?? "sem retorno"}`);
 
     try {
       // Famílias
