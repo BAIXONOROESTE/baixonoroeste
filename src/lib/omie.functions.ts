@@ -11,11 +11,12 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { listarTodasFamilias, listarTodosProdutosAtivos } = await import("@/lib/omie.server");
 
-    const { data: syncRow } = await supabaseAdmin
+    const { data: syncRow, error: syncErr } = await supabaseAdmin
       .from("sync_log")
       .insert({ type: "produtos+familias", status: "em_andamento", message: "Iniciando..." })
       .select("id")
       .single();
+    if (syncErr || !syncRow) throw new Error(`Falha ao registrar sync_log: ${syncErr?.message ?? "sem retorno"}`);
 
     try {
       // Famílias
@@ -67,7 +68,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
           message: `${famRows.length} famílias, ${prodRows.length} produtos.`,
           finished_at: new Date().toISOString(),
         })
-        .eq("id", syncRow!.id);
+        .eq("id", syncRow.id);
 
       await supabaseAdmin.from("logs").insert({
         user_id: userId,
@@ -82,7 +83,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
       await supabaseAdmin
         .from("sync_log")
         .update({ status: "erro", message: msg, finished_at: new Date().toISOString() })
-        .eq("id", syncRow!.id);
+        .eq("id", syncRow.id);
       await supabaseAdmin.from("logs").insert({ user_id: userId, action: "sync_omie_erro", details: { erro: msg } });
       throw e;
     }
