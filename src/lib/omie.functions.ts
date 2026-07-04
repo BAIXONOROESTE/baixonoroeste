@@ -68,7 +68,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
           message: `${famRows.length} famílias, ${prodRows.length} produtos.`,
           finished_at: new Date().toISOString(),
         })
-        .eq("id", syncRow!.id);
+        .eq("id", syncRow.id);
 
       await supabaseAdmin.from("logs").insert({
         user_id: userId,
@@ -83,7 +83,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
       await supabaseAdmin
         .from("sync_log")
         .update({ status: "erro", message: msg, finished_at: new Date().toISOString() })
-        .eq("id", syncRow!.id);
+        .eq("id", syncRow.id);
       await supabaseAdmin.from("logs").insert({ user_id: userId, action: "sync_omie_erro", details: { erro: msg } });
       throw e;
     }
