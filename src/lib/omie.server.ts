@@ -25,7 +25,7 @@ export async function omieRequest<T = unknown>({ endpoint, call, param }: OmieCa
   let json: unknown;
   try { json = JSON.parse(text); } catch { throw new Error(`Omie retornou resposta inválida: ${text.slice(0, 200)}`); }
   if (!res.ok || (typeof json === "object" && json !== null && "faultstring" in (json as Record<string, unknown>))) {
-    const msg = (json as { faultstring?: string })?.faultstring ?? `HTTP ${res.status}`;
+    const msg = (json as { faultstring?: string; message?: string })?.faultstring ?? (json as { message?: string })?.message ?? `HTTP ${res.status}`;
     throw new Error(`Omie: ${msg}`);
   }
   return json as T;
@@ -34,7 +34,8 @@ export async function omieRequest<T = unknown>({ endpoint, call, param }: OmieCa
 // -------- Tipos parciais da API do Omie --------
 export interface OmieFamilia {
   codigo: number;
-  descricao: string;
+  descricao?: string;
+  nomeFamilia?: string;
   inativo?: string;
 }
 export interface OmieProduto {
@@ -57,12 +58,12 @@ export async function listarTodasFamilias(): Promise<OmieFamilia[]> {
   const all: OmieFamilia[] = [];
   let pagina = 1;
   while (true) {
-    const resp = await omieRequest<{ familia_produto?: OmieFamilia[]; total_de_paginas?: number }>({
+    const resp = await omieRequest<{ famCadastro?: OmieFamilia[]; total_de_paginas?: number }>({
       endpoint: "geral/familias/",
-      call: "ListarFamilias",
+      call: "PesquisarFamilias",
       param: { pagina, registros_por_pagina: 100 },
     });
-    const arr = resp.familia_produto ?? [];
+    const arr = resp.famCadastro ?? [];
     all.push(...arr);
     const total = resp.total_de_paginas ?? 1;
     if (pagina >= total || arr.length === 0) break;

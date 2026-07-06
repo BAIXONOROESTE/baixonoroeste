@@ -23,7 +23,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
       const familias = await listarTodasFamilias();
       const famRows = familias.map((f) => ({
         omie_id: String(f.codigo),
-        name: f.descricao,
+        name: f.descricao ?? f.nomeFamilia ?? `Família ${f.codigo}`,
       }));
       if (famRows.length) {
         await supabaseAdmin.from("families").upsert(famRows, { onConflict: "omie_id" });
