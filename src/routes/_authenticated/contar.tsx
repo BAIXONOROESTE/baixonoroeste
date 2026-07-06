@@ -1,11 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Package, Layers, ListChecks } from "lucide-react";
+import { Package, Layers, ListChecks, RefreshCw } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { syncFamiliesAndProducts } from "@/lib/omie.functions";
+import { useProfile } from "@/hooks/useProfile";
 
 export const Route = createFileRoute("/_authenticated/contar")({ component: ContarPage });
 
@@ -14,10 +17,33 @@ function ContarPage() {
   const [familyId, setFamilyId] = useState<string>("");
   const [name, setName] = useState("");
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { data: profile } = useProfile();
+  const syncFn = useServerFn(syncFamiliesAndProducts);
 
   const { data: families } = useQuery({
     queryKey: ["families"],
     queryFn: async () => (await supabase.from("families").select("id, name").order("name")).data ?? [],
+  });
+
+  const { data: catalogCounts } = useQuery({
+    queryKey: ["catalog-counts"],
+    queryFn: async () => {
+      const [familiesCount, productsCount] = await Promise.all([
+        supabase.from("families").select("id", { count: "exact", head: true }),
+        supabase.from("products").select("id", { count: "exact", head: true }).eq("active", true),
+      ]);
+      return { families: familiesCount.count ?? 0, products: productsCount.count ?? 0 };
+    },
+  });
+
+  const sync = useMutation({
+    mutationFn: () => syncFn(),
+    onSuccess: (r) => {
+      toast.success(`Sincronizado: ${r.familias} famílias, ${r.produtos} produtos.`);
+      qc.invalidateQueries();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha na sincronização."),
   });
 
   const create = useMutation({
@@ -44,6 +70,23 @@ function ContarPage() {
     <div className="mx-auto max-w-md px-4 pt-4 space-y-4">
       <h1 className="text-2xl font-display font-semibold">Nova contagem</h1>
 
+      {catalogCounts && catalogCounts.products === 0 && (
+        <div className="rounded-2xl bg-surface border border-border p-4 space-y-3">
+          <div>
+            <div className="text-sm font-medium">Catálogo Omie vazio</div>
+            <div className="text-xs text-muted-foreground">
+              {profile?.role === "admin" ? "Sincronize antes de iniciar uma contagem." : "Peça para um admin sincronizar o Omie."}
+            </div>
+          </div>
+          {profile?.role === "admin" && (
+            <Button className="w-full" onClick={() => sync.mutate()} disabled={sync.isPending}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${sync.isPending ? "animate-spin" : ""}`} />
+              {sync.isPending ? "Sincronizando" : "Sincronizar Omie"}
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3">
         <TipoCard active={tipo === "geral"} onClick={() => setTipo("geral")} icon={ListChecks} title="Inventário geral" desc="Contar todos os produtos ativos." />
         <TipoCard active={tipo === "familia"} onClick={() => setTipo("familia")} icon={Layers} title="Por família" desc="Contar todos os itens de uma família." />
@@ -68,7 +111,7 @@ function ContarPage() {
         </div>
       )}
 
-      <Button className="w-full" disabled={!tipo || (tipo === "familia" && !familyId) || create.isPending}
+      <Button className="w-full" disabled={!tipo || catalogCounts?.products === 0 || (tipo === "familia" && (!familyId || catalogCounts?.families === 0)) || create.isPending}
               onClick={() => create.mutate()}>
         {create.isPending ? "Criando..." : "Iniciar contagem"}
       </Button>

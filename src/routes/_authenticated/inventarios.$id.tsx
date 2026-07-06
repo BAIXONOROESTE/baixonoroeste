@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock } from "lucide-react";
+import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import { closeInventory, pushCountToOmie } from "@/lib/omie.functions";
+import { closeInventory, pushCountToOmie, syncFamiliesAndProducts } from "@/lib/omie.functions";
 import { LossModal } from "@/components/LossModal";
+import { useProfile } from "@/hooks/useProfile";
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
 
@@ -24,6 +25,8 @@ function InventoryDetail() {
   const navigate = useNavigate();
   const closeFn = useServerFn(closeInventory);
   const pushFn = useServerFn(pushCountToOmie);
+  const syncFn = useServerFn(syncFamiliesAndProducts);
+  const { data: profile } = useProfile();
 
   const { data: inv } = useQuery({
     queryKey: ["inventory", id],
@@ -36,13 +39,27 @@ function InventoryDetail() {
   });
 
   const { data: products } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id],
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim()],
     queryFn: async () => {
-      let query = supabase.from("products").select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost").eq("active", true).order("name").limit(500);
+      const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
+      let query = supabase.from("products").select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost").eq("active", true);
       if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
-      return (await query).data ?? [];
+      if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
+      const { data, error } = await query.order("name").limit(search ? 50 : 100);
+      if (error) throw error;
+      return data ?? [];
     },
     enabled: !!inv,
+    placeholderData: (previousData) => previousData ?? [],
+  });
+
+  const sync = useMutation({
+    mutationFn: () => syncFn(),
+    onSuccess: (r) => {
+      toast.success(`Sincronizado: ${r.familias} famílias, ${r.produtos} produtos.`);
+      qc.invalidateQueries();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha na sincronização."),
   });
 
   const { data: settings } = useQuery({
@@ -52,11 +69,11 @@ function InventoryDetail() {
 
   const filtered = useMemo(() => {
     if (!products) return [];
-    if (!q.trim()) return products.slice(0, 100);
+    if (!q.trim()) return products;
     const s = q.toLowerCase().trim();
     return products.filter((p) =>
       p.name.toLowerCase().includes(s) || p.code.toLowerCase().includes(s) || (p.barcode ?? "").includes(s)
-    ).slice(0, 100);
+    );
   }, [products, q]);
 
   const countedIds = new Set((items ?? []).map((i) => i.product_id));
@@ -118,6 +135,24 @@ function InventoryDetail() {
                 </button>
               );
             })}
+            {products?.length === 0 && (
+              <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 text-sm">
+                <div>
+                  <div className="font-medium">
+                    {q.trim() ? "Nenhum produto encontrado" : inv?.type === "familia" ? "Sem produtos nessa família" : "Catálogo Omie vazio"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {q.trim() ? "Tente buscar por outro nome, código ou EAN." : profile?.role === "admin" ? "Sincronize o Omie para carregar os produtos." : "Peça para um admin sincronizar o Omie."}
+                  </div>
+                </div>
+                {!q.trim() && profile?.role === "admin" && (
+                  <Button className="w-full" onClick={() => sync.mutate()} disabled={sync.isPending}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${sync.isPending ? "animate-spin" : ""}`} />
+                    {sync.isPending ? "Sincronizando" : "Sincronizar Omie"}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}
