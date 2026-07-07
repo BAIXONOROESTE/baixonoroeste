@@ -94,8 +94,13 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
   .inputValidator((d: { count_item_id: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Autorização: apenas supervisor/admin podem empurrar ajustes ao ERP.
+    const { data: allowed, error: roleErr } = await supabase.rpc("current_user_is_supervisor_or_admin");
+    if (roleErr || !allowed) throw new Error("Apenas supervisor ou administrador podem enviar ajustes ao Omie.");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
+
 
     const { data: item, error } = await supabase
       .from("count_items")
@@ -135,8 +140,13 @@ export const closeInventory = createServerFn({ method: "POST" })
   .inputValidator((d: { inventory_id: string; push_to_omie: boolean }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Autorização: apenas supervisor/admin podem fechar inventário.
+    const { data: allowed, error: roleErr } = await supabase.rpc("current_user_is_supervisor_or_admin");
+    if (roleErr || !allowed) throw new Error("Apenas supervisor ou administrador podem fechar inventários.");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
+
 
     if (data.push_to_omie) {
       const { data: pending } = await supabase
