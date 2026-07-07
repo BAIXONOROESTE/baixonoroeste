@@ -27,9 +27,12 @@ export async function signUpWithPin(opts: {
   fullName: string;
   slug: string;
   pin: string;
-  role?: "admin" | "supervisor" | "contador";
   avatarColor?: string;
 }) {
+  // IMPORTANT: never send `role` in signup metadata. The DB trigger
+  // (`handle_new_user`) ignores client-supplied roles — only the very first
+  // user of the system becomes admin automatically; all others default to
+  // `contador` and must be elevated by an authenticated admin.
   return supabase.auth.signUp({
     email: emailFromSlug(opts.slug),
     password: opts.pin,
@@ -38,9 +41,9 @@ export async function signUpWithPin(opts: {
       data: {
         full_name: opts.fullName,
         slug: opts.slug,
-        role: opts.role,
         avatar_color: opts.avatarColor ?? "amber",
       },
     },
   });
 }
+
