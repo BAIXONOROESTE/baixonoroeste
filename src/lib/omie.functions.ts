@@ -8,15 +8,20 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
     const isAdmin = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
     if (isAdmin.error || !isAdmin.data) throw new Error("Apenas admin pode sincronizar.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { listarTodasFamilias, listarTodosProdutosAtivos } = await import("@/lib/omie.server");
 
-    const { data: syncRow, error: syncErr } = await supabaseAdmin
+
+    // Usa o cliente autenticado (RLS scoped) — o usuário já foi validado como admin
+    // e a policy "admin manages sync_log" permite escrita. Evita depender de
+    // supabaseAdmin (que em ambientes com sb_secret_* pode não passar como service_role
+    // para a Data API).
+    const { data: syncRow, error: syncErr } = await supabase
       .from("sync_log")
       .insert({ type: "produtos+familias", status: "em_andamento", message: "Iniciando..." })
       .select("id")
       .single();
     if (syncErr || !syncRow) throw new Error(`Falha ao registrar sync_log: ${syncErr?.message ?? "sem retorno"}`);
+
 
     try {
       // Famílias
@@ -26,9 +31,9 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         name: f.descricao ?? f.nomeFamilia ?? `Família ${f.codigo}`,
       }));
       if (famRows.length) {
-        await supabaseAdmin.from("families").upsert(famRows, { onConflict: "omie_id" });
+        await supabase.from("families").upsert(famRows, { onConflict: "omie_id" });
       }
-      const { data: famMap } = await supabaseAdmin.from("families").select("id,omie_id");
+      const { data: famMap } = await supabase.from("families").select("id,omie_id");
       const famByOmie = new Map((famMap ?? []).map((f) => [f.omie_id!, f.id]));
 
       // Produtos
@@ -48,19 +53,18 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         active: true,
         last_synced_at: new Date().toISOString(),
       }));
-      // Inativa produtos que sumiram
       if (prodRows.length) {
         for (let i = 0; i < prodRows.length; i += 500) {
-          await supabaseAdmin.from("products").upsert(prodRows.slice(i, i + 500), { onConflict: "omie_id" });
+          await supabase.from("products").upsert(prodRows.slice(i, i + 500), { onConflict: "omie_id" });
         }
         const activeIds = prodRows.map((p) => p.omie_id);
-        await supabaseAdmin
+        await supabase
           .from("products")
           .update({ active: false })
           .not("omie_id", "in", `(${activeIds.map((i) => `"${i}"`).join(",")})`);
       }
 
-      await supabaseAdmin
+      await supabase
         .from("sync_log")
         .update({
           status: "sucesso",
@@ -70,7 +74,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         })
         .eq("id", syncRow.id);
 
-      await supabaseAdmin.from("logs").insert({
+      await supabase.from("logs").insert({
         user_id: userId,
         action: "sync_omie",
         entity: "products",
@@ -80,22 +84,28 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
       return { ok: true, familias: famRows.length, produtos: prodRows.length };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      await supabaseAdmin
+      await supabase
         .from("sync_log")
         .update({ status: "erro", message: msg, finished_at: new Date().toISOString() })
         .eq("id", syncRow.id);
-      await supabaseAdmin.from("logs").insert({ user_id: userId, action: "sync_omie_erro", details: { erro: msg } });
+      await supabase.from("logs").insert({ user_id: userId, action: "sync_omie_erro", details: { erro: msg } });
       throw e;
     }
   });
+
 
 export const pushCountToOmie = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { count_item_id: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Autorização: apenas supervisor/admin podem empurrar ajustes ao ERP.
+    const { data: allowed, error: roleErr } = await supabase.rpc("current_user_is_supervisor_or_admin");
+    if (roleErr || !allowed) throw new Error("Apenas supervisor ou administrador podem enviar ajustes ao Omie.");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
+
 
     const { data: item, error } = await supabase
       .from("count_items")
@@ -135,8 +145,13 @@ export const closeInventory = createServerFn({ method: "POST" })
   .inputValidator((d: { inventory_id: string; push_to_omie: boolean }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Autorização: apenas supervisor/admin podem fechar inventário.
+    const { data: allowed, error: roleErr } = await supabase.rpc("current_user_is_supervisor_or_admin");
+    if (roleErr || !allowed) throw new Error("Apenas supervisor ou administrador podem fechar inventários.");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
+
 
     if (data.push_to_omie) {
       const { data: pending } = await supabase

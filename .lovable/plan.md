@@ -1,75 +1,38 @@
+## Correções de segurança e bugs
 
-# Sistema de Contagem de Estoque — Omie
+### 1. Erro RLS ao sincronizar Omie (`sync_log`)
+O `syncFamiliesAndProducts` roda com o cliente autenticado do usuário (via `requireSupabaseAuth`), mas a tabela `sync_log` só tem policy de SELECT para admins — não há policy de INSERT para `authenticated`. Solução:
+- Adicionar policy `INSERT` em `sync_log` para `authenticated` (`WITH CHECK (auth.uid() = triggered_by)`)
+- Adicionar policy `UPDATE` para permitir atualização das próprias linhas de sync
+- Alternativa mais robusta: usar `supabaseAdmin` para os inserts/updates de log dentro do handler (já autorizado)
 
-App web mobile-first (funciona no celular via navegador, instalável na tela inicial). Backend: Lovable Cloud (Postgres + Auth + Edge Functions). Visual: dark bar/restaurante (#0B0B0F fundo, #F5B301 âmbar, tipografia Outfit + Inter).
+### 2. Signup permite virar admin (crítico)
+`handle_new_user()` lê `role` de `raw_user_meta_data` — qualquer um pode chamar `auth.signUp` direto com `data: { role: 'admin' }`. Correção:
+- Alterar `handle_new_user()` para SEMPRE inserir `'contador'` (mantendo o bootstrap: primeiro usuário vira admin)
+- Remover o campo `role` de `signUpWithPin` em `src/lib/auth-helpers.ts`
+- Elevação de papel passa a ser exclusivamente feita por admin já logado via UI de usuários (já existe policy `admin manages roles`)
 
-## Módulos a construir (nesta ordem)
+### 3. `closeInventory` e `pushCountToOmie` sem checagem de papel (crítico)
+Ambos usam `supabaseAdmin` (bypass de RLS) e só exigem login. Correção em `src/lib/omie.functions.ts`:
+- Após `requireSupabaseAuth`, chamar `context.supabase.rpc('current_user_is_supervisor_or_admin')` e rejeitar se `false`
+- Aplicar em `closeInventory` e `pushCountToOmie`
 
-**1. Fundação**
-- Ativar Lovable Cloud.
-- Design system dark âmbar em `src/styles.css` (tokens oklch, sem cores hardcoded).
-- Layout mobile-first com bottom nav (Início / Contar / Dashboard / Mais).
+### 4. Leaked Password Protection desabilitado
+- Ativar HIBP via `configure_auth` (`password_hibp_enabled: true`)
+- Isso também resolve a reclamação do usuário sobre "senha fraca"? Não — HIBP bloqueia senhas vazadas. A reclamação anterior era do requisito mínimo do Supabase. Mantém habilitado por segurança.
 
-**2. Autenticação por PIN**
-- Admin cria funcionários (nome + PIN 4-6 dígitos). Sistema gera um email interno (`{slug}@estoque.local`) e usa o PIN como senha no Auth (bcrypt do Supabase).
-- Tela de login: lista de funcionários (avatares) → tecla o PIN → entra.
-- 3 papéis via tabela `user_roles` + enum (`admin`, `supervisor`, `contador`) + função `has_role` SECURITY DEFINER.
-- Primeiro usuário criado = admin (seed via migration + tela "criar primeiro admin" se vazio).
+### 5. Função SECURITY DEFINER executável por authenticated
+Já foi marcada como corrigida antes, mas o scanner voltou a apontar. Revisar `has_role`, `current_user_is_admin`, `current_user_is_supervisor_or_admin`, `handle_new_user`, `update_updated_at_column`:
+- `handle_new_user` e `update_updated_at_column` são triggers → `REVOKE EXECUTE ... FROM authenticated, anon, public`
+- `has_role`, `current_user_is_admin`, `current_user_is_supervisor_or_admin` precisam ser chamáveis por policies → manter `EXECUTE` apenas via policies (revogar de `public`, manter para `authenticated` só se usado em client; caso contrário revogar)
+- Marcar finding como fixed depois
 
-**3. Integração Omie**
-- Secrets: `OMIE_APP_KEY`, `OMIE_APP_SECRET`.
-- Server functions: `syncProducts` (paginado, só ativos), `syncFamilies`, `updateStock` (chama `PosicaoEstoque` / `ajusteestoque`).
-- Tabelas espelho: `products`, `families`, `sync_log`. Nunca editadas manualmente pela UI.
-- Botão "Sincronizar Produtos" com barra de progresso.
+### 6. "Toda vez preciso cadastrar admin"
+Provavelmente o app não persiste sessão ou o usuário está apagando cookies. Verificar `src/integrations/supabase/client.ts` (auto-gerado — não editar). Provável causa real: o trigger `handle_new_user` está criando novos usuários com role admin por causa do bug #2 acima OU o `_authenticated/route.tsx` está com `ssr: false` e a sessão não hidrata. Após corrigir #2, o comportamento deve estabilizar. Se persistir, investigar sessão do Supabase.
 
-**4. Contagens**
-- Tabelas: `inventories` (sessão de contagem), `count_items` (linhas), `losses` (perdas & quebras).
-- 3 fluxos: por família, por produto (busca + scanner de código de barras via `@zxing/browser` usando câmera), inventário geral.
-- Ao salvar item: grava com usuário/data/hora/qtd anterior/qtd contada/diferença/valor financeiro/status (Correto/Divergência/Atualizado).
-- Configuração global "Modo de atualização Omie": Imediato ou No Encerramento.
-
-**5. Perdas & Quebras**
-- Ao registrar diferença, botão "Justificar como perda" abre modal com motivo (quebra, vencimento, degustação, consumo interno, desperdício, outro) + observação.
-- Baixa é separada da divergência real → ranking dos funcionários fica limpo.
-
-**6. Dashboard**
-- Cards: produtos cadastrados, contados, pendentes, divergências, valor R$ das divergências, % concluído, última sync.
-- Gráficos com Recharts (barras por família, pizza status, linha de progresso).
-
-**7. Ranking**
-- View SQL: `acertos / conferidos * 100` por funcionário/mês.
-- Destaque dourado ≥ 90%.
-
-**8. Relatórios**
-- Divergências / Inventários / Funcionários / Famílias / Financeiro.
-- Export CSV nativo, Excel via `xlsx`, PDF via `jspdf` + `jspdf-autotable`.
-
-**9. Logs**
-- Tabela `logs` alimentada por triggers e por chamadas explícitas nas edge functions (login/logout/sync/contagem/update Omie/erros).
-- Tela filtro por tipo, usuário, período.
-
-**10. Configurações**
-- Modo de atualização Omie, credenciais (mascaradas), lista de motivos de perda editável.
-
-**11. PWA + polish**
-- Manifest para instalar no celular.
-- Revisão de RLS, seed do primeiro admin, README de uso.
-
-## Detalhes técnicos
-
-**Rotas** (TanStack Start): `/auth` (PIN), `/_authenticated/` (todas as demais), `/contar/familia`, `/contar/produto`, `/contar/geral`, `/inventarios/$id`, `/dashboard`, `/ranking`, `/relatorios`, `/logs`, `/usuarios`, `/configuracoes`.
-
-**RLS**: todas as tabelas ativas. Contador lê tudo mas só edita suas próprias contagens. Supervisor aprova divergências. Admin faz tudo.
-
-**Omie**: chamado via `createServerFn` server-side (nunca do browser — protege as chaves). Rate limit respeitado com fila simples.
-
-**Scanner**: `@zxing/browser` roda 100% no cliente, sem serviço pago.
-
-**Sem serviços pagos**: tudo dentro do Lovable Cloud (que já é grátis para o volume de um bar).
-
-## O que preciso de você depois do "aprovar"
-
-1. Clicar para colar `OMIE_APP_KEY` e `OMIE_APP_SECRET` (formulário seguro — não colar no chat).
-2. Definir o nome e PIN do primeiro admin na primeira tela.
-
-Vou construir tudo em sequência sem parar entre módulos, e no final entrego o app funcionando + resumo. Aprovar?
+### Arquivos a alterar
+- `supabase/migrations/<novo>.sql` — policies em `sync_log`, novo `handle_new_user`, REVOKE/GRANT nas funções SECURITY DEFINER
+- `src/lib/auth-helpers.ts` — remover envio de `role` no signUp
+- `src/lib/omie.functions.ts` — checagem de papel em `closeInventory` e `pushCountToOmie`
+- `configure_auth` — ativar HIBP
+- `manage_security_finding` — marcar findings resolvidos

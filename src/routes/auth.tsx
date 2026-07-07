@@ -135,7 +135,7 @@ function FirstAdmin({ onDone }: { onDone: () => void }) {
     if (!name.trim() || pin.length < 4) { toast.error("Nome e PIN (mín. 4 dígitos) obrigatórios."); return; }
     setLoading(true);
     const slug = slugify(name);
-    const { error } = await signUpWithPin({ fullName: name.trim(), slug, pin, role: "admin" });
+    const { error } = await signUpWithPin({ fullName: name.trim(), slug, pin });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Primeiro administrador criado!");
