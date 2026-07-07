@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { signUpWithPin, slugify } from "@/lib/auth-helpers";
+import { slugify } from "@/lib/auth-helpers";
+import { createUserAsAdmin } from "@/lib/admin-users.functions";
 import { useProfile } from "@/hooks/useProfile";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({ component: UsuariosPage });
@@ -13,6 +15,7 @@ export const Route = createFileRoute("/_authenticated/usuarios")({ component: Us
 function UsuariosPage() {
   const qc = useQueryClient();
   const { data: me } = useProfile();
+  const createUserFn = useServerFn(createUserAsAdmin);
   const [name, setName] = useState(""); const [pin, setPin] = useState(""); const [role, setRole] = useState<"admin"|"supervisor"|"contador">("contador");
 
   const { data: profiles } = useQuery({
@@ -29,12 +32,12 @@ function UsuariosPage() {
   const create = useMutation({
     mutationFn: async () => {
       if (!name.trim() || pin.length < 4) throw new Error("Nome e PIN obrigatórios.");
-      const { error } = await signUpWithPin({ fullName: name.trim(), slug: slugify(name), pin, role });
-      if (error) throw error;
+      await createUserFn({ data: { fullName: name.trim(), slug: slugify(name), pin, role } });
     },
     onSuccess: () => { toast.success("Usuário criado."); setName(""); setPin(""); qc.invalidateQueries(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
+
 
   if (me?.role !== "admin") return <div className="p-6 text-muted-foreground">Somente admin.</div>;
 
