@@ -31,9 +31,9 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         name: f.descricao ?? f.nomeFamilia ?? `Família ${f.codigo}`,
       }));
       if (famRows.length) {
-        await supabaseAdmin.from("families").upsert(famRows, { onConflict: "omie_id" });
+        await supabase.from("families").upsert(famRows, { onConflict: "omie_id" });
       }
-      const { data: famMap } = await supabaseAdmin.from("families").select("id,omie_id");
+      const { data: famMap } = await supabase.from("families").select("id,omie_id");
       const famByOmie = new Map((famMap ?? []).map((f) => [f.omie_id!, f.id]));
 
       // Produtos
@@ -53,19 +53,18 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         active: true,
         last_synced_at: new Date().toISOString(),
       }));
-      // Inativa produtos que sumiram
       if (prodRows.length) {
         for (let i = 0; i < prodRows.length; i += 500) {
-          await supabaseAdmin.from("products").upsert(prodRows.slice(i, i + 500), { onConflict: "omie_id" });
+          await supabase.from("products").upsert(prodRows.slice(i, i + 500), { onConflict: "omie_id" });
         }
         const activeIds = prodRows.map((p) => p.omie_id);
-        await supabaseAdmin
+        await supabase
           .from("products")
           .update({ active: false })
           .not("omie_id", "in", `(${activeIds.map((i) => `"${i}"`).join(",")})`);
       }
 
-      await supabaseAdmin
+      await supabase
         .from("sync_log")
         .update({
           status: "sucesso",
@@ -75,7 +74,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         })
         .eq("id", syncRow.id);
 
-      await supabaseAdmin.from("logs").insert({
+      await supabase.from("logs").insert({
         user_id: userId,
         action: "sync_omie",
         entity: "products",
@@ -85,14 +84,15 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
       return { ok: true, familias: famRows.length, produtos: prodRows.length };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      await supabaseAdmin
+      await supabase
         .from("sync_log")
         .update({ status: "erro", message: msg, finished_at: new Date().toISOString() })
         .eq("id", syncRow.id);
-      await supabaseAdmin.from("logs").insert({ user_id: userId, action: "sync_omie_erro", details: { erro: msg } });
+      await supabase.from("logs").insert({ user_id: userId, action: "sync_omie_erro", details: { erro: msg } });
       throw e;
     }
   });
+
 
 export const pushCountToOmie = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
