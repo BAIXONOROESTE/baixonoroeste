@@ -11,12 +11,17 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { listarTodasFamilias, listarTodosProdutosAtivos } = await import("@/lib/omie.server");
 
-    const { data: syncRow, error: syncErr } = await supabaseAdmin
+    // Usa o cliente autenticado (RLS scoped) — o usuário já foi validado como admin
+    // e a policy "admin manages sync_log" permite escrita. Evita depender de
+    // supabaseAdmin (que em ambientes com sb_secret_* pode não passar como service_role
+    // para a Data API).
+    const { data: syncRow, error: syncErr } = await supabase
       .from("sync_log")
       .insert({ type: "produtos+familias", status: "em_andamento", message: "Iniciando..." })
       .select("id")
       .single();
     if (syncErr || !syncRow) throw new Error(`Falha ao registrar sync_log: ${syncErr?.message ?? "sem retorno"}`);
+
 
     try {
       // Famílias
