@@ -8,8 +8,8 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
     const isAdmin = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
     if (isAdmin.error || !isAdmin.data) throw new Error("Apenas admin pode sincronizar.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { listarTodasFamilias, listarTodosProdutosAtivos } = await import("@/lib/omie.server");
+
 
     // Usa o cliente autenticado (RLS scoped) — o usuário já foi validado como admin
     // e a policy "admin manages sync_log" permite escrita. Evita depender de
