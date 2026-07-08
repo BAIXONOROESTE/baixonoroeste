@@ -8,7 +8,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
     const isAdmin = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
     if (isAdmin.error || !isAdmin.data) throw new Error("Apenas admin pode sincronizar.");
 
-    const { listarTodasFamilias, listarTodosProdutosAtivos } = await import("@/lib/omie.server");
+    const { listarTodasFamilias, listarTodosProdutosAtivos, listarPosicaoEstoque } = await import("@/lib/omie.server");
 
 
     // Usa o cliente autenticado (RLS scoped) — o usuário já foi validado como admin
@@ -36,8 +36,17 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
       const { data: famMap } = await supabase.from("families").select("id,omie_id");
       const famByOmie = new Map((famMap ?? []).map((f) => [f.omie_id!, f.id]));
 
-      // Produtos
-      const produtos = await listarTodosProdutosAtivos();
+      // Produtos + posição de estoque (ListarProdutos não retorna saldo)
+      const [produtos, posicoes] = await Promise.all([
+        listarTodosProdutosAtivos(),
+        listarPosicaoEstoque(),
+      ]);
+      const saldoByCod = new Map<string, number>();
+      for (const pos of posicoes) {
+        // Preferir "fisico" (quantidade em estoque real); cai para nSaldo.
+        const saldo = Number(pos.fisico ?? pos.nSaldo ?? 0);
+        saldoByCod.set(String(pos.nCodProd), saldo);
+      }
       const prodRows = produtos.map((p) => ({
         omie_id: String(p.codigo_produto),
         code: p.codigo ?? String(p.codigo_produto),
@@ -46,7 +55,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         family_id: p.codigo_familia ? famByOmie.get(String(p.codigo_familia)) ?? null : null,
         family_name: p.familia ?? null,
         unit: p.unidade ?? null,
-        stock_omie: Number(p.quantidade_estoque ?? p.estoque_atual ?? 0),
+        stock_omie: saldoByCod.get(String(p.codigo_produto)) ?? 0,
         cost: Number(p.valor_unitario ?? 0),
         price: p.valor_unitario ? Number(p.valor_unitario) : null,
         location: p.local_estoque ?? null,

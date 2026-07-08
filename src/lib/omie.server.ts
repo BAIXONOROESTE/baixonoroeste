@@ -95,6 +95,45 @@ export async function listarTodosProdutosAtivos(): Promise<OmieProduto[]> {
   return all.filter((p) => p.inativo !== "S");
 }
 
+export interface OmiePosicaoProduto {
+  nCodProd: number;
+  nSaldo?: number;
+  fisico?: number;
+  reservado?: number;
+  nCMC?: number;
+  nPrecoUnitario?: number;
+}
+
+/** Consulta o saldo atual (posição) do estoque de todos os produtos. */
+export async function listarPosicaoEstoque(): Promise<OmiePosicaoProduto[]> {
+  const all: OmiePosicaoProduto[] = [];
+  let nPagina = 1;
+  const dDataPosicao = new Date().toLocaleDateString("pt-BR"); // dd/mm/aaaa
+  while (true) {
+    const resp = await omieRequest<{
+      produtos?: OmiePosicaoProduto[];
+      nTotPaginas?: number;
+    }>({
+      endpoint: "estoque/consulta/",
+      call: "ListarPosEstoque",
+      param: {
+        nPagina,
+        nRegPorPagina: 100,
+        dDataPosicao,
+        cExibeTodos: "S",
+        codigo_local_estoque: 0,
+      },
+    });
+    const arr = resp.produtos ?? [];
+    all.push(...arr);
+    const total = resp.nTotPaginas ?? 1;
+    if (nPagina >= total || arr.length === 0) break;
+    nPagina++;
+  }
+  return all;
+}
+
+
 export async function ajustarEstoqueOmie(params: {
   codigo_produto: number;
   quantidade: number;
