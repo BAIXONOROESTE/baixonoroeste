@@ -84,8 +84,6 @@ export async function listarTodosProdutosAtivos(): Promise<OmieProduto[]> {
         registros_por_pagina: 100,
         apenas_importado_api: "N",
         filtrar_apenas_omiepdv: "N",
-        // filtrar por status ativo:
-        filtrar_apenas_ativo: "S",
       },
     });
     const arr = resp.produto_servico_cadastro ?? [];
