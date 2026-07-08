@@ -100,15 +100,18 @@ export async function ajustarEstoqueOmie(params: {
   quantidade: number;
   observacao: string;
 }): Promise<unknown> {
+  // Formato dDtAjuste esperado pelo Omie: dd/mm/aaaa
+  const hoje = new Date().toLocaleDateString("pt-BR");
   return omieRequest({
     endpoint: "estoque/ajuste/",
     call: "IncluirAjusteEstoque",
     param: {
-      codigo_local_estoque: 0,
-      codigo_produto: params.codigo_produto,
-      data: new Date().toLocaleDateString("pt-BR"),
-      quantidade: params.quantidade,
-      observacao: params.observacao,
+      nCodProd: params.codigo_produto,
+      nCodLocal: 0,
+      dDtAjuste: hoje,
+      nQtdeAjuste: params.quantidade,
+      nValorUnit: 0,
+      cObs: params.observacao,
     },
   });
 }
