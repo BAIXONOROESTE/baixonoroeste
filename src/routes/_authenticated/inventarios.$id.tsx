@@ -10,8 +10,11 @@ import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw } from 
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { closeInventory, pushCountToOmie, syncFamiliesAndProducts } from "@/lib/omie.functions";
+import { requestCloseInventory } from "@/lib/close-requests.functions";
+import { notifyDivergence } from "@/lib/notify.functions";
 import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
+
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
 
