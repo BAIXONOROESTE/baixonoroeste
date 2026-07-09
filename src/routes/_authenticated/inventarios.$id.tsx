@@ -235,7 +235,7 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
   inventoryId: string;
   currentItem: { id: string; quantity_counted: number; difference: number; financial_diff: number; status: string } | undefined;
   onClose: () => void;
-  onSaved: (count_item_id: string) => void;
+  onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
   onOpenLoss: (count_item_id: string) => void;
 }) {
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
@@ -257,7 +257,7 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
     if (error) { toast.error(error.message); return; }
     await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: data.id, produto: product.name, qtd: q, status } });
     toast.success("Contagem salva!");
-    onSaved(data.id);
+    onSaved(data.id, status);
     onClose();
   }
 
