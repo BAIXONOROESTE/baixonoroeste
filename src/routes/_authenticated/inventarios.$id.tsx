@@ -10,8 +10,11 @@ import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw } from 
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { closeInventory, pushCountToOmie, syncFamiliesAndProducts } from "@/lib/omie.functions";
+import { requestCloseInventory } from "@/lib/close-requests.functions";
+import { notifyDivergence } from "@/lib/notify.functions";
 import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
+
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
 
@@ -24,9 +27,12 @@ function InventoryDetail() {
   const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string } | null>(null);
   const navigate = useNavigate();
   const closeFn = useServerFn(closeInventory);
+  const requestCloseFn = useServerFn(requestCloseInventory);
   const pushFn = useServerFn(pushCountToOmie);
+  const notifyDivFn = useServerFn(notifyDivergence);
   const syncFn = useServerFn(syncFamiliesAndProducts);
   const { data: profile } = useProfile();
+
 
   const { data: inv } = useQuery({
     queryKey: ["inventory", id],
@@ -169,13 +175,17 @@ function InventoryDetail() {
           inventoryId={id}
           currentItem={items?.find((i) => i.product_id === selectedProduct) as never}
           onClose={() => setSelectedProduct(null)}
-          onSaved={async (item_id) => {
+          onSaved={async (item_id, status) => {
             qc.invalidateQueries({ queryKey: ["count-items", id] });
             if (settings?.omie_update_mode === "imediato") {
               try { await pushFn({ data: { count_item_id: item_id } }); qc.invalidateQueries({ queryKey: ["count-items", id] }); }
               catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao atualizar Omie."); }
             }
+            if (status === "divergencia") {
+              notifyDivFn({ data: { inventory_id: id } }).catch((e) => console.warn("notifyDivergence:", e));
+            }
           }}
+
           onOpenLoss={(count_item_id) => setLossFor({ product_id: selected.id, count_item_id })}
         />
       )}
@@ -193,19 +203,29 @@ function InventoryDetail() {
         <div className="pt-2">
           <Button className="w-full" variant="default"
             onClick={async () => {
-              const modeText = settings?.omie_update_mode === "encerramento" ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?";
+              const isSup = profile?.role === "admin" || profile?.role === "supervisor";
+              const pushToOmie = settings?.omie_update_mode === "encerramento";
+              const modeText = isSup
+                ? (pushToOmie ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?")
+                : "Enviar pedido de fechamento para o supervisor/admin via WhatsApp?";
               if (!confirm(modeText)) return;
               try {
-                await closeFn({ data: { inventory_id: id, push_to_omie: settings?.omie_update_mode === "encerramento" } });
-                toast.success("Inventário fechado!");
-                qc.invalidateQueries();
-                navigate({ to: "/inventarios" });
+                if (isSup) {
+                  await closeFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
+                  toast.success("Inventário fechado!");
+                  qc.invalidateQueries();
+                  navigate({ to: "/inventarios" });
+                } else {
+                  const r = await requestCloseFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
+                  toast.success(`Pedido enviado (${r.sent}/${r.targets} notificações).`);
+                }
               } catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao fechar."); }
             }}>
-            <Lock className="h-4 w-4 mr-2" /> Fechar inventário
+            <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
           </Button>
         </div>
       )}
+
     </div>
   );
 }
@@ -215,7 +235,7 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
   inventoryId: string;
   currentItem: { id: string; quantity_counted: number; difference: number; financial_diff: number; status: string } | undefined;
   onClose: () => void;
-  onSaved: (count_item_id: string) => void;
+  onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
   onOpenLoss: (count_item_id: string) => void;
 }) {
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
@@ -237,7 +257,7 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
     if (error) { toast.error(error.message); return; }
     await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: data.id, produto: product.name, qtd: q, status } });
     toast.success("Contagem salva!");
-    onSaved(data.id);
+    onSaved(data.id, status);
     onClose();
   }
 
