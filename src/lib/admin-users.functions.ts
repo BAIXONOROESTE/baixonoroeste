@@ -11,7 +11,7 @@ type Role = "admin" | "supervisor" | "contador";
  */
 export const createUserAsAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { fullName: string; slug: string; pin: string; role: Role; avatarColor?: string }) => d)
+  .inputValidator((d: { fullName: string; slug: string; pin: string; role: Role; avatarColor?: string; phone?: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
@@ -53,5 +53,10 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
       if (insErr) throw new Error(`Usuário criado, mas falhou ao definir papel: ${insErr.message}`);
     }
 
+    if (data.phone && data.phone.trim()) {
+      await supabase.from("profiles").update({ phone: data.phone.trim() }).eq("id", newUserId);
+    }
+
     return { ok: true, user_id: newUserId };
   });
+
