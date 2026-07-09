@@ -75,14 +75,17 @@ export const notifyDivergence = createServerFn({ method: "POST" })
 
     const { data: recipients } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, phone, user_roles:user_roles(role)")
+      .select("id, full_name, phone")
       .eq("active", true)
       .not("phone", "is", null);
-    const targets = (recipients ?? []).filter((r) => {
-      const roles = ((r.user_roles ?? []) as { role: string }[]).map((x) => x.role);
-      return roles.includes("admin") || roles.includes("supervisor");
-    });
+    const { data: rolesRows } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role")
+      .in("role", ["admin", "supervisor"]);
+    const allowed = new Set((rolesRows ?? []).map((r) => r.user_id));
+    const targets = (recipients ?? []).filter((r) => allowed.has(r.id));
     if (targets.length === 0) return { ok: true, skipped: "sem_destinatarios" };
+
 
     const baseUrl = process.env.APP_PUBLIC_URL ?? "";
     const link = baseUrl ? `${baseUrl}/inventarios/${inv.id}` : `/inventarios/${inv.id}`;
