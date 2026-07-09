@@ -175,13 +175,17 @@ function InventoryDetail() {
           inventoryId={id}
           currentItem={items?.find((i) => i.product_id === selectedProduct) as never}
           onClose={() => setSelectedProduct(null)}
-          onSaved={async (item_id) => {
+          onSaved={async (item_id, status) => {
             qc.invalidateQueries({ queryKey: ["count-items", id] });
             if (settings?.omie_update_mode === "imediato") {
               try { await pushFn({ data: { count_item_id: item_id } }); qc.invalidateQueries({ queryKey: ["count-items", id] }); }
               catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao atualizar Omie."); }
             }
+            if (status === "divergencia") {
+              notifyDivFn({ data: { inventory_id: id } }).catch((e) => console.warn("notifyDivergence:", e));
+            }
           }}
+
           onOpenLoss={(count_item_id) => setLossFor({ product_id: selected.id, count_item_id })}
         />
       )}
@@ -199,19 +203,29 @@ function InventoryDetail() {
         <div className="pt-2">
           <Button className="w-full" variant="default"
             onClick={async () => {
-              const modeText = settings?.omie_update_mode === "encerramento" ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?";
+              const isSup = profile?.role === "admin" || profile?.role === "supervisor";
+              const pushToOmie = settings?.omie_update_mode === "encerramento";
+              const modeText = isSup
+                ? (pushToOmie ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?")
+                : "Enviar pedido de fechamento para o supervisor/admin via WhatsApp?";
               if (!confirm(modeText)) return;
               try {
-                await closeFn({ data: { inventory_id: id, push_to_omie: settings?.omie_update_mode === "encerramento" } });
-                toast.success("Inventário fechado!");
-                qc.invalidateQueries();
-                navigate({ to: "/inventarios" });
+                if (isSup) {
+                  await closeFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
+                  toast.success("Inventário fechado!");
+                  qc.invalidateQueries();
+                  navigate({ to: "/inventarios" });
+                } else {
+                  const r = await requestCloseFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
+                  toast.success(`Pedido enviado (${r.sent}/${r.targets} notificações).`);
+                }
               } catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao fechar."); }
             }}>
-            <Lock className="h-4 w-4 mr-2" /> Fechar inventário
+            <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
           </Button>
         </div>
       )}
+
     </div>
   );
 }
