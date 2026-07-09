@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AprovarTokenRouteImport } from './routes/aprovar.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedRankingRouteImport } from './routes/_authenticated/ranking'
@@ -36,6 +37,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AprovarTokenRoute = AprovarTokenRouteImport.update({
+  id: '/aprovar/$token',
+  path: '/aprovar/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/ranking': typeof AuthenticatedRankingRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/aprovar/$token': typeof AprovarTokenRoute
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/inventarios/': typeof AuthenticatedInventariosIndexRoute
 }
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/ranking': typeof AuthenticatedRankingRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/aprovar/$token': typeof AprovarTokenRoute
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/inventarios': typeof AuthenticatedInventariosIndexRoute
 }
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/_authenticated/ranking': typeof AuthenticatedRankingRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/aprovar/$token': typeof AprovarTokenRoute
   '/_authenticated/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/_authenticated/inventarios/': typeof AuthenticatedInventariosIndexRoute
 }
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/ranking'
     | '/relatorios'
     | '/usuarios'
+    | '/aprovar/$token'
     | '/inventarios/$id'
     | '/inventarios/'
   fileRoutesByTo: FileRoutesByTo
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/ranking'
     | '/relatorios'
     | '/usuarios'
+    | '/aprovar/$token'
     | '/inventarios/$id'
     | '/inventarios'
   id:
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ranking'
     | '/_authenticated/relatorios'
     | '/_authenticated/usuarios'
+    | '/aprovar/$token'
     | '/_authenticated/inventarios/$id'
     | '/_authenticated/inventarios/'
   fileRoutesById: FileRoutesById
@@ -197,6 +209,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  AprovarTokenRoute: typeof AprovarTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aprovar/$token': {
+      id: '/aprovar/$token'
+      path: '/aprovar/$token'
+      fullPath: '/aprovar/$token'
+      preLoaderRoute: typeof AprovarTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/usuarios': {
@@ -337,6 +357,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  AprovarTokenRoute: AprovarTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
