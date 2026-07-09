@@ -31,7 +31,8 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
     const email = `${data.slug}@estoque.local`;
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: data.pin,
+      password: `${data.pin}#estq`,
+
       email_confirm: true,
       user_metadata: {
         full_name: data.fullName.trim(),
