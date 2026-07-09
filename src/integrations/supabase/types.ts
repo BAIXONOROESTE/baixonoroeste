@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      close_requests: {
+        Row: {
+          approval_token: string
+          approved_by: string | null
+          created_at: string
+          id: string
+          inventory_id: string
+          message: string | null
+          push_to_omie: boolean
+          requested_by: string
+          responded_at: string | null
+          status: Database["public"]["Enums"]["close_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          approval_token?: string
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          inventory_id: string
+          message?: string | null
+          push_to_omie?: boolean
+          requested_by: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["close_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          approval_token?: string
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          inventory_id?: string
+          message?: string | null
+          push_to_omie?: boolean
+          requested_by?: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["close_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "close_requests_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       count_items: {
         Row: {
           counted_by: string
@@ -254,6 +304,50 @@ export type Database = {
           },
         ]
       }
+      notification_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          error: string | null
+          id: string
+          inventory_id: string | null
+          kind: string
+          payload: Json
+          scheduled_for: string
+          sent_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          inventory_id?: string | null
+          kind: string
+          payload?: Json
+          scheduled_for?: string
+          sent_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          inventory_id?: string | null
+          kind?: string
+          payload?: Json
+          scheduled_for?: string
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_outbox_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean
@@ -326,6 +420,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          phone: string | null
           slug: string
           updated_at: string
         }
@@ -335,6 +430,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id: string
+          phone?: string | null
           slug: string
           updated_at?: string
         }
@@ -344,6 +440,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          phone?: string | null
           slug?: string
           updated_at?: string
         }
@@ -443,6 +540,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "supervisor" | "contador"
+      close_request_status: "pendente" | "aprovado" | "recusado" | "cancelado"
       count_status: "correto" | "divergencia" | "atualizado" | "justificado"
       inventory_status: "aberto" | "fechado"
       inventory_type: "geral" | "familia" | "produto"
@@ -575,6 +673,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "supervisor", "contador"],
+      close_request_status: ["pendente", "aprovado", "recusado", "cancelado"],
       count_status: ["correto", "divergencia", "atualizado", "justificado"],
       inventory_status: ["aberto", "fechado"],
       inventory_type: ["geral", "familia", "produto"],
