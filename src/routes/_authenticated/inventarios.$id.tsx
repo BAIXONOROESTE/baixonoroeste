@@ -27,9 +27,12 @@ function InventoryDetail() {
   const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string } | null>(null);
   const navigate = useNavigate();
   const closeFn = useServerFn(closeInventory);
+  const requestCloseFn = useServerFn(requestCloseInventory);
   const pushFn = useServerFn(pushCountToOmie);
+  const notifyDivFn = useServerFn(notifyDivergence);
   const syncFn = useServerFn(syncFamiliesAndProducts);
   const { data: profile } = useProfile();
+
 
   const { data: inv } = useQuery({
     queryKey: ["inventory", id],
