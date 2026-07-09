@@ -19,8 +19,17 @@ export function emailFromSlug(slug: string): string {
   return `${slug}@estoque.local`;
 }
 
+// Sufixo fixo aplicado ao PIN antes de virar senha do Auth.
+// O Supabase Auth exige senha com no mínimo 6 caracteres; a UX pede PIN de
+// 4 a 8 dígitos. Concatenamos o sufixo para satisfazer o mínimo sem mexer
+// na configuração global do Auth. Não é secreto — só padroniza o mapeamento.
+const PIN_SUFFIX = "#estq";
+export function pinToPassword(pin: string): string {
+  return `${pin}${PIN_SUFFIX}`;
+}
+
 export async function signInWithPin(slug: string, pin: string) {
-  return supabase.auth.signInWithPassword({ email: emailFromSlug(slug), password: pin });
+  return supabase.auth.signInWithPassword({ email: emailFromSlug(slug), password: pinToPassword(pin) });
 }
 
 export async function signUpWithPin(opts: {
@@ -35,7 +44,7 @@ export async function signUpWithPin(opts: {
   // `contador` and must be elevated by an authenticated admin.
   return supabase.auth.signUp({
     email: emailFromSlug(opts.slug),
-    password: opts.pin,
+    password: pinToPassword(opts.pin),
     options: {
       emailRedirectTo: window.location.origin,
       data: {
@@ -46,4 +55,5 @@ export async function signUpWithPin(opts: {
     },
   });
 }
+
 

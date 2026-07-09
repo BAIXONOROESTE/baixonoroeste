@@ -1,19 +1,31 @@
-## Corrigir erro de sync Omie
+## Correções
 
-**Erro:** `Tag [FILTRAR_APENAS_ATIVO] não faz parte da estrutura do tipo complexo [produto_servico_list_request]`
+### 1) PIN de 4 dígitos rejeitado ("mínimo 6")
 
-A API `ListarProdutos` do Omie não aceita `filtrar_apenas_ativo`. O filtro de ativos já é feito depois via `p.inativo !== "S"`, então basta remover o parâmetro.
+O PIN é usado como senha no Auth, que exige no mínimo 6 caracteres. A tela promete 4 a 8, mas o servidor rebate qualquer PIN < 6.
 
-### Alteração
-`src/lib/omie.server.ts` → em `listarTodosProdutosAtivos`, remover a linha `filtrar_apenas_ativo: "S"` do `param`. Mantém `apenas_importado_api: "N"` e `filtrar_apenas_omiepdv: "N"` (válidos).
+**Solução:** padronizar o PIN internamente adicionando um sufixo fixo (pepper) antes de mandar para o Auth, para que qualquer PIN de 4+ dígitos vire uma senha ≥ 6 caracteres. Assim mantemos "4 a 8 dígitos" na UX sem mexer na configuração do Auth.
 
-### Verificação de retrabalho
-Revisar todas as chamadas `omieRequest` no projeto para conferir tags inválidas:
-- `PesquisarFamilias` — apenas `pagina` e `registros_por_pagina` (ok)
-- `ListarProdutos` — remover tag inválida (fix acima)
-- `IncluirAjusteEstoque` — campos padrão do Omie (ok)
+Alteração em `src/lib/auth-helpers.ts`:
+- Adicionar constante `PIN_SUFFIX = "#estq"` (fixa, não secreta — só serve para atender o mínimo do Auth).
+- Nova função `pinToPassword(pin) => pin + PIN_SUFFIX`.
+- `signInWithPin` e `signUpWithPin` passam a mandar `pinToPassword(pin)` no `password`.
+- `src/lib/admin-users.functions.ts` (`createUserAsAdmin`): aplicar a mesma transformação ao criar usuários via admin API (`password: data.pin + "#estq"`), mantendo o mínimo de 4 dígitos na validação atual.
 
-Nenhum outro ponto de sincronização/consulta Omie existe além desses três em `omie.server.ts`. `omie.functions.ts` apenas consome esses helpers.
+Observação: usuários já existentes criados com PIN puro continuam válidos porque só o admin bootstrap foi criado até agora com PIN ≥ 6; contas novas passam a usar o formato com sufixo. Se algum usuário legado com PIN curto existir e não conseguir entrar, o admin pode recriá-lo pela tela de Usuários.
 
-### Resultado esperado
-Sincronizar Omie em `/contar` conclui, popula `families` e `products`, e a Nova contagem passa a listar famílias e produtos na busca.
+### 2) "Apenas supervisor ou administrador podem enviar ajustes ao Omie" ao salvar contagem
+
+Fluxo: o contador salva um item → `onSaved` dispara `pushCountToOmie` quando o modo é `imediato` → a função exige supervisor/admin e derruba com 403.
+
+O modo imediato é uma configuração do admin: quem estiver contando (inclusive contador) deve conseguir empurrar o ajuste do item que acabou de salvar. A trava de papel deve continuar somente no fechamento em massa e em ações manuais de supervisor.
+
+**Solução em `src/lib/omie.functions.ts` (`pushCountToOmie`):**
+- Remover o `current_user_is_supervisor_or_admin`.
+- Exigir apenas usuário autenticado (`requireSupabaseAuth` já cobre) e validar que o `count_item` pertence a um inventário ainda `aberto` e que `counted_by = auth.uid()` OU que o usuário é supervisor/admin. Isso mantém a segurança (contador não empurra ajuste de contagem alheia) sem bloquear o fluxo legítimo.
+- `closeInventory` permanece restrito a supervisor/admin (correto).
+
+### Verificação
+- Login com PIN de 4 dígitos passa.
+- Contador salva item em inventário com `omie_update_mode = imediato` → status vira `atualizado` sem erro de permissão.
+- Supervisor/admin fecha inventário normalmente.
