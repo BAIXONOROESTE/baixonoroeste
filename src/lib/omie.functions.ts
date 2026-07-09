@@ -108,20 +108,26 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
   .inputValidator((d: { count_item_id: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Autorização: apenas supervisor/admin podem empurrar ajustes ao ERP.
-    const { data: allowed, error: roleErr } = await supabase.rpc("current_user_is_supervisor_or_admin");
-    if (roleErr || !allowed) throw new Error("Apenas supervisor ou administrador podem enviar ajustes ao Omie.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
 
-
     const { data: item, error } = await supabase
       .from("count_items")
-      .select("*, product:products(omie_id, name)")
+      .select("*, product:products(omie_id, name), inventory:inventories(status)")
       .eq("id", data.count_item_id)
       .single();
     if (error || !item) throw new Error("Contagem não encontrada.");
+
+    // Autorização: o próprio autor da contagem pode empurrar seu item enquanto
+    // o inventário está aberto. Supervisor/admin podem empurrar qualquer item.
+    const isOwner = item.counted_by === userId;
+    const inventoryOpen = (item as { inventory?: { status?: string } }).inventory?.status !== "fechado";
+    if (!isOwner || !inventoryOpen) {
+      const { data: allowed, error: roleErr } = await supabase.rpc("current_user_is_supervisor_or_admin");
+      if (roleErr || !allowed) throw new Error("Sem permissão para enviar este ajuste ao Omie.");
+    }
+
 
     const diff = Number(item.difference);
     if (diff === 0) {
