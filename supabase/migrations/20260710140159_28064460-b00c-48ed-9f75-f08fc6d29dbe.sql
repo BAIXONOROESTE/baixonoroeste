@@ -1,0 +1,10 @@
+DELETE FROM public.pin_reset_tokens;
+DELETE FROM public.notification_outbox;
+DELETE FROM public.logs;
+DELETE FROM public.losses;
+DELETE FROM public.count_items;
+DELETE FROM public.close_requests;
+DELETE FROM public.inventories;
+DELETE FROM public.user_roles;
+DELETE FROM public.profiles;
+DELETE FROM auth.users;
