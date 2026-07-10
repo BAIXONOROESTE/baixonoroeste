@@ -131,6 +131,7 @@ function FirstAdmin({ onDone }: { onDone: () => void }) {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const bootstrap = useServerFn(bootstrapFirstAdmin);
+  const navigate = useNavigate();
 
   async function submit() {
     if (!name.trim() || pin.length < 6 || pin.length > 8) {
@@ -141,7 +142,13 @@ function FirstAdmin({ onDone }: { onDone: () => void }) {
     try {
       await bootstrap({ data: { fullName: name.trim(), slug, pin } });
       toast.success("Primeiro administrador criado!");
-      onDone();
+      const { error } = await signInWithPin(slug, pin);
+      if (error) {
+        toast.message("Faça login com seu PIN para continuar.");
+        onDone();
+      } else {
+        navigate({ to: "/inicio", replace: true });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao criar administrador.");
     } finally {
