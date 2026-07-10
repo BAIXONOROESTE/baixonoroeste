@@ -19,60 +19,8 @@ export async function sendWhatsApp(_opts: { to: string; body: string }): Promise
 export const notifyDivergence = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { inventory_id: string }) => d)
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Já mandamos aviso nos últimos 30 min? Se sim, sai.
-    const cutoff = new Date(Date.now() - 30 * 60_000).toISOString();
-    const { data: recent } = await supabaseAdmin
-      .from("notification_outbox")
-      .select("id")
-      .eq("kind", "divergencia")
-      .eq("inventory_id", data.inventory_id)
-      .not("sent_at", "is", null)
-      .gte("sent_at", cutoff)
-      .limit(1);
-    if (recent && recent.length > 0) return { ok: true, skipped: "recent" };
-
-    // Junta contexto: inventário + total de divergências abertas.
-    const [{ data: inv }, { count }] = await Promise.all([
-      supabaseAdmin.from("inventories").select("id, name").eq("id", data.inventory_id).single(),
-      supabaseAdmin.from("count_items").select("id", { count: "exact", head: true })
-        .eq("inventory_id", data.inventory_id).eq("status", "divergencia"),
-    ]);
-    if (!inv) return { ok: false, error: "inventario_nao_encontrado" };
-
-    const { data: recipients } = await supabaseAdmin
-      .from("profiles")
-      .select("id, full_name, phone")
-      .eq("active", true)
-      .not("phone", "is", null);
-    const { data: rolesRows } = await supabaseAdmin
-      .from("user_roles")
-      .select("user_id, role")
-      .in("role", ["admin", "supervisor"]);
-    const allowed = new Set((rolesRows ?? []).map((r) => r.user_id));
-    const targets = (recipients ?? []).filter((r) => allowed.has(r.id));
-    if (targets.length === 0) return { ok: true, skipped: "sem_destinatarios" };
-
-
-    const baseUrl = process.env.APP_PUBLIC_URL ?? "";
-    const link = baseUrl ? `${baseUrl}/inventarios/${inv.id}` : `/inventarios/${inv.id}`;
-    const body = `📦 Estoque Omie\nInventário "${inv.name}" tem ${count ?? 0} divergência(s) em aberto.\n${link}`;
-
-    let sent = 0;
-    for (const t of targets) {
-      if (!t.phone) continue;
-      const r = await sendWhatsApp({ to: t.phone, body });
-      if (r.ok) sent++;
-    }
-
-    await supabaseAdmin.from("notification_outbox").insert({
-      kind: "divergencia",
-      inventory_id: data.inventory_id,
-      payload: { total_divergencias: count ?? 0, destinatarios: targets.length, enviados: sent },
-      scheduled_for: new Date().toISOString(),
-      sent_at: new Date().toISOString(),
-    });
-    return { ok: true, sent };
+  .handler(async (_ctx) => {
+    // WhatsApp desativado — mantido apenas para preservar assinatura no cliente.
+    return { ok: true, skipped: "wa_disabled" as const };
   });
+
