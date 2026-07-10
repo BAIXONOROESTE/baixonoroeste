@@ -38,35 +38,9 @@ export const requestCloseInventory = createServerFn({ method: "POST" })
       if (error || !created) throw new Error(`Falha ao criar pedido: ${error?.message ?? ""}`);
       token = created.approval_token;
     }
-
-    // Contexto para mensagem
-    const [{ data: inv }, { data: profile }, { count: divCount }] = await Promise.all([
-      supabaseAdmin.from("inventories").select("id, name").eq("id", data.inventory_id).single(),
-      supabaseAdmin.from("profiles").select("full_name").eq("id", userId).single(),
-      supabaseAdmin.from("count_items").select("id", { count: "exact", head: true })
-        .eq("inventory_id", data.inventory_id).eq("status", "divergencia"),
-    ]);
-
-    const baseUrl = process.env.APP_PUBLIC_URL ?? "";
-    const link = baseUrl ? `${baseUrl}/aprovar/${token}` : `/aprovar/${token}`;
-    const body = `📦 Estoque Omie\n${profile?.full_name ?? "Um contador"} pediu para fechar o inventário "${inv?.name ?? ""}".\nDivergências: ${divCount ?? 0}.\nAprovar/Recusar: ${link}`;
-
-    // Enviar a todos os supervisores/admins com telefone
-    const { data: recipients } = await supabaseAdmin
-      .from("profiles").select("id, phone").eq("active", true).not("phone", "is", null);
-    const { data: roles } = await supabaseAdmin
-      .from("user_roles").select("user_id, role").in("role", ["admin", "supervisor"]);
-    const allowed = new Set((roles ?? []).map((r) => r.user_id));
-    const targets = (recipients ?? []).filter((r) => allowed.has(r.id) && r.phone);
-
-    let sent = 0;
-    for (const t of targets) {
-      const r = await sendWhatsApp({ to: t.phone!, body });
-      if (r.ok) sent++;
-    }
-
-    return { ok: true, token, sent, targets: targets.length };
+    return { ok: true, token, sent: 0, targets: 0 };
   });
+
 
 /**
  * Supervisor/admin aprova ou recusa um pedido de fechamento. Se aprovar,
