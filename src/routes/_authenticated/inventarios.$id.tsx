@@ -323,11 +323,12 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
           ) : (
             <Button className="flex-1" onClick={onClose}>Fechar</Button>
           )}
-          {!revealed && (
+          {!revealed && canRegisterLoss && (
             <Button variant="outline" onClick={() => onOpenLoss(currentItem?.id)}>
               <AlertTriangle className="h-4 w-4 mr-1" /> Perda
             </Button>
           )}
+
         </div>
       </div>
     </div>
