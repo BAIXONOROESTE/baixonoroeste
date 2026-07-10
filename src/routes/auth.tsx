@@ -26,10 +26,7 @@ function AuthPage() {
 
   const { data: profiles, isLoading, refetch } = useQuery({
     queryKey: ["auth-profiles"],
-    queryFn: async () => {
-      const { data } = await supabase.rpc("list_login_profiles");
-      return data ?? [];
-    },
+    queryFn: async () => (await listLoginProfiles()) ?? [],
   });
 
   const isFirstUse = !isLoading && (profiles?.length ?? 0) === 0;
