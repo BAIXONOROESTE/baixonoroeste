@@ -28,23 +28,24 @@ export const bootstrapFirstAdmin = createServerFn({ method: "POST" })
       throw new Error("Sistema já configurado. Peça a um administrador para criar sua conta.");
     }
 
+    const { createAuthUserAsService } = await import("@/lib/auth-admin.server");
+
     const authEmail = `${slug}@users.baixonoroeste.com.br`;
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    const created = await createAuthUserAsService({
       email: authEmail,
       password: `${pin}#estq`,
       email_confirm: true,
       user_metadata: { full_name: fullName, slug, avatar_color: "amber" },
     });
-    if (createErr || !created?.user) throw new Error(createErr?.message ?? "Falha ao criar usuário.");
 
     // handle_new_user já promove o primeiro usuário a admin, mas garantimos aqui
     // por segurança (idempotente pelo unique constraint).
     await supabaseAdmin
       .from("user_roles")
-      .insert({ user_id: created.user.id, role: "admin" })
+      .insert({ user_id: created.id, role: "admin" })
       .then(() => undefined, () => undefined);
 
-    await supabaseAdmin.from("profiles").update({ slug }).eq("id", created.user.id);
+    await supabaseAdmin.from("profiles").update({ slug }).eq("id", created.id);
 
     return { ok: true };
   });
