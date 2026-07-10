@@ -3,8 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type Role = "admin" | "supervisor" | "contador";
 
-async function assertAdmin(supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> }, userId: string) {
-  const { data: isAdmin, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+async function assertAdmin(supabase: NonNullable<Parameters<Parameters<typeof requireSupabaseAuth>[0] extends unknown ? never : never>[0]>["context"]["supabase"] | { rpc: (fn: "has_role", args: { _user_id: string; _role: "admin" }) => Promise<{ data: boolean | null; error: unknown }> }, userId: string) {
+  const { data: isAdmin, error } = await (supabase as { rpc: (fn: "has_role", args: { _user_id: string; _role: "admin" }) => Promise<{ data: boolean | null; error: unknown }> }).rpc("has_role", { _user_id: userId, _role: "admin" });
   if (error || !isAdmin) throw new Error("Apenas administradores podem executar esta ação.");
 }
 
@@ -55,7 +55,7 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
     // Sempre sobrescrever o slug do profile para bater com o email interno
     // (o trigger handle_new_user pode ter usado outro valor). Também aplicamos
     // o telefone opcional na mesma chamada.
-    const profileUpdate: Record<string, unknown> = { slug: data.slug };
+    const profileUpdate: { slug: string; phone?: string } = { slug: data.slug };
     if (data.phone && data.phone.trim()) profileUpdate.phone = data.phone.trim();
     await supabase.from("profiles").update(profileUpdate).eq("id", newUserId);
 
