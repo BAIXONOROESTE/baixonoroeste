@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 export type LoginProfile = {
   id: string;
@@ -12,13 +14,24 @@ export type LoginProfile = {
  * Lista os perfis ativos usados no seletor da tela de login.
  *
  * Endpoint público (sem middleware de auth) porque roda antes do usuário
- * autenticar. Usa o service role apenas para ler colunas seguras
- * (nome, slug, cor do avatar) — nunca expõe PIN/email/telefone.
+ * autenticar. Usa a chave pública no servidor e depende de RLS/GRANTs que
+ * liberam apenas colunas seguras — nunca expõe PIN/email/telefone.
  */
 export const listLoginProfiles = createServerFn({ method: "GET" }).handler(
   async (): Promise<LoginProfile[]> => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
+    const supabasePublic = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_PUBLISHABLE_KEY!,
+      {
+        auth: {
+          storage: undefined,
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
+
+    const { data, error } = await supabasePublic
       .from("profiles")
       .select("id, full_name, slug, avatar_color, active")
       .eq("active", true)

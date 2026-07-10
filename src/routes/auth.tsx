@@ -31,12 +31,12 @@ function AuthPage() {
     });
   }, [navigate, next]);
 
-  const { data: profiles, isLoading, refetch } = useQuery({
+  const { data: profiles, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["auth-profiles"],
     queryFn: async () => (await listLoginProfiles()) ?? [],
   });
 
-  const isFirstUse = !isLoading && (profiles?.length ?? 0) === 0;
+  const isFirstUse = !isLoading && !isError && (profiles?.length ?? 0) === 0;
 
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8 bg-background">
@@ -48,8 +48,48 @@ function AuthPage() {
           <h1 className="text-2xl font-display font-semibold">Baixo Noroeste</h1>
           <p className="text-sm text-muted-foreground">Inventário</p>
         </div>
-        {isFirstUse ? <FirstAdmin onDone={() => refetch()} next={next} /> : <PinLogin profiles={profiles ?? []} next={next} />}
+        {isLoading ? (
+          <AuthStatusCard title="Carregando usuários" message="Aguarde um instante." />
+        ) : isError ? (
+          <AuthStatusCard
+            title="Não foi possível carregar os usuários"
+            message={error instanceof Error ? error.message : "Tente novamente."}
+            actionLabel={isFetching ? "Tentando..." : "Tentar novamente"}
+            onAction={() => refetch()}
+            disabled={isFetching}
+          />
+        ) : isFirstUse ? (
+          <FirstAdmin onDone={() => refetch()} next={next} />
+        ) : (
+          <PinLogin profiles={profiles ?? []} next={next} />
+        )}
       </div>
+    </div>
+  );
+}
+
+function AuthStatusCard({
+  title,
+  message,
+  actionLabel,
+  onAction,
+  disabled,
+}: {
+  title: string;
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl bg-surface border border-border p-5 shadow-xl text-center">
+      <h2 className="text-lg font-display font-semibold">{title}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+      {actionLabel && onAction ? (
+        <Button className="mt-4 w-full" onClick={onAction} disabled={disabled}>
+          {actionLabel}
+        </Button>
+      ) : null}
     </div>
   );
 }
