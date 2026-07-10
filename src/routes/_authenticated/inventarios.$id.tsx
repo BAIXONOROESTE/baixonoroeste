@@ -338,19 +338,24 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
         {blind && !revealed && qty !== "" && (
           <div className="text-xs text-muted-foreground text-center">Contagem às cegas — o resultado aparece depois de salvar.</div>
         )}
-        <div className="flex gap-2">
-          {!revealed ? (
-            <Button className="flex-1" onClick={save} disabled={saving}>{saving ? "Salvando" : "Salvar"}</Button>
-          ) : (
-            <Button className="flex-1" onClick={onClose}>Fechar</Button>
-          )}
-          {!revealed && canRegisterLoss && (
-            <Button variant="outline" onClick={() => onOpenLoss(currentItem?.id)}>
-              <AlertTriangle className="h-4 w-4 mr-1" /> Perda
-            </Button>
-          )}
-
-        </div>
+        {!revealed ? (
+          <Button className="w-full" onClick={save} disabled={saving || qty === ""}>
+            {saving ? "Salvando" : "Salvar contagem"}
+          </Button>
+        ) : (
+          <div className="space-y-2">
+            {diff < 0 && canRegisterLoss && (
+              <Button
+                variant="outline"
+                className="w-full border-warning text-warning hover:bg-warning/10"
+                onClick={() => onOpenLoss(currentItem?.id, Math.abs(diff))}
+              >
+                <AlertTriangle className="h-4 w-4 mr-1" /> Registrar como perda ({fmtNumber(Math.abs(diff))})
+              </Button>
+            )}
+            <Button className="w-full" onClick={onClose}>Fechar</Button>
+          </div>
+        )}
       </div>
     </div>
   );
