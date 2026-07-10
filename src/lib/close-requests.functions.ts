@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { sendWhatsApp } from "@/lib/notify.functions";
+
 
 /**
  * Contador solicita o fechamento; grava close_request e notifica supervisor/admin
