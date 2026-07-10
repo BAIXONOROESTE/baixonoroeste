@@ -42,6 +42,9 @@ export interface OmieProduto {
   codigo_produto: number;
   codigo: string;
   codigo_barras?: string;
+  ean?: string;
+  ean_13?: string;
+  gtin?: string;
   descricao: string;
   unidade?: string;
   familia?: string;              // nome

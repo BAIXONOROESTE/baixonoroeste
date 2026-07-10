@@ -214,7 +214,7 @@ function InventoryDetail() {
               const pushToOmie = settings?.omie_update_mode === "encerramento";
               const modeText = isSup
                 ? (pushToOmie ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?")
-                : "Enviar pedido de fechamento para o supervisor/admin via WhatsApp?";
+                : "Enviar pedido de fechamento para o supervisor/admin por e-mail?";
               if (!confirm(modeText)) return;
               try {
                 if (isSup) {
