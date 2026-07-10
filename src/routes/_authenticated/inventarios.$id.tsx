@@ -179,6 +179,7 @@ function InventoryDetail() {
           inventoryId={id}
           currentItem={items?.find((i) => i.product_id === selectedProduct) as never}
           blind={profile?.role === "contador"}
+          canRegisterLoss={profile?.role === "admin" || profile?.role === "supervisor"}
           onClose={() => setSelectedProduct(null)}
           onSaved={async (item_id, status) => {
             qc.invalidateQueries({ queryKey: ["count-items", id] });
@@ -193,6 +194,7 @@ function InventoryDetail() {
 
           onOpenLoss={(count_item_id) => setLossFor({ product_id: selected.id, count_item_id })}
         />
+
       )}
 
       {scanning && <BarcodeScanner onClose={() => setScanning(false)} onScan={(code) => {
@@ -235,15 +237,17 @@ function InventoryDetail() {
   );
 }
 
-function CountForm({ product, inventoryId, currentItem, blind, onClose, onSaved, onOpenLoss }: {
+function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, onClose, onSaved, onOpenLoss }: {
   product: { id: string; name: string; code: string; family_name: string | null; unit: string | null; stock_omie: number; cost: number };
   inventoryId: string;
   currentItem: { id: string; quantity_counted: number; difference: number; financial_diff: number; status: string } | undefined;
   blind: boolean;
+  canRegisterLoss: boolean;
   onClose: () => void;
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
   onOpenLoss: (count_item_id?: string) => void;
 }) {
+
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
@@ -319,11 +323,12 @@ function CountForm({ product, inventoryId, currentItem, blind, onClose, onSaved,
           ) : (
             <Button className="flex-1" onClick={onClose}>Fechar</Button>
           )}
-          {!revealed && (
+          {!revealed && canRegisterLoss && (
             <Button variant="outline" onClick={() => onOpenLoss(currentItem?.id)}>
               <AlertTriangle className="h-4 w-4 mr-1" /> Perda
             </Button>
           )}
+
         </div>
       </div>
     </div>
