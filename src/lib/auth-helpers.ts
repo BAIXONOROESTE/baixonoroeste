@@ -34,28 +34,9 @@ export async function signInWithPin(slug: string, pin: string) {
   return supabase.auth.signInWithPassword({ email: emailFromSlug(slug), password: pinToPassword(pin) });
 }
 
-export async function signUpWithPin(opts: {
-  fullName: string;
-  slug: string;
-  pin: string;
-  avatarColor?: string;
-}) {
-  // IMPORTANT: never send `role` in signup metadata. The DB trigger
-  // (`handle_new_user`) ignores client-supplied roles — only the very first
-  // user of the system becomes admin automatically; all others default to
-  // `contador` and must be elevated by an authenticated admin.
-  return supabase.auth.signUp({
-    email: emailFromSlug(opts.slug),
-    password: pinToPassword(opts.pin),
-    options: {
-      emailRedirectTo: window.location.origin,
-      data: {
-        full_name: opts.fullName,
-        slug: opts.slug,
-        avatar_color: opts.avatarColor ?? "amber",
-      },
-    },
-  });
-}
+// signUpWithPin foi removido: auto-cadastro público é vetor de ataque.
+// Primeiro admin usa `bootstrapFirstAdmin` (server-side, bloqueia após o setup).
+// Demais usuários são criados via `createUserAsAdmin` por um admin autenticado.
+
 
 

@@ -128,12 +128,16 @@ function InventoryDetail() {
             {filtered.map((p) => {
               const item = items?.find((i) => i.product_id === p.id);
               const isDiv = item?.status === "divergencia";
+              const canSeeStock = profile?.role === "admin" || profile?.role === "supervisor" || !!item;
               return (
                 <button key={p.id} onClick={() => setSelectedProduct(p.id)}
                   className={`w-full text-left rounded-xl border p-3 flex items-center justify-between transition ${isDiv ? "highlight-diff-row border-warning" : item ? "border-success/40 bg-success/5" : "border-border bg-surface"}`}>
                   <div className="min-w-0">
                     <div className="font-medium truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{p.code} · {p.family_name ?? "—"} · Est.: {fmtNumber(p.stock_omie)}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {p.code} · {p.family_name ?? "—"}
+                      {canSeeStock ? ` · Est.: ${fmtNumber(p.stock_omie)}` : ""}
+                    </div>
                   </div>
                   {item && (item.status === "correto" || item.status === "atualizado")
                     ? <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
@@ -174,6 +178,7 @@ function InventoryDetail() {
           product={selected}
           inventoryId={id}
           currentItem={items?.find((i) => i.product_id === selectedProduct) as never}
+          blind={profile?.role === "contador"}
           onClose={() => setSelectedProduct(null)}
           onSaved={async (item_id, status) => {
             qc.invalidateQueries({ queryKey: ["count-items", id] });
@@ -230,16 +235,21 @@ function InventoryDetail() {
   );
 }
 
-function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpenLoss }: {
+function CountForm({ product, inventoryId, currentItem, blind, onClose, onSaved, onOpenLoss }: {
   product: { id: string; name: string; code: string; family_name: string | null; unit: string | null; stock_omie: number; cost: number };
   inventoryId: string;
   currentItem: { id: string; quantity_counted: number; difference: number; financial_diff: number; status: string } | undefined;
+  blind: boolean;
   onClose: () => void;
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
   onOpenLoss: (count_item_id: string) => void;
 }) {
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
+  // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
+  const [revealed, setRevealed] = useState<null | { diff: number; finDiff: number; status: string }>(null);
+  // Só escondemos estoque/diferença enquanto o item ainda NÃO foi salvo nesta sessão.
+  const hideStock = blind && !currentItem && !revealed;
 
   async function save() {
     const q = Number(qty.replace(",", "."));
@@ -257,13 +267,15 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
     if (error) { toast.error(error.message); return; }
     await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: data.id, produto: product.name, qtd: q, status } });
     toast.success("Contagem salva!");
+    const diff = q - stock;
+    setRevealed({ diff, finDiff: diff * Number(product.cost), status });
     onSaved(data.id, status);
-    onClose();
   }
 
-  const q = Number(qty.replace(",", ".")) || 0;
-  const diff = q - Number(product.stock_omie);
-  const finDiff = diff * Number(product.cost);
+  const qNum = Number(qty.replace(",", ".")) || 0;
+  const diff = revealed ? revealed.diff : qNum - Number(product.stock_omie);
+  const finDiff = revealed ? revealed.finDiff : diff * Number(product.cost);
+  const showDiff = !!revealed || (!blind && qty !== "");
 
   return (
     <div className="fixed inset-0 z-40 bg-background/95 flex items-end sm:items-center justify-center">
@@ -278,7 +290,9 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-lg bg-muted p-2">
             <div className="text-xs text-muted-foreground">Estoque atual</div>
-            <div className="font-semibold">{fmtNumber(product.stock_omie)} {product.unit ?? ""}</div>
+            <div className="font-semibold">
+              {hideStock ? "•••" : `${fmtNumber(product.stock_omie)} ${product.unit ?? ""}`}
+            </div>
           </div>
           <div className="rounded-lg bg-muted p-2">
             <div className="text-xs text-muted-foreground">Custo unit.</div>
@@ -287,18 +301,25 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
         </div>
         <div>
           <label className="text-xs text-muted-foreground">Quantidade contada</label>
-          <Input type="number" step="any" inputMode="decimal" autoFocus value={qty} onChange={(e) => setQty(e.target.value)} className="text-2xl h-14 text-center" />
+          <Input type="number" step="any" inputMode="decimal" autoFocus value={qty} onChange={(e) => { setQty(e.target.value); if (revealed) setRevealed(null); }} className="text-2xl h-14 text-center" disabled={!!revealed} />
         </div>
-        {qty !== "" && (
+        {showDiff && (
           <div className={`rounded-lg p-3 text-sm ${diff === 0 ? "bg-success/15 text-success" : "highlight-diff-cell"}`}>
             {diff === 0 ? "✓ Bate com o estoque" : (
               <>Diferença: <b>{diff > 0 ? "+" : ""}{fmtNumber(diff)}</b> · {fmtMoney(finDiff)}</>
             )}
           </div>
         )}
+        {blind && !revealed && qty !== "" && (
+          <div className="text-xs text-muted-foreground text-center">Contagem às cegas — o resultado aparece depois de salvar.</div>
+        )}
         <div className="flex gap-2">
-          <Button className="flex-1" onClick={save} disabled={saving}>{saving ? "Salvando" : "Salvar"}</Button>
-          {currentItem && (
+          {!revealed ? (
+            <Button className="flex-1" onClick={save} disabled={saving}>{saving ? "Salvando" : "Salvar"}</Button>
+          ) : (
+            <Button className="flex-1" onClick={onClose}>Fechar</Button>
+          )}
+          {currentItem && !revealed && (
             <Button variant="outline" onClick={() => onOpenLoss(currentItem.id)}>
               <AlertTriangle className="h-4 w-4 mr-1" /> Perda
             </Button>

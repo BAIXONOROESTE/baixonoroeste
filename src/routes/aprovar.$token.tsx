@@ -34,7 +34,7 @@ function AprovarPage() {
         .eq("approval_token", token).maybeSingle();
       if (!r) { setLoading(false); return; }
       const [{ data: prof }, { count: divCount }, { data: items }] = await Promise.all([
-        supabase.from("profiles").select("full_name").eq("id", r.requested_by).maybeSingle(),
+        supabase.from("profiles_public").select("full_name").eq("id", r.requested_by).maybeSingle(),
         supabase.from("count_items").select("id", { count: "exact", head: true })
           .eq("inventory_id", r.inventory_id).eq("status", "divergencia"),
         supabase.from("count_items").select("financial_diff").eq("inventory_id", r.inventory_id),

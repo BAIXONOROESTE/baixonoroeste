@@ -1,12 +1,14 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithPin, signUpWithPin, slugify } from "@/lib/auth-helpers";
+import { signInWithPin, slugify } from "@/lib/auth-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { bootstrapFirstAdmin } from "@/lib/bootstrap.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -24,7 +26,7 @@ function AuthPage() {
   const { data: profiles, isLoading, refetch } = useQuery({
     queryKey: ["auth-profiles"],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, full_name, slug, avatar_color").eq("active", true).order("full_name");
+      const { data } = await supabase.from("profiles_public").select("id, full_name, slug, avatar_color").order("full_name");
       return data ?? [];
     },
   });
@@ -47,7 +49,7 @@ function AuthPage() {
   );
 }
 
-function PinLogin({ profiles }: { profiles: { id: string; full_name: string; slug: string; avatar_color: string }[] }) {
+function PinLogin({ profiles }: { profiles: { id: string | null; full_name: string | null; slug: string | null; avatar_color: string | null }[] }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
@@ -79,7 +81,7 @@ function PinLogin({ profiles }: { profiles: { id: string; full_name: string; slu
                 className="rounded-xl border border-border p-3 flex flex-col items-center gap-2 hover:bg-muted transition"
               >
                 <div className="h-12 w-12 rounded-full bg-primary/20 grid place-items-center font-semibold text-primary">
-                  {p.full_name.slice(0, 2).toUpperCase()}
+                  {(p.full_name ?? "").slice(0, 2).toUpperCase()}
                 </div>
                 <span className="text-sm font-medium leading-tight text-center">{p.full_name}</span>
               </button>
@@ -91,7 +93,7 @@ function PinLogin({ profiles }: { profiles: { id: string; full_name: string; slu
           <button onClick={() => { setSelected(null); setPin(""); }} className="text-xs text-muted-foreground mb-3">← trocar usuário</button>
           <div className="text-center mb-4">
             <div className="h-14 w-14 rounded-full bg-primary/20 grid place-items-center mx-auto font-semibold text-primary text-lg">
-              {selectedProfile?.full_name.slice(0, 2).toUpperCase()}
+              {(selectedProfile?.full_name ?? "").slice(0, 2).toUpperCase()}
             </div>
             <div className="mt-2 font-medium">{selectedProfile?.full_name}</div>
           </div>
@@ -130,16 +132,23 @@ function FirstAdmin({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
+  const bootstrap = useServerFn(bootstrapFirstAdmin);
 
   async function submit() {
-    if (!name.trim() || pin.length < 6) { toast.error("Nome e PIN (6 a 8 dígitos) obrigatórios."); return; }
+    if (!name.trim() || pin.length < 6 || pin.length > 8) {
+      toast.error("Nome e PIN (6 a 8 dígitos) obrigatórios."); return;
+    }
     setLoading(true);
     const slug = slugify(name);
-    const { error } = await signUpWithPin({ fullName: name.trim(), slug, pin });
-    setLoading(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Primeiro administrador criado!");
-    onDone();
+    try {
+      await bootstrap({ data: { fullName: name.trim(), slug, pin } });
+      toast.success("Primeiro administrador criado!");
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao criar administrador.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
