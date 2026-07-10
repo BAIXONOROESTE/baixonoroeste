@@ -96,7 +96,8 @@ export const Route = createFileRoute("/lovable/email/suppression")({
           return Response.json({ error: 'Internal error' }, { status: 500 })
         }
 
-        const { supabaseAdmin: supabase } = await import('@/integrations/supabase/client.server')
+        const { supabaseAdmin } = await import('@/integrations/supabase/client.server')
+        const supabase = supabaseAdmin as any
         const normalizedEmail = payload.email.toLowerCase()
 
         // 1. Upsert to suppressed_emails (idempotent — safe for retries)
