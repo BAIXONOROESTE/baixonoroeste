@@ -9,6 +9,7 @@ import { Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { bootstrapFirstAdmin } from "@/lib/bootstrap.functions";
+import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -25,10 +26,7 @@ function AuthPage() {
 
   const { data: profiles, isLoading, refetch } = useQuery({
     queryKey: ["auth-profiles"],
-    queryFn: async () => {
-      const { data } = await supabase.rpc("list_login_profiles");
-      return data ?? [];
-    },
+    queryFn: async () => (await listLoginProfiles()) ?? [],
   });
 
   const isFirstUse = !isLoading && (profiles?.length ?? 0) === 0;
