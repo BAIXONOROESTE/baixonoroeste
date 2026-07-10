@@ -19,6 +19,7 @@ function UsuariosPage() {
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "supervisor" | "contador">("contador");
 
   const { data: profiles } = useQuery({
@@ -36,14 +37,19 @@ function UsuariosPage() {
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Nome obrigatório.");
       if (!/^\d{6,8}$/.test(pin)) throw new Error("PIN deve ter de 6 a 8 dígitos.");
-      if ((role === "admin" || role === "supervisor") && !phone.trim()) {
-        throw new Error("WhatsApp obrigatório para supervisor/admin.");
+      const isSup = role === "admin" || role === "supervisor";
+      if (isSup && !email.trim()) throw new Error("Email obrigatório para supervisor/admin (usado no reset de PIN e notificações).");
+      if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new Error("Email inválido.");
+      const slug = slugify(name);
+      const res = await createUserFn({ data: { fullName: name.trim(), slug, pin, role, phone: phone.trim() || undefined } });
+      if (email.trim()) {
+        const { error } = await supabase.from("profiles").update({ email: email.trim().toLowerCase() }).eq("id", res.user_id);
+        if (error) throw new Error(`Usuário criado, mas falhou ao gravar email: ${error.message}`);
       }
-      await createUserFn({ data: { fullName: name.trim(), slug: slugify(name), pin, role, phone: phone.trim() || undefined } });
     },
     onSuccess: () => {
       toast.success("Usuário criado.");
-      setName(""); setPin(""); setPhone("");
+      setName(""); setPin(""); setPhone(""); setEmail("");
       qc.invalidateQueries();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
@@ -58,7 +64,8 @@ function UsuariosPage() {
         <div className="font-medium text-sm">Novo funcionário</div>
         <Input placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} />
         <Input type="password" inputMode="numeric" placeholder="PIN (6 a 8 dígitos)" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} maxLength={8} />
-        <Input inputMode="tel" placeholder="WhatsApp (ex: +5511999999999)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <Input type="email" inputMode="email" placeholder="Email (para reset de PIN e notificações)" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input inputMode="tel" placeholder="WhatsApp (opcional, ex: +5511999999999)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <select value={role} onChange={(e) => setRole(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
           <option value="contador">Contador</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option>
         </select>
