@@ -15,76 +15,19 @@ function getSupabaseUrl() {
   return url.replace(/\/$/, "");
 }
 
-function getApiKey() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!key) throw new Error("Configuração de autenticação ausente.");
+function getServiceRoleKey() {
+  // Aceita tanto o formato novo `sb_secret_...` quanto JWT legado.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error("Chave administrativa de autenticação ausente.");
   return key;
 }
 
-function base64Url(input: string | ArrayBuffer) {
-  const buffer = typeof input === "string" ? Buffer.from(input, "utf8") : Buffer.from(input);
-  return buffer.toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
-function collectPrivateJwks(value: unknown, jwks: JsonWebKey[] = []) {
-  if (!value || typeof value !== "object") return jwks;
-  if (Array.isArray(value)) {
-    for (const item of value) collectPrivateJwks(item, jwks);
-    return jwks;
-  }
-
-  const record = value as Record<string, unknown>;
-  if (record.kty === "EC" && record.d && (record.crv === "P-256" || record.alg === "ES256")) {
-    jwks.push(record as JsonWebKey);
-  }
-  for (const item of Object.values(record)) collectPrivateJwks(item, jwks);
-  return jwks;
-}
-
-function getSigningJwk() {
-  const raw = process.env.SUPABASE_JWKS || process.env.SUPABASE_SECRET_KEYS;
-  if (!raw) throw new Error("Chave administrativa de autenticação ausente.");
-
-  try {
-    const jwks = collectPrivateJwks(JSON.parse(raw));
-    const jwk = jwks.find((key) => key.alg === "ES256") ?? jwks[0];
-    if (jwk) return jwk;
-  } catch {
-    // Fall through to the generic error below.
-  }
-
-  throw new Error("Chave administrativa de autenticação inválida.");
-}
-
-async function signServiceRoleJwt() {
-  const configuredKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (configuredKey && configuredKey.split(".").length === 3) return configuredKey;
-
-  const jwk = getSigningJwk();
-  const key = await crypto.subtle.importKey(
-    "jwk",
-    jwk,
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign"],
+function getApiKey() {
+  return (
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    ""
   );
-  const now = Math.floor(Date.now() / 1000);
-  const kid = (jwk as JsonWebKey & { kid?: string }).kid;
-  const header = { alg: "ES256", typ: "JWT", ...(kid ? { kid } : {}) };
-  const payload = {
-    aud: "authenticated",
-    exp: now + 5 * 60,
-    iat: now,
-    iss: "supabase",
-    role: "service_role",
-  };
-  const body = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
-  const signature = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    key,
-    Buffer.from(body),
-  );
-  return `${body}.${base64Url(signature)}`;
 }
 
 async function parseAuthError(response: Response) {
@@ -99,12 +42,12 @@ async function parseAuthError(response: Response) {
 }
 
 async function authAdminRequest<T>(path: string, init: RequestInit) {
-  const jwt = await signServiceRoleJwt();
+  const serviceKey = getServiceRoleKey();
   const response = await fetch(`${getSupabaseUrl()}/auth/v1${path}`, {
     ...init,
     headers: {
-      apikey: getApiKey(),
-      Authorization: `Bearer ${jwt}`,
+      apikey: getApiKey() || serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },

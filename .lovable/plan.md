@@ -1,49 +1,30 @@
-## 1. Contagem às cegas (blind count)
+## 1. Cadastro de usuários — "Chave administrativa ausente"
 
-Esconder o estoque esperado até o contador salvar. Mudanças em `src/routes/_authenticated/inventarios.$id.tsx`:
+**Causa:** em `src/lib/auth-admin.server.ts`, `signServiceRoleJwt()` tenta assinar um JWT ES256 usando `SUPABASE_JWKS`/`SUPABASE_SECRET_KEYS`, mas no Lovable Cloud a `SUPABASE_SERVICE_ROLE_KEY` vem no formato novo `sb_secret_...` (não é JWT de 3 partes) e o JWKS público não contém a chave privada (`d`) necessária para assinar. Resultado: erro em `getSigningJwk`.
 
-- **Lista de produtos**: remover `Est.: X` do subtítulo antes de contar. Continuar mostrando ✓ verde (correto) e ⚠️ amarelo (divergência) — só o número esperado fica oculto.
-- **Modal `CountForm`**: esconder o card "Estoque atual" e a prévia de diferença enquanto o usuário digita. Só mostrar o resultado (bate / diferença de X unidades / Δ R$) **depois** de salvar, na tela seguinte (ou revelar o card após submit).
-- Supervisor/admin continuam vendo o estoque na tela de detalhe do item já contado.
+**Correção:** As chaves `sb_secret_*` já são aceitas diretamente pelo GoTrue como credencial de service role — não é preciso gerar JWT. Simplificar `auth-admin.server.ts` para:
 
-## 2. Corrigir erro Omie "Valor deve ser diferente de zero"
+- Usar `SUPABASE_SERVICE_ROLE_KEY` diretamente como `Authorization: Bearer` e `apikey`.
+- Fallback: se por acaso a chave for JWT legado (3 partes), continua funcionando igual.
+- Remover todo o código de JWKS / `crypto.subtle` / `collectPrivateJwks` (não é mais necessário).
+- Manter mensagens de erro em português e as funções exportadas (`createAuthUserAsService`, `updateAuthUserPasswordAsService`) com a mesma assinatura, para não mexer nos chamadores.
 
-`src/lib/omie.server.ts` → `ajustarEstoqueOmie` envia `valor: 0`. A Omie exige valor unitário > 0 em `IncluirAjusteEstoque`.
+## 2. Registrar Perda & Quebra sem depender de contagem prévia
 
-- Passar `valor_unitario` como parâmetro novo.
-- Em `pushCountToOmie` e no loop de `closeInventory` (src/lib/omie.functions.ts), enviar `valor_unitario: Number(item.unit_cost) || Number(item.product.cost) || 0.01` (fallback mínimo para custo zerado, evitando o erro).
+**Situação atual:** em `src/routes/_authenticated/inventarios.$id.tsx` (linhas 322‑326), o botão "Perda" no `CountForm` só aparece quando `currentItem && !revealed`, ou seja, o produto precisa já ter uma contagem salva. Não há caminho para lançar perda de um produto que o usuário simplesmente quer registrar.
 
-## 3. Segurança — fechar auto-cadastro
+**Correção:** o `LossModal` já aceita `count_item_id` opcional, então basta expor o fluxo:
 
-**Crítico 1 e 2**: `signUpWithPin` chama `supabase.auth.signUp` direto do navegador. Qualquer visitante pode criar conta `contador` e ler todo o catálogo.
+- Mostrar o botão "Perda" no `CountForm` mesmo sem `currentItem` (passando `count_item_id` como `undefined` quando ainda não houver contagem).
+- Adicionar um botão/ícone "Perda" na lista de produtos do inventário (mesma linha do produto), abrindo o `LossModal` direto com o `product_id`, sem precisar entrar na tela de contagem.
+- Nenhuma alteração de banco: `losses.count_item_id` já é nullable e a política RLS existente cobre inserts sem count_item.
 
-- Criar server function `bootstrapFirstAdmin` (sem middleware de auth) que:
-  - verifica `SELECT count(*) FROM user_roles` = 0 no server (usando `supabaseAdmin`);
-  - se vazio, cria o usuário via `supabaseAdmin.auth.admin.createUser` com role admin;
-  - caso contrário, rejeita.
-- Reescrever `FirstAdmin` em `src/routes/auth.tsx` para chamar essa server fn.
-- Remover `signUpWithPin` de `src/lib/auth-helpers.ts` (não é mais usado por lugar nenhum — criação de novos usuários já passa pelo `createUserAsAdmin`).
-- Desativar sign-ups públicos no Supabase Auth (via `supabase--configure_auth`, `disable_signup: true`).
+## Arquivos alterados
 
-**Warning 3**: `profiles.phone` visível a qualquer autenticado.
+- `src/lib/auth-admin.server.ts` — simplificar autenticação admin usando a service role key diretamente.
+- `src/routes/_authenticated/inventarios.$id.tsx` — permitir abrir `LossModal` sem contagem prévia (botão no CountForm sempre visível + atalho na lista de produtos).
 
-- Nova migração: substituir a policy "everyone signed-in reads profiles" por duas:
-  - `SELECT` sem `phone`/`email` via **view** `public.profiles_public` (`security_invoker=on`) exposta a `authenticated`.
-  - Policy na tabela base `profiles`: `SELECT USING (auth.uid() = id OR current_user_is_admin())` — só o próprio usuário ou admin lê a linha completa.
-- Atualizar `useProfile` e telas que listam funcionários (`/auth`, ranking, etc.) para consumir `profiles_public` quando só precisa de `full_name/slug/avatar_color`. `/usuarios` (admin) continua lendo `profiles`.
+## Validação
 
-## Arquivos afetados
-
-- `src/routes/_authenticated/inventarios.$id.tsx` — blind count UI
-- `src/lib/omie.server.ts` — parâmetro `valor_unitario`
-- `src/lib/omie.functions.ts` — passar unit_cost para `ajustarEstoqueOmie`
-- `src/lib/auth-helpers.ts` — remover `signUpWithPin`
-- `src/lib/bootstrap.functions.ts` — nova server fn `bootstrapFirstAdmin`
-- `src/routes/auth.tsx` — `FirstAdmin` chama a nova fn
-- Nova migração SQL: view `profiles_public` + policies + grants
-- `src/hooks/useProfile.ts` e telas que listam nomes — trocar fonte para `profiles_public` onde possível
-- Chamar `supabase--configure_auth` para `disable_signup: true`
-
-## Fora do escopo
-
-- Fluxo de reset de PIN por email, migração Hostinger, notificações por email (fases posteriores já planejadas).
+- Cadastrar um novo usuário (supervisor/contador) pela tela de admin e confirmar sucesso.
+- Abrir um inventário aberto, escolher um produto sem contagem e registrar uma perda; conferir toast de sucesso e que ela aparece em `/perdas`.

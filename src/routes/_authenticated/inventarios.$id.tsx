@@ -242,7 +242,7 @@ function CountForm({ product, inventoryId, currentItem, blind, onClose, onSaved,
   blind: boolean;
   onClose: () => void;
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
-  onOpenLoss: (count_item_id: string) => void;
+  onOpenLoss: (count_item_id?: string) => void;
 }) {
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
@@ -319,8 +319,8 @@ function CountForm({ product, inventoryId, currentItem, blind, onClose, onSaved,
           ) : (
             <Button className="flex-1" onClick={onClose}>Fechar</Button>
           )}
-          {currentItem && !revealed && (
-            <Button variant="outline" onClick={() => onOpenLoss(currentItem.id)}>
+          {!revealed && (
+            <Button variant="outline" onClick={() => onOpenLoss(currentItem?.id)}>
               <AlertTriangle className="h-4 w-4 mr-1" /> Perda
             </Button>
           )}
