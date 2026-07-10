@@ -12,6 +12,10 @@ type CreateAuthUserInput = {
 };
 
 export async function createAuthUserAsService(input: CreateAuthUserInput) {
+  if (usesNewOpaqueSecretKey()) {
+    return createAuthUserViaInviteSignup(input);
+  }
+
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email: input.email,
     password: input.password,
@@ -25,24 +29,23 @@ export async function createAuthUserAsService(input: CreateAuthUserInput) {
 
   if (!isAdminKeyCompatibilityError(error.message)) throw new Error(error.message);
 
-  const publicAuth = createServerAuthClient();
-  const signup = await publicAuth.auth.signUp({
-    email: input.email,
-    password: input.password,
-    options: {
-      data: input.user_metadata,
-    },
-  });
-  if (signup.error) throw new Error(signup.error.message);
-  if (!signup.data.user?.id) throw new Error("Usuário criado sem identificador.");
-  return { id: signup.data.user.id } satisfies AuthUser;
+  return createAuthUserViaInviteSignup(input);
 }
 
 export async function updateAuthUserPasswordAsService(userId: string, password: string) {
+  if (usesNewOpaqueSecretKey()) {
+    await updateAuthUserPasswordViaInviteSignup(userId, password);
+    return;
+  }
+
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
   if (!error) return;
   if (!isAdminKeyCompatibilityError(error.message)) throw new Error(error.message);
 
+  await updateAuthUserPasswordViaInviteSignup(userId, password);
+}
+
+async function updateAuthUserPasswordViaInviteSignup(userId: string, password: string) {
   const { data: profile, error: profileErr } = await supabaseAdmin
     .from("profiles")
     .select("full_name, slug, avatar_color, phone, email")
@@ -83,12 +86,48 @@ export async function updateAuthUserPasswordAsService(userId: string, password: 
       },
     },
   });
-  if (signup.error) throw new Error(signup.error.message);
+  if (signup.error) throw new Error(formatAuthError(signup.error));
 }
 
 function isAdminKeyCompatibilityError(message: string) {
   const normalized = message.toLowerCase();
   return normalized.includes("user not allowed") || normalized.includes("not_admin");
+}
+
+async function createAuthUserViaInviteSignup(input: CreateAuthUserInput) {
+  const publicAuth = createServerAuthClient();
+  const signup = await publicAuth.auth.signUp({
+    email: input.email,
+    password: input.password,
+    options: {
+      data: input.user_metadata,
+    },
+  });
+  if (signup.error) throw new Error(formatAuthError(signup.error));
+  if (!signup.data.user?.id) throw new Error("Usuário criado sem identificador.");
+  return { id: signup.data.user.id } satisfies AuthUser;
+}
+
+function usesNewOpaqueSecretKey() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY?.startsWith("sb_secret_") === true;
+}
+
+function formatAuthError(error: unknown) {
+  if (error instanceof Error && error.message && error.message !== "{}") return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    for (const key of ["message", "msg", "error_description", "error"]) {
+      const value = record[key];
+      if (typeof value === "string" && value && value !== "{}") return value;
+    }
+    try {
+      const serialized = JSON.stringify(record);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch {
+      // ignore serialization failures and use the generic message below
+    }
+  }
+  return "Falha ao criar login do usuário.";
 }
 
 function createServerAuthClient() {
