@@ -4,15 +4,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Contador solicita o fechamento; grava close_request e notifica supervisor/admin
- * via WhatsApp. Supervisor/admin devem chamar diretamente `closeInventory`.
+ * por e-mail. Supervisor/admin devem chamar diretamente `closeInventory`.
  */
 export const requestCloseInventory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { inventory_id: string; push_to_omie: boolean }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-
-
 
     // Já existe pedido pendente para este inventário? Reaproveita.
     const { data: existing } = await supabase
@@ -39,7 +37,48 @@ export const requestCloseInventory = createServerFn({ method: "POST" })
       if (error || !created) throw new Error(`Falha ao criar pedido: ${error?.message ?? ""}`);
       token = created.approval_token;
     }
-    return { ok: true, token, sent: 0, targets: 0 };
+
+    // Notifica supervisor/admin por e-mail.
+    let sent = 0;
+    let targets = 0;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { sendTemplateEmail, loadNotificationRecipients } = await import(
+        "@/lib/email/notify.server"
+      );
+      const [{ data: inv }, { data: requester }] = await Promise.all([
+        supabaseAdmin.from("inventories").select("name").eq("id", data.inventory_id).maybeSingle(),
+        supabaseAdmin.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+      ]);
+      const recipients = await loadNotificationRecipients();
+      targets = recipients.length;
+      if (targets > 0) {
+        const origin =
+          process.env.PUBLIC_SITE_URL ||
+          "https://baixonoroeste.lovable.app";
+        const approvalUrl = `${origin.replace(/\/$/, "")}/aprovar/${token}`;
+        const res = await sendTemplateEmail({
+          templateName: "count-completed",
+          recipients,
+          idempotencyKeyPrefix: `close-request-${token}`,
+          templateData: {
+            counter_name: requester?.full_name ?? "—",
+            inventory_name: inv?.name ?? "",
+            finished_at: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+            mode: "close_request",
+            approval_url: approvalUrl,
+            push_to_omie: data.push_to_omie,
+            total_diff_value: 0,
+            items: [],
+          },
+        });
+        sent = res.enqueued;
+      }
+    } catch (e) {
+      console.error("[requestCloseInventory] notify falhou", e);
+    }
+
+    return { ok: true, token, sent, targets };
   });
 
 

@@ -220,8 +220,9 @@ function InventoryDetail() {
       {scanning && <BarcodeScanner onClose={() => setScanning(false)} onScan={(code) => {
         setScanning(false);
         const p = products?.find((p) => p.barcode === code || p.code === code);
-        if (p) setSelectedProduct(p.id);
-        else toast.error(`Produto não encontrado: ${code}`);
+        if (!p) { toast.error(`Produto não encontrado: ${code}`); return; }
+        if (!p.active) { toast.error(`Produto inativo no Omie: ${p.name}`); return; }
+        setSelectedProduct(p.id);
       }} />}
 
       {lossFor && <LossModal {...lossFor} onClose={() => setLossFor(null)} onDone={() => { setLossFor(null); qc.invalidateQueries(); }} />}
