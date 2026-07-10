@@ -105,7 +105,7 @@ function HomePage() {
           <ul className="space-y-2">
             {pendingCloses.map((r) => {
               const inv = r.inventory as { name?: string } | null;
-              const req = r.requester as { full_name?: string } | null;
+              const req = { full_name: r.requester_name };
               return (
                 <li key={r.id} className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2">
                   <div className="min-w-0">
