@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw } from "lucide-react";
+import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
+
 
 export const Route = createFileRoute("/_authenticated/inicio")({ component: HomePage });
 
