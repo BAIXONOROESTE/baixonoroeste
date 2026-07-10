@@ -3,7 +3,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type Role = "admin" | "supervisor" | "contador";
 
-
 /**
  * Cria um novo funcionário sem afetar a sessão do admin logado. Só admins.
  * Força profiles.slug a bater com o slug do email (evita bug de "PIN incorreto"
@@ -14,7 +13,8 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
   .inputValidator((d: { fullName: string; slug: string; pin: string; role: Role; avatarColor?: string; phone?: string; email?: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+    if (roleErr || !isAdmin) throw new Error("Apenas administradores podem criar usuários.");
 
     if (!data.fullName.trim() || !data.slug.trim() || data.pin.length < 6 || data.pin.length > 8 || !/^\d+$/.test(data.pin)) {
       throw new Error("Nome, slug e PIN de 6 a 8 dígitos são obrigatórios.");
@@ -48,9 +48,8 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
       if (insErr) throw new Error(`Usuário criado, mas falhou ao definir papel: ${insErr.message}`);
     }
 
-    // Sempre sobrescrever o slug do profile para bater com o email interno
-    // (o trigger handle_new_user pode ter usado outro valor). Também aplicamos
-    // o telefone opcional na mesma chamada.
+    // Sobrescrever o slug do profile para bater com o email interno
+    // (o trigger handle_new_user pode ter usado outro valor).
     const profileUpdate: { slug: string; phone?: string } = { slug: data.slug };
     if (data.phone && data.phone.trim()) profileUpdate.phone = data.phone.trim();
     await supabase.from("profiles").update(profileUpdate).eq("id", newUserId);
@@ -59,15 +58,15 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
   });
 
 /**
- * Admin redefine o PIN de um funcionário (fluxo de emergência quando o
- * usuário esquece o PIN e ainda não temos reset por email).
+ * Admin redefine o PIN de um funcionário (fluxo de emergência).
  */
 export const resetUserPinAsAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { user_id: string; new_pin: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+    if (roleErr || !isAdmin) throw new Error("Apenas administradores podem resetar PIN.");
 
     if (!/^\d{6,8}$/.test(data.new_pin)) throw new Error("PIN deve ter de 6 a 8 dígitos.");
     if (!data.user_id) throw new Error("Usuário inválido.");
@@ -86,5 +85,3 @@ export const resetUserPinAsAdmin = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
-
-
