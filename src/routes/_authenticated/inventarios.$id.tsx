@@ -348,7 +348,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
               <Button
                 variant="outline"
                 className="w-full border-warning text-warning hover:bg-warning/10"
-                onClick={() => onOpenLoss(currentItem?.id, Math.abs(diff))}
+                onClick={() => onOpenLoss(revealed?.itemId ?? currentItem?.id, Math.abs(diff))}
               >
                 <AlertTriangle className="h-4 w-4 mr-1" /> Registrar como perda ({fmtNumber(Math.abs(diff))})
               </Button>
