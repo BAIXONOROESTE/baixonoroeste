@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({ component: ConfigPage });
 
@@ -49,6 +49,8 @@ function ConfigPage() {
         </div>
       </div>
 
+      <NotificationSettings settings={settings} onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })} />
+
       <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
         <div className="font-medium text-sm">Motivos de perda</div>
         {reasons?.map((r) => (
@@ -77,3 +79,78 @@ function ConfigPage() {
     </div>
   );
 }
+
+type Settings = {
+  notif_enabled: boolean;
+  notif_from_email: string | null;
+  notif_from_name: string | null;
+  notif_reply_to: string | null;
+} | null | undefined;
+
+function NotificationSettings({ settings, onSaved }: { settings: Settings; onSaved: () => void }) {
+  const [enabled, setEnabled] = useState(false);
+  const [fromEmail, setFromEmail] = useState("");
+  const [fromName, setFromName] = useState("Baixo Noroeste Inventário");
+  const [replyTo, setReplyTo] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!settings) return;
+    setEnabled(!!settings.notif_enabled);
+    setFromEmail(settings.notif_from_email ?? "");
+    setFromName(settings.notif_from_name ?? "Baixo Noroeste Inventário");
+    setReplyTo(settings.notif_reply_to ?? "");
+  }, [settings]);
+
+  async function save() {
+    if (enabled && (!fromEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail.trim()))) {
+      toast.error("Informe um email remetente válido.");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from("settings").update({
+      notif_enabled: enabled,
+      notif_from_email: fromEmail.trim() || null,
+      notif_from_name: fromName.trim() || null,
+      notif_reply_to: replyTo.trim() || null,
+    }).eq("id", 1);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Notificações salvas.");
+    onSaved();
+  }
+
+  return (
+    <div className="rounded-2xl bg-surface border border-border p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-medium text-sm">Notificações por Email</div>
+          <div className="text-xs text-muted-foreground">Aviso a admins/supervisores quando uma contagem for encerrada ou perda registrada.</div>
+        </div>
+        <label className="inline-flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="h-4 w-4 accent-primary" />
+          {enabled ? "Ativo" : "Desativado"}
+        </label>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <label className="text-xs text-muted-foreground">Email remetente (From)</label>
+          <Input type="email" placeholder="notificacoes@baixonoroeste.com.br" value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Nome exibido</label>
+          <Input value={fromName} onChange={(e) => setFromName(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Reply-to (opcional)</label>
+          <Input type="email" placeholder="ex: gerencia@baixonoroeste.com.br" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} />
+        </div>
+      </div>
+      <Button className="w-full" onClick={save} disabled={saving}>{saving ? "Salvando" : "Salvar notificações"}</Button>
+      <p className="text-[11px] text-muted-foreground leading-snug">
+        O domínio do email remetente precisa estar verificado no Lovable Emails para os envios acontecerem.
+      </p>
+    </div>
+  );
+}
+
