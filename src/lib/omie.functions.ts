@@ -47,21 +47,35 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         const saldo = Number(pos.fisico ?? pos.nSaldo ?? 0);
         saldoByCod.set(String(pos.nCodProd), saldo);
       }
-      const prodRows = produtos.map((p) => ({
-        omie_id: String(p.codigo_produto),
-        code: p.codigo ?? String(p.codigo_produto),
-        barcode: p.codigo_barras || null,
-        name: p.descricao,
-        family_id: p.codigo_familia ? famByOmie.get(String(p.codigo_familia)) ?? null : null,
-        family_name: p.familia ?? null,
-        unit: p.unidade ?? null,
-        stock_omie: saldoByCod.get(String(p.codigo_produto)) ?? 0,
-        cost: Number(p.valor_unitario ?? 0),
-        price: p.valor_unitario ? Number(p.valor_unitario) : null,
-        location: p.local_estoque ?? null,
-        active: true,
-        last_synced_at: new Date().toISOString(),
-      }));
+      const pickBarcode = (p: import("@/lib/omie.server").OmieProduto): string | null => {
+        const candidates = [p.codigo_barras, p.ean, p.ean_13, p.gtin];
+        for (const c of candidates) {
+          const s = (c ?? "").toString().trim();
+          if (!s || s === "0" || s === "SEM GTIN") continue;
+          return s;
+        }
+        return null;
+      };
+      let semBarcode = 0;
+      const prodRows = produtos.map((p) => {
+        const barcode = pickBarcode(p);
+        if (!barcode) semBarcode++;
+        return {
+          omie_id: String(p.codigo_produto),
+          code: p.codigo ?? String(p.codigo_produto),
+          barcode,
+          name: p.descricao,
+          family_id: p.codigo_familia ? famByOmie.get(String(p.codigo_familia)) ?? null : null,
+          family_name: p.familia ?? null,
+          unit: p.unidade ?? null,
+          stock_omie: saldoByCod.get(String(p.codigo_produto)) ?? 0,
+          cost: Number(p.valor_unitario ?? 0),
+          price: p.valor_unitario ? Number(p.valor_unitario) : null,
+          location: p.local_estoque ?? null,
+          active: true,
+          last_synced_at: new Date().toISOString(),
+        };
+      });
       if (prodRows.length) {
         for (let i = 0; i < prodRows.length; i += 500) {
           await supabase.from("products").upsert(prodRows.slice(i, i + 500), { onConflict: "omie_id" });
@@ -78,7 +92,7 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         .update({
           status: "sucesso",
           items_count: prodRows.length,
-          message: `${famRows.length} famílias, ${prodRows.length} produtos.`,
+          message: `${famRows.length} famílias, ${prodRows.length} produtos (${semBarcode} sem código de barras).`,
           finished_at: new Date().toISOString(),
         })
         .eq("id", syncRow.id);
@@ -87,10 +101,10 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         user_id: userId,
         action: "sync_omie",
         entity: "products",
-        details: { familias: famRows.length, produtos: prodRows.length },
+        details: { familias: famRows.length, produtos: prodRows.length, sem_barcode: semBarcode },
       });
 
-      return { ok: true, familias: famRows.length, produtos: prodRows.length };
+      return { ok: true, familias: famRows.length, produtos: prodRows.length, sem_barcode: semBarcode };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await supabase

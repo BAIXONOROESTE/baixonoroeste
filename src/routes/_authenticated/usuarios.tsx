@@ -61,7 +61,7 @@ function UsuariosPage() {
         <Input placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} />
         <Input type="password" inputMode="numeric" placeholder="PIN (6 a 8 dígitos)" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} maxLength={8} />
         <Input type="email" inputMode="email" placeholder="Email (para reset de PIN e notificações)" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Input inputMode="tel" placeholder="WhatsApp (opcional, ex: +5511999999999)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <Input inputMode="tel" placeholder="Telefone (opcional, ex: +5511999999999)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <select value={role} onChange={(e) => setRole(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
           <option value="contador">Contador</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option>
         </select>

@@ -48,10 +48,10 @@ function InventoryDetail() {
     queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim()],
     queryFn: async () => {
       const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
-      let query = supabase.from("products").select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost").eq("active", true);
+      let query = supabase.from("products").select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active");
       if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
-      const { data, error } = await query.order("name").limit(search ? 50 : 100);
+      const { data, error } = await query.order("active", { ascending: false }).order("name").limit(search ? 80 : 200);
       if (error) throw error;
       return data ?? [];
     },
@@ -83,7 +83,8 @@ function InventoryDetail() {
   }, [products, q]);
 
   const countedIds = new Set((items ?? []).map((i) => i.product_id));
-  const progress = products?.length ? Math.round((countedIds.size / products.length) * 100) : 0;
+  const activeProducts = (products ?? []).filter((p) => p.active);
+  const progress = activeProducts.length ? Math.round((countedIds.size / activeProducts.length) * 100) : 0;
   const divergencias = (items ?? []).filter((i) => i.status === "divergencia").length;
   const totalDiff = (items ?? []).reduce((acc, i) => acc + Number(i.financial_diff ?? 0), 0);
 
@@ -103,7 +104,7 @@ function InventoryDetail() {
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
           <span>Progresso</span>
-          <span className="font-medium">{countedIds.size}/{products?.length ?? 0} ({progress}%)</span>
+          <span className="font-medium">{countedIds.size}/{activeProducts.length} ({progress}%)</span>
         </div>
         <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
@@ -128,20 +129,39 @@ function InventoryDetail() {
             {filtered.map((p) => {
               const item = items?.find((i) => i.product_id === p.id);
               const isDiv = item?.status === "divergencia";
+              const isInactive = !p.active;
               const canSeeStock = profile?.role === "admin" || profile?.role === "supervisor" || !!item;
               return (
-                <button key={p.id} onClick={() => setSelectedProduct(p.id)}
-                  className={`w-full text-left rounded-xl border p-3 flex items-center justify-between transition ${isDiv ? "highlight-diff-row border-warning" : item ? "border-success/40 bg-success/5" : "border-border bg-surface"}`}>
+                <button key={p.id} onClick={() => {
+                    if (isInactive) { toast.error("Produto inativo no Omie — não pode ser contado."); return; }
+                    setSelectedProduct(p.id);
+                  }}
+                  className={`w-full text-left rounded-xl border p-3 flex items-center justify-between transition ${
+                    isInactive
+                      ? "border-destructive/40 bg-destructive/5 text-destructive opacity-90"
+                      : isDiv
+                        ? "highlight-diff-row border-warning"
+                        : item
+                          ? "border-success/40 bg-success/5"
+                          : "border-border bg-surface"
+                  }`}>
                   <div className="min-w-0">
-                    <div className="font-medium truncate">{p.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="font-medium truncate flex items-center gap-2">
+                      {p.name}
+                      {isInactive && (
+                        <span className="text-[10px] uppercase tracking-wide font-semibold rounded px-1.5 py-0.5 bg-destructive/15 border border-destructive/30">
+                          Inativo
+                        </span>
+                      )}
+                    </div>
+                    <div className={`text-xs truncate ${isInactive ? "text-destructive/80" : "text-muted-foreground"}`}>
                       {p.code} · {p.family_name ?? "—"}
-                      {canSeeStock ? ` · Est.: ${fmtNumber(p.stock_omie)}` : ""}
+                      {canSeeStock && !isInactive ? ` · Est.: ${fmtNumber(p.stock_omie)}` : ""}
                     </div>
                   </div>
-                  {item && (item.status === "correto" || item.status === "atualizado")
+                  {!isInactive && (item && (item.status === "correto" || item.status === "atualizado")
                     ? <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
-                    : isDiv ? <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" /> : null}
+                    : isDiv ? <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" /> : null)}
                 </button>
               );
             })}
@@ -200,8 +220,9 @@ function InventoryDetail() {
       {scanning && <BarcodeScanner onClose={() => setScanning(false)} onScan={(code) => {
         setScanning(false);
         const p = products?.find((p) => p.barcode === code || p.code === code);
-        if (p) setSelectedProduct(p.id);
-        else toast.error(`Produto não encontrado: ${code}`);
+        if (!p) { toast.error(`Produto não encontrado: ${code}`); return; }
+        if (!p.active) { toast.error(`Produto inativo no Omie: ${p.name}`); return; }
+        setSelectedProduct(p.id);
       }} />}
 
       {lossFor && <LossModal {...lossFor} onClose={() => setLossFor(null)} onDone={() => { setLossFor(null); qc.invalidateQueries(); }} />}
@@ -214,7 +235,7 @@ function InventoryDetail() {
               const pushToOmie = settings?.omie_update_mode === "encerramento";
               const modeText = isSup
                 ? (pushToOmie ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?")
-                : "Enviar pedido de fechamento para o supervisor/admin via WhatsApp?";
+                : "Enviar pedido de fechamento para o supervisor/admin por e-mail?";
               if (!confirm(modeText)) return;
               try {
                 if (isSup) {

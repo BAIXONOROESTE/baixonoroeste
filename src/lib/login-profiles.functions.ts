@@ -13,9 +13,10 @@ export type LoginProfile = {
 /**
  * Lista os perfis ativos usados no seletor da tela de login.
  *
- * Endpoint público (sem middleware de auth) porque roda antes do usuário
- * autenticar. Usa a chave pública no servidor e depende de RLS/GRANTs que
- * liberam apenas colunas seguras — nunca expõe PIN/email/telefone.
+ * Endpoint público (sem middleware de auth) — roda antes do usuário autenticar.
+ * Chama a função SECURITY DEFINER `list_login_profiles()`, que expõe SOMENTE
+ * as colunas seguras (id/full_name/slug/avatar_color/active). O acesso direto
+ * à tabela `profiles` fica bloqueado para `anon`, protegendo email/telefone.
  */
 export const listLoginProfiles = createServerFn({ method: "GET" }).handler(
   async (): Promise<LoginProfile[]> => {
@@ -31,11 +32,7 @@ export const listLoginProfiles = createServerFn({ method: "GET" }).handler(
       },
     );
 
-    const { data, error } = await supabasePublic
-      .from("profiles")
-      .select("id, full_name, slug, avatar_color, active")
-      .eq("active", true)
-      .order("full_name", { ascending: true });
+    const { data, error } = await supabasePublic.rpc("list_login_profiles");
     if (error) throw new Error(error.message);
     return (data ?? []) as LoginProfile[];
   },
