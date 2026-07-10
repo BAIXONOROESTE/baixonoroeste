@@ -24,7 +24,7 @@ function InventoryDetail() {
   const [q, setQ] = useState("");
   const [scanning, setScanning] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string } | null>(null);
+  const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string; presetQuantity?: number; productName?: string } | null>(null);
   const navigate = useNavigate();
   const closeFn = useServerFn(closeInventory);
   const requestCloseFn = useServerFn(requestCloseInventory);
@@ -212,7 +212,7 @@ function InventoryDetail() {
             }
           }}
 
-          onOpenLoss={(count_item_id) => setLossFor({ product_id: selected.id, count_item_id })}
+          onOpenLoss={(count_item_id, presetQuantity) => setLossFor({ product_id: selected.id, count_item_id, presetQuantity, productName: selected.name })}
         />
 
       )}
@@ -266,13 +266,13 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   canRegisterLoss: boolean;
   onClose: () => void;
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
-  onOpenLoss: (count_item_id?: string) => void;
+  onOpenLoss: (count_item_id: string | undefined, presetQuantity?: number) => void;
 }) {
 
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
-  const [revealed, setRevealed] = useState<null | { diff: number; finDiff: number; status: string }>(null);
+  const [revealed, setRevealed] = useState<null | { diff: number; finDiff: number; status: string; itemId: string }>(null);
   // Só escondemos estoque/diferença enquanto o item ainda NÃO foi salvo nesta sessão.
   const hideStock = blind && !currentItem && !revealed;
 
@@ -293,7 +293,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
     await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: data.id, produto: product.name, qtd: q, status } });
     toast.success("Contagem salva!");
     const diff = q - stock;
-    setRevealed({ diff, finDiff: diff * Number(product.cost), status });
+    setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: data.id });
     onSaved(data.id, status);
   }
 
@@ -338,19 +338,24 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
         {blind && !revealed && qty !== "" && (
           <div className="text-xs text-muted-foreground text-center">Contagem às cegas — o resultado aparece depois de salvar.</div>
         )}
-        <div className="flex gap-2">
-          {!revealed ? (
-            <Button className="flex-1" onClick={save} disabled={saving}>{saving ? "Salvando" : "Salvar"}</Button>
-          ) : (
-            <Button className="flex-1" onClick={onClose}>Fechar</Button>
-          )}
-          {!revealed && canRegisterLoss && (
-            <Button variant="outline" onClick={() => onOpenLoss(currentItem?.id)}>
-              <AlertTriangle className="h-4 w-4 mr-1" /> Perda
-            </Button>
-          )}
-
-        </div>
+        {!revealed ? (
+          <Button className="w-full" onClick={save} disabled={saving || qty === ""}>
+            {saving ? "Salvando" : "Salvar contagem"}
+          </Button>
+        ) : (
+          <div className="space-y-2">
+            {diff < 0 && canRegisterLoss && (
+              <Button
+                variant="outline"
+                className="w-full border-warning text-warning hover:bg-warning/10"
+                onClick={() => onOpenLoss(revealed?.itemId ?? currentItem?.id, Math.abs(diff))}
+              >
+                <AlertTriangle className="h-4 w-4 mr-1" /> Registrar como perda ({fmtNumber(Math.abs(diff))})
+              </Button>
+            )}
+            <Button className="w-full" onClick={onClose}>Fechar</Button>
+          </div>
+        )}
       </div>
     </div>
   );

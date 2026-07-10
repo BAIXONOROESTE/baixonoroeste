@@ -6,16 +6,19 @@ import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
-export function LossModal({ product_id, count_item_id, onClose, onDone }: {
+export function LossModal({ product_id, count_item_id, presetQuantity, productName, onClose, onDone }: {
   product_id: string;
   count_item_id?: string;
+  presetQuantity?: number;
+  productName?: string;
   onClose: () => void;
   onDone: () => void;
 }) {
   const [reasonId, setReasonId] = useState("");
-  const [qty, setQty] = useState("");
+  const [qty, setQty] = useState(presetQuantity != null ? String(presetQuantity) : "");
   const [obs, setObs] = useState("");
   const qc = useQueryClient();
+  const locked = presetQuantity != null;
 
   const { data: reasons } = useQuery({
     queryKey: ["loss-reasons"],
@@ -45,9 +48,18 @@ export function LossModal({ product_id, count_item_id, onClose, onDone }: {
     <div className="fixed inset-0 z-50 bg-background/95 flex items-end sm:items-center justify-center px-3">
       <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface border border-border p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-display font-semibold">Registrar perda</h3>
+          <div className="min-w-0">
+            <h3 className="font-display font-semibold">Registrar perda</h3>
+            {productName && <div className="text-xs text-muted-foreground truncate">{productName}</div>}
+          </div>
           <button onClick={onClose}><X className="h-5 w-5 text-muted-foreground" /></button>
         </div>
+        {locked && (
+          <div className="rounded-lg bg-muted p-3 text-sm">
+            <div className="text-xs text-muted-foreground">Quantidade da perda</div>
+            <div className="font-semibold text-lg">{presetQuantity}</div>
+          </div>
+        )}
         <div>
           <label className="text-xs text-muted-foreground">Motivo</label>
           <select value={reasonId} onChange={(e) => setReasonId(e.target.value)}
@@ -56,16 +68,18 @@ export function LossModal({ product_id, count_item_id, onClose, onDone }: {
             {reasons?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Quantidade</label>
-          <Input type="number" step="any" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
-        </div>
+        {!locked && (
+          <div>
+            <label className="text-xs text-muted-foreground">Quantidade</label>
+            <Input type="number" step="any" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
+          </div>
+        )}
         <div>
           <label className="text-xs text-muted-foreground">Observação</label>
           <Input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
         </div>
-        <Button className="w-full" onClick={() => save.mutate()} disabled={save.isPending}>
-          {save.isPending ? "Salvando" : "Registrar"}
+        <Button className="w-full" onClick={() => save.mutate()} disabled={save.isPending || !reasonId}>
+          {save.isPending ? "Salvando" : "Registrar perda"}
         </Button>
       </div>
     </div>
