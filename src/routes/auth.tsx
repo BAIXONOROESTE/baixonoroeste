@@ -49,7 +49,7 @@ function AuthPage() {
   );
 }
 
-function PinLogin({ profiles }: { profiles: { id: string; full_name: string; slug: string; avatar_color: string }[] }) {
+function PinLogin({ profiles }: { profiles: { id: string | null; full_name: string | null; slug: string | null; avatar_color: string | null }[] }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
