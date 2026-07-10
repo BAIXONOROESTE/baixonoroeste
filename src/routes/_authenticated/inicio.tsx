@@ -64,8 +64,8 @@ function HomePage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha na sincronização."),
   });
 
-  const role = profile?.role ?? "contador";
   const visible = tiles.filter((t) => (t.roles as readonly string[]).includes(role));
+
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 space-y-4">
