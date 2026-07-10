@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      auth_signup_invites: {
+        Row: {
+          auth_email: string
+          avatar_color: string
+          contact_email: string | null
+          created_at: string
+          created_by: string | null
+          full_name: string
+          id: string
+          phone: string | null
+          reset_for_user_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          slug: string
+          used_at: string | null
+        }
+        Insert: {
+          auth_email: string
+          avatar_color?: string
+          contact_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          full_name: string
+          id?: string
+          phone?: string | null
+          reset_for_user_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          slug: string
+          used_at?: string | null
+        }
+        Update: {
+          auth_email?: string
+          avatar_color?: string
+          contact_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          full_name?: string
+          id?: string
+          phone?: string | null
+          reset_for_user_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          slug?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       close_requests: {
         Row: {
           approval_token: string

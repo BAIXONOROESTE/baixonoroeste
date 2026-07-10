@@ -1,4 +1,4 @@
-import { createStart, createMiddleware } from "@tanstack/react-start";
+import { createStart, createMiddleware, createCsrfMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
@@ -6,7 +6,7 @@ import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
   if (request) {
     const p = new URL(request.url).pathname;
-    if (p.startsWith("/lovable/") || p === "/email/unsubscribe" || p === "/unsubscribe") {
+    if (p.startsWith("/_serverFn/") || p.startsWith("/lovable/") || p === "/email/unsubscribe" || p === "/unsubscribe") {
       return next();
     }
   }
@@ -25,8 +25,11 @@ const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
   }
 });
 
+const csrfMiddleware = createCsrfMiddleware({
+  filter: (ctx) => ctx.handlerType === "serverFn",
+});
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [attachSupabaseAuth],
-  requestMiddleware: [errorMiddleware],
+  requestMiddleware: [csrfMiddleware, errorMiddleware],
 }));

@@ -23,9 +23,25 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
       throw new Error("Papel inválido.");
     }
 
-    const { createAuthUserAsService } = await import("@/lib/auth-admin.server");
-
     const authEmail = `${data.slug}@users.baixonoroeste.com.br`;
+    const contactEmail = data.email?.trim().toLowerCase() || null;
+    const { error: inviteErr } = await supabase.from("auth_signup_invites").upsert(
+      {
+        auth_email: authEmail,
+        full_name: data.fullName.trim(),
+        slug: data.slug,
+        role: data.role,
+        avatar_color: data.avatarColor ?? "amber",
+        phone: data.phone?.trim() || null,
+        contact_email: contactEmail,
+        created_by: userId,
+        used_at: null,
+      },
+      { onConflict: "auth_email" },
+    );
+    if (inviteErr) throw new Error(`Falha ao preparar cadastro: ${inviteErr.message}`);
+
+    const { createAuthUserAsService } = await import("@/lib/auth-admin.server");
     const created = await createAuthUserAsService({
       email: authEmail,
       password: `${data.pin}#estq`,
@@ -37,24 +53,7 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
       },
     });
 
-    const newUserId = created.id;
-
-    if (data.role !== "contador") {
-      await supabase.from("user_roles").delete().eq("user_id", newUserId);
-      const { error: insErr } = await supabase
-        .from("user_roles")
-        .insert({ user_id: newUserId, role: data.role });
-      if (insErr) throw new Error(`Usuário criado, mas falhou ao definir papel: ${insErr.message}`);
-    }
-
-    // Sobrescrever o slug do profile para bater com o email interno
-    // (o trigger handle_new_user pode ter usado outro valor).
-    const profileUpdate: { slug: string; phone?: string; email?: string } = { slug: data.slug };
-    if (data.phone && data.phone.trim()) profileUpdate.phone = data.phone.trim();
-    if (data.email && data.email.trim()) profileUpdate.email = data.email.trim().toLowerCase();
-    await supabase.from("profiles").update(profileUpdate).eq("id", newUserId);
-
-    return { ok: true, user_id: newUserId };
+    return { ok: true, user_id: created.id };
   });
 
 /**
