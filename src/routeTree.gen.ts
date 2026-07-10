@@ -27,6 +27,7 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedInventariosIndexRouteImport } from './routes/_authenticated/inventarios.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedInventariosIdRouteImport } from './routes/_authenticated/inventarios.$id'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -126,6 +127,11 @@ const AuthenticatedInventariosIdRoute =
     path: '/inventarios/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -176,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/aprovar/$token': typeof AprovarTokenRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/inventarios/': typeof AuthenticatedInventariosIndexRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/aprovar/$token': typeof AprovarTokenRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/inventarios': typeof AuthenticatedInventariosIndexRoute
@@ -228,6 +236,7 @@ export interface FileRoutesById {
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/aprovar/$token': typeof AprovarTokenRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/_authenticated/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/inventarios/': typeof AuthenticatedInventariosIndexRoute
@@ -255,6 +264,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/aprovar/$token'
     | '/email/unsubscribe'
+    | '/.lovable/oauth/consent'
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/inventarios/'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/aprovar/$token'
     | '/email/unsubscribe'
+    | '/.lovable/oauth/consent'
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/inventarios'
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/_authenticated/usuarios'
     | '/aprovar/$token'
     | '/email/unsubscribe'
+    | '/.lovable/oauth/consent'
     | '/_authenticated/inventarios/$id'
     | '/lovable/email/suppression'
     | '/_authenticated/inventarios/'
@@ -324,6 +336,7 @@ export interface RootRouteChildren {
   UnsubscribeRoute: typeof UnsubscribeRoute
   AprovarTokenRoute: typeof AprovarTokenRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicReportsLossesDailyRoute: typeof ApiPublicReportsLossesDailyRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventariosIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
       path: '/lovable/email/transactional/send'
@@ -544,6 +564,7 @@ const rootRouteChildren: RootRouteChildren = {
   UnsubscribeRoute: UnsubscribeRoute,
   AprovarTokenRoute: AprovarTokenRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicReportsLossesDailyRoute: ApiPublicReportsLossesDailyRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
