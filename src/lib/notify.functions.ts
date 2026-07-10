@@ -7,40 +7,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * (nenhum TWILIO_API_KEY / TWILIO_WHATSAPP_FROM disponível). Isso permite
  * ligar toda a UI antes de conectar o Twilio.
  */
-export async function sendWhatsApp(opts: { to: string; body: string }): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const twilioKey = process.env.TWILIO_API_KEY;
-  const from = process.env.TWILIO_WHATSAPP_FROM;
-  if (!lovableKey || !twilioKey || !from) {
-    console.warn("[whatsapp] Twilio não configurado; mensagem não enviada.", { to: opts.to });
-    return { ok: false, skipped: true, error: "twilio_not_configured" };
-  }
-  const to = normalizeWhatsAppNumber(opts.to);
-  const fromNorm = normalizeWhatsAppNumber(from);
-  if (!to) return { ok: false, error: "telefone_invalido" };
-
-  const res = await fetch("https://connector-gateway.lovable.dev/twilio/Messages.json", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      "X-Connection-Api-Key": twilioKey,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ To: to, From: fromNorm, Body: opts.body }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    console.error(`[whatsapp] Twilio ${res.status}: ${text}`);
-    return { ok: false, error: `twilio_${res.status}` };
-  }
-  return { ok: true };
-}
-
-function normalizeWhatsAppNumber(raw: string): string {
-  const digits = raw.replace(/[^\d+]/g, "");
-  if (!digits) return "";
-  const withPlus = digits.startsWith("+") ? digits : `+${digits}`;
-  return `whatsapp:${withPlus}`;
+export async function sendWhatsApp(_opts: { to: string; body: string }): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  // WhatsApp desativado nesta fase — stub silencioso.
+  return { ok: false, skipped: true, error: "wa_disabled" };
 }
 
 /**
