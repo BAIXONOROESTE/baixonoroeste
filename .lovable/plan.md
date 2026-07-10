@@ -1,25 +1,19 @@
-## Problema
+Plano para corrigir o falso “primeiro acesso”:
 
-Após criar o primeiro admin a tela não muda: o botão aparece de novo e o usuário acaba criando o admin várias vezes (o banco já tem 3 usuários duplicados). Duas causas:
+1. **Parar de tratar erro como sistema vazio**
+   - Ajustar a tela `/auth` para mostrar carregamento/erro com botão de tentar novamente quando a lista de usuários não carregar.
+   - A tela “Configuração inicial / Criar administrador” só aparecerá quando o backend confirmar de verdade que não existe nenhum perfil ativo.
 
-1. `bootstrapFirstAdmin` cria o usuário no servidor mas **não abre sessão no navegador**, então a página só recarrega a lista e continua mostrando o formulário se ela vier vazia (foi o que aconteceu enquanto a permissão do `current_user_is_admin` estava negando o `listLoginProfiles`).
-2. A rota `bootstrap` também não trava chamadas repetidas do mesmo formulário — cada clique cria mais um `auth.users` + `profiles` + `user_roles`.
+2. **Corrigir a busca pública de perfis do login**
+   - Trocar a listagem de perfis pré-login para usar a função segura do banco que retorna somente dados permitidos: nome, slug, avatar/cor e status ativo.
+   - Restaurar a permissão necessária para essa função ser chamada antes do login, já que a tela de PIN precisa listar usuários antes da autenticação.
 
-## Correções
+3. **Manter o bloqueio de criação indevida de admin**
+   - Não abrir auto-cadastro público.
+   - Manter `bootstrapFirstAdmin` bloqueado quando já existir qualquer papel de usuário/admin cadastrado.
 
-### 1. Auto-login após criar o primeiro admin (`src/routes/auth.tsx`)
-No `FirstAdmin.submit()`, depois de `bootstrap({...})` bem-sucedido:
-- Chamar `signInWithPin(slug, pin)` para abrir sessão no browser.
-- Se der certo, `navigate({ to: "/inicio", replace: true })`.
-- Se falhar, exibir toast pedindo para logar com o PIN e disparar `onDone()` (mostra o seletor de perfis).
+4. **Validar após a correção**
+   - Confirmar que o banco continua com os usuários existentes.
+   - Confirmar que a tela publicada deixa de mostrar “Criar administrador” e passa a mostrar a seleção de usuário/PIN.
 
-### 2. Limpar admins duplicados
-Rodar uma migration que apaga os 2 admins extras (mantém o mais antigo). Remove de `auth.users` (o cascade deleta `profiles` e `user_roles`).
-
-### 3. (Opcional, defensivo) Bloquear duplo clique no bootstrap
-Já existe `setLoading(true)` desabilitando o botão, então só precisamos garantir que uma segunda tentativa após sucesso não caia no formulário de novo — o item 1 resolve isso naturalmente.
-
-## Resumo técnico
-
-- Editar `src/routes/auth.tsx`: função `FirstAdmin` faz `signInWithPin` + navigate após `bootstrapFirstAdmin`.
-- Migration: `DELETE FROM auth.users WHERE id IN (...ids dos admins extras, mantendo o primeiro)`.
+Observação: verifiquei o banco agora e já existem 3 perfis ativos e 1 administrador; portanto o app realmente não deveria estar mostrando a tela de primeiro acesso.
