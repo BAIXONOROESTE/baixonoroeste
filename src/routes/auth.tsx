@@ -13,16 +13,23 @@ import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   component: AuthPage,
 });
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/inicio", replace: true });
+      if (data.user) {
+        if (next) window.location.assign(next);
+        else navigate({ to: "/inicio", replace: true });
+      }
     });
-  }, [navigate]);
+  }, [navigate, next]);
 
   const { data: profiles, isLoading, refetch } = useQuery({
     queryKey: ["auth-profiles"],
@@ -41,7 +48,7 @@ function AuthPage() {
           <h1 className="text-2xl font-display font-semibold">Baixo Noroeste</h1>
           <p className="text-sm text-muted-foreground">Inventário</p>
         </div>
-        {isFirstUse ? <FirstAdmin onDone={() => refetch()} /> : <PinLogin profiles={profiles ?? []} />}
+        {isFirstUse ? <FirstAdmin onDone={() => refetch()} next={next} /> : <PinLogin profiles={profiles ?? []} next={next} />}
       </div>
     </div>
   );
