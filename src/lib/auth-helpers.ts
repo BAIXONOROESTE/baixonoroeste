@@ -16,8 +16,9 @@ export function slugify(input: string): string {
 }
 
 export function emailFromSlug(slug: string): string {
-  return `${slug}@estoque.local`;
+  return `${slug}@users.baixonoroeste.com.br`;
 }
+
 
 // Sufixo fixo aplicado ao PIN antes de virar senha do Auth.
 // O Supabase Auth exige senha com no mínimo 6 caracteres; a UX pede PIN de

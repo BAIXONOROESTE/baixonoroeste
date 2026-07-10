@@ -26,7 +26,7 @@ function AuthPage() {
   const { data: profiles, isLoading, refetch } = useQuery({
     queryKey: ["auth-profiles"],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles_public").select("id, full_name, slug, avatar_color").order("full_name");
+      const { data } = await supabase.rpc("list_login_profiles");
       return data ?? [];
     },
   });

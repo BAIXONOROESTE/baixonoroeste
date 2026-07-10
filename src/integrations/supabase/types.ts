@@ -556,30 +556,6 @@ export type Database = {
       }
     }
     Views: {
-      profiles_public: {
-        Row: {
-          active: boolean | null
-          avatar_color: string | null
-          full_name: string | null
-          id: string | null
-          slug: string | null
-        }
-        Insert: {
-          active?: boolean | null
-          avatar_color?: string | null
-          full_name?: string | null
-          id?: string | null
-          slug?: string | null
-        }
-        Update: {
-          active?: boolean | null
-          avatar_color?: string | null
-          full_name?: string | null
-          id?: string | null
-          slug?: string | null
-        }
-        Relationships: []
-      }
       ranking_view: {
         Row: {
           acertos: number | null
@@ -602,6 +578,16 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      list_login_profiles: {
+        Args: never
+        Returns: {
+          active: boolean
+          avatar_color: string
+          full_name: string
+          id: string
+          slug: string
+        }[]
       }
     }
     Enums: {

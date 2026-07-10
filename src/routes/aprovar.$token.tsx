@@ -33,17 +33,19 @@ function AprovarPage() {
         .select("id, inventory_id, status, requested_by, inventory:inventories(name)")
         .eq("approval_token", token).maybeSingle();
       if (!r) { setLoading(false); return; }
-      const [{ data: prof }, { count: divCount }, { data: items }] = await Promise.all([
-        supabase.from("profiles_public").select("full_name").eq("id", r.requested_by).maybeSingle(),
+      const [{ data: profs }, { count: divCount }, { data: items }] = await Promise.all([
+        supabase.rpc("list_login_profiles"),
         supabase.from("count_items").select("id", { count: "exact", head: true })
           .eq("inventory_id", r.inventory_id).eq("status", "divergencia"),
         supabase.from("count_items").select("financial_diff").eq("inventory_id", r.inventory_id),
       ]);
+      const prof = (profs ?? []).find((p) => p.id === r.requested_by);
       const totalDiff = (items ?? []).reduce((acc, i) => acc + Number(i.financial_diff ?? 0), 0);
       setReq({
         id: r.id, inventory_id: r.inventory_id, status: r.status,
         inventory_name: (r.inventory as { name?: string } | null)?.name ?? "",
         requester_name: prof?.full_name ?? "—",
+
         divergencias: divCount ?? 0, total_diff: totalDiff,
       });
       const { data: user } = await supabase.auth.getUser();

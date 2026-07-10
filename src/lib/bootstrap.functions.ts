@@ -28,7 +28,7 @@ export const bootstrapFirstAdmin = createServerFn({ method: "POST" })
       throw new Error("Sistema já configurado. Peça a um administrador para criar sua conta.");
     }
 
-    const authEmail = `${slug}@estoque.local`;
+    const authEmail = `${slug}@users.baixonoroeste.com.br`;
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email: authEmail,
       password: `${pin}#estq`,

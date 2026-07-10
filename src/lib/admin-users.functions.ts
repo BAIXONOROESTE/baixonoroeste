@@ -25,7 +25,7 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const authEmail = `${data.slug}@estoque.local`;
+    const authEmail = `${data.slug}@users.baixonoroeste.com.br`;
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email: authEmail,
       password: `${data.pin}#estq`,
