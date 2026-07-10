@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -30,6 +31,11 @@ import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lova
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -139,6 +145,7 @@ const LovableEmailQueueProcessRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contar': typeof AuthenticatedContarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contar': typeof AuthenticatedContarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contar': typeof AuthenticatedContarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/unsubscribe'
     | '/configuracoes'
     | '/contar'
     | '/dashboard'
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/unsubscribe'
     | '/configuracoes'
     | '/contar'
     | '/dashboard'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/unsubscribe'
     | '/_authenticated/configuracoes'
     | '/_authenticated/contar'
     | '/_authenticated/dashboard'
@@ -272,6 +284,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  UnsubscribeRoute: typeof UnsubscribeRoute
   AprovarTokenRoute: typeof AprovarTokenRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
@@ -282,6 +295,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -460,6 +480,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  UnsubscribeRoute: UnsubscribeRoute,
   AprovarTokenRoute: AprovarTokenRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
