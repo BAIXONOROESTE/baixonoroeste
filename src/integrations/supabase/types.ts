@@ -556,6 +556,30 @@ export type Database = {
       }
     }
     Views: {
+      profiles_public: {
+        Row: {
+          active: boolean | null
+          avatar_color: string | null
+          full_name: string | null
+          id: string | null
+          slug: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          avatar_color?: string | null
+          full_name?: string | null
+          id?: string | null
+          slug?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          avatar_color?: string | null
+          full_name?: string | null
+          id?: string | null
+          slug?: string | null
+        }
+        Relationships: []
+      }
       ranking_view: {
         Row: {
           acertos: number | null
