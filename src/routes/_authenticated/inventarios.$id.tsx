@@ -237,15 +237,17 @@ function InventoryDetail() {
   );
 }
 
-function CountForm({ product, inventoryId, currentItem, blind, onClose, onSaved, onOpenLoss }: {
+function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, onClose, onSaved, onOpenLoss }: {
   product: { id: string; name: string; code: string; family_name: string | null; unit: string | null; stock_omie: number; cost: number };
   inventoryId: string;
   currentItem: { id: string; quantity_counted: number; difference: number; financial_diff: number; status: string } | undefined;
   blind: boolean;
+  canRegisterLoss: boolean;
   onClose: () => void;
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
   onOpenLoss: (count_item_id?: string) => void;
 }) {
+
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
