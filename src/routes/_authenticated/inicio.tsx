@@ -52,9 +52,7 @@ function HomePage() {
         .order("created_at", { ascending: false });
       const rows = data ?? [];
       const ids = Array.from(new Set(rows.map((r) => r.requested_by)));
-      const { data: profs } = ids.length
-        ? await supabase.rpc("list_login_profiles")
-        : { data: [] as { id: string; full_name: string }[] };
+      const profs = ids.length ? await listLoginProfiles() : [];
       const byId = new Map((profs ?? []).filter((p) => ids.includes(p.id)).map((p) => [p.id, p.full_name] as const));
 
       return rows.map((r) => ({ ...r, requester_name: byId.get(r.requested_by) ?? "—" }));
