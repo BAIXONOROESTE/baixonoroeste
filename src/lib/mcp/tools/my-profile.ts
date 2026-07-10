@@ -11,6 +11,7 @@ export default defineTool({
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "Não autenticado." }], isError: true };
     const sb = supabaseForUser(ctx);
     const userId = ctx.getUserId();
+    if (!userId) return { content: [{ type: "text", text: "Token sem sub." }], isError: true };
     const [{ data: profile, error: pErr }, { data: roles, error: rErr }] = await Promise.all([
       sb.from("profiles").select("id, full_name, slug, avatar_color, active, email, phone").eq("id", userId).maybeSingle(),
       sb.from("user_roles").select("role").eq("user_id", userId),
