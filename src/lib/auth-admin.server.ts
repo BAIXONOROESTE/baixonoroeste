@@ -69,7 +69,8 @@ async function signServiceRoleJwt() {
     ["sign"],
   );
   const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "ES256", typ: "JWT", ...(jwk.kid ? { kid: jwk.kid } : {}) };
+  const kid = (jwk as JsonWebKey & { kid?: string }).kid;
+  const header = { alg: "ES256", typ: "JWT", ...(kid ? { kid } : {}) };
   const payload = {
     aud: "authenticated",
     exp: now + 5 * 60,
@@ -113,10 +114,10 @@ async function authAdminRequest<T>(path: string, init: RequestInit) {
   return (await response.json()) as T;
 }
 
-function extractUser(response: AuthAdminUserResponse) {
-  const user = "user" in response && response.user ? response.user : response;
-  if (!user.id) throw new Error("Usuário criado sem identificador.");
-  return user;
+function extractUser(response: AuthAdminUserResponse): AuthUser {
+  if ("id" in response && response.id) return response;
+  if ("user" in response && response.user?.id) return response.user;
+  throw new Error("Usuário criado sem identificador.");
 }
 
 export async function createAuthUserAsService(input: CreateAuthUserInput) {
