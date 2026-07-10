@@ -266,7 +266,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   canRegisterLoss: boolean;
   onClose: () => void;
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
-  onOpenLoss: (count_item_id?: string) => void;
+  onOpenLoss: (count_item_id: string | undefined, presetQuantity?: number) => void;
 }) {
 
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
