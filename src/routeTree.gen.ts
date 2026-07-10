@@ -32,6 +32,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicReportsLossesDailyRouteImport } from './routes/api/public/reports/losses-daily'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
@@ -153,6 +154,12 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicReportsLossesDailyRoute =
+  ApiPublicReportsLossesDailyRouteImport.update({
+    id: '/api/public/reports/losses-daily',
+    path: '/api/public/reports/losses-daily',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/inventarios/': typeof AuthenticatedInventariosIndexRoute
+  '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -196,6 +204,7 @@ export interface FileRoutesByTo {
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/inventarios': typeof AuthenticatedInventariosIndexRoute
+  '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -222,6 +231,7 @@ export interface FileRoutesById {
   '/_authenticated/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/inventarios/': typeof AuthenticatedInventariosIndexRoute
+  '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/inventarios/'
+    | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/inventarios'
+    | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -297,6 +309,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventarios/$id'
     | '/lovable/email/suppression'
     | '/_authenticated/inventarios/'
+    | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -312,6 +325,7 @@ export interface RootRouteChildren {
   AprovarTokenRoute: typeof AprovarTokenRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiPublicReportsLossesDailyRoute: typeof ApiPublicReportsLossesDailyRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -482,6 +496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/reports/losses-daily': {
+      id: '/api/public/reports/losses-daily'
+      path: '/api/public/reports/losses-daily'
+      fullPath: '/api/public/reports/losses-daily'
+      preLoaderRoute: typeof ApiPublicReportsLossesDailyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -524,6 +545,7 @@ const rootRouteChildren: RootRouteChildren = {
   AprovarTokenRoute: AprovarTokenRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiPublicReportsLossesDailyRoute: ApiPublicReportsLossesDailyRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
