@@ -14,4 +14,6 @@ export interface TemplateEntry {
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'count-completed': countCompletedTemplate,
+  'losses-daily': lossesDailyTemplate,
 }
+
