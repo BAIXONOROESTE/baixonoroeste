@@ -24,6 +24,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          reset_for_user_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           slug: string
           used_at: string | null
@@ -37,6 +38,7 @@ export type Database = {
           full_name: string
           id?: string
           phone?: string | null
+          reset_for_user_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           slug: string
           used_at?: string | null
@@ -50,6 +52,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          reset_for_user_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           slug?: string
           used_at?: string | null
