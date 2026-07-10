@@ -293,7 +293,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
     await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: data.id, produto: product.name, qtd: q, status } });
     toast.success("Contagem salva!");
     const diff = q - stock;
-    setRevealed({ diff, finDiff: diff * Number(product.cost), status });
+    setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: data.id });
     onSaved(data.id, status);
   }
 
