@@ -3,10 +3,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type Role = "admin" | "supervisor" | "contador";
 
-async function assertAdmin(supabase: NonNullable<Parameters<Parameters<typeof requireSupabaseAuth>[0] extends unknown ? never : never>[0]>["context"]["supabase"] | { rpc: (fn: "has_role", args: { _user_id: string; _role: "admin" }) => Promise<{ data: boolean | null; error: unknown }> }, userId: string) {
-  const { data: isAdmin, error } = await (supabase as { rpc: (fn: "has_role", args: { _user_id: string; _role: "admin" }) => Promise<{ data: boolean | null; error: unknown }> }).rpc("has_role", { _user_id: userId, _role: "admin" });
-  if (error || !isAdmin) throw new Error("Apenas administradores podem executar esta ação.");
-}
 
 /**
  * Cria um novo funcionário sem afetar a sessão do admin logado. Só admins.
