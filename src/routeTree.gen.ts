@@ -24,6 +24,7 @@ import { Route as AuthenticatedContarRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedInventariosIndexRouteImport } from './routes/_authenticated/inventarios.index'
 import { Route as AuthenticatedInventariosIdRouteImport } from './routes/_authenticated/inventarios.$id'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -102,6 +103,12 @@ const AuthenticatedInventariosIdRoute =
     path: '/inventarios/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/aprovar/$token': typeof AprovarTokenRoute
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/inventarios/': typeof AuthenticatedInventariosIndexRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -134,6 +142,7 @@ export interface FileRoutesByTo {
   '/aprovar/$token': typeof AprovarTokenRoute
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/inventarios': typeof AuthenticatedInventariosIndexRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,6 +161,7 @@ export interface FileRoutesById {
   '/aprovar/$token': typeof AprovarTokenRoute
   '/_authenticated/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/_authenticated/inventarios/': typeof AuthenticatedInventariosIndexRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/aprovar/$token'
     | '/inventarios/$id'
     | '/inventarios/'
+    | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/aprovar/$token'
     | '/inventarios/$id'
     | '/inventarios'
+    | '/lovable/email/queue/process'
   id:
     | '__root__'
     | '/'
@@ -203,6 +215,7 @@ export interface FileRouteTypes {
     | '/aprovar/$token'
     | '/_authenticated/inventarios/$id'
     | '/_authenticated/inventarios/'
+    | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +223,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   AprovarTokenRoute: typeof AprovarTokenRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -319,6 +333,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventariosIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -358,6 +379,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   AprovarTokenRoute: AprovarTokenRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
