@@ -81,7 +81,7 @@ function PinLogin({ profiles }: { profiles: { id: string | null; full_name: stri
                 className="rounded-xl border border-border p-3 flex flex-col items-center gap-2 hover:bg-muted transition"
               >
                 <div className="h-12 w-12 rounded-full bg-primary/20 grid place-items-center font-semibold text-primary">
-                  {p.full_name.slice(0, 2).toUpperCase()}
+                  {(p.full_name ?? "").slice(0, 2).toUpperCase()}
                 </div>
                 <span className="text-sm font-medium leading-tight text-center">{p.full_name}</span>
               </button>
@@ -93,7 +93,7 @@ function PinLogin({ profiles }: { profiles: { id: string | null; full_name: stri
           <button onClick={() => { setSelected(null); setPin(""); }} className="text-xs text-muted-foreground mb-3">← trocar usuário</button>
           <div className="text-center mb-4">
             <div className="h-14 w-14 rounded-full bg-primary/20 grid place-items-center mx-auto font-semibold text-primary text-lg">
-              {selectedProfile?.full_name.slice(0, 2).toUpperCase()}
+              {(selectedProfile?.full_name ?? "").slice(0, 2).toUpperCase()}
             </div>
             <div className="mt-2 font-medium">{selectedProfile?.full_name}</div>
           </div>
