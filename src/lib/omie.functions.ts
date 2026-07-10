@@ -248,5 +248,53 @@ export const closeInventory = createServerFn({ method: "POST" })
       user_id: userId, action: "inventario_fechado", entity: "inventory",
       details: { inventory_id: data.inventory_id, push_to_omie: data.push_to_omie },
     });
+
+    // Notificação por email do fechamento (fire-and-forget).
+    try {
+      const { sendTemplateEmail, loadNotificationRecipients } = await import("@/lib/email/notify.server");
+      const [{ data: inv }, { data: allItems }] = await Promise.all([
+        supabaseAdmin.from("inventories").select("name").eq("id", data.inventory_id).maybeSingle(),
+        supabaseAdmin
+          .from("count_items")
+          .select("quantity_before, quantity_counted, difference, financial_diff, status, product:products(name, code, unit)")
+          .eq("inventory_id", data.inventory_id),
+      ]);
+      const recipients = await loadNotificationRecipients();
+      if (recipients.length > 0) {
+        const items = (allItems ?? [])
+          .filter((i) => Number(i.difference) !== 0)
+          .map((i) => {
+            const expected = Number(i.quantity_before ?? 0);
+            const counted = Number(i.quantity_counted);
+            const d = Number(i.difference);
+            return {
+              product: (i.product as { name: string }).name,
+              code: (i.product as { code?: string }).code,
+              expected, counted, diff: d,
+              diff_pct: expected === 0 ? (counted === 0 ? 0 : 100) : (d / expected) * 100,
+              sent_to_omie: i.status === "atualizado",
+              unit: (i.product as { unit?: string | null }).unit ?? undefined,
+            };
+          });
+        const totalDiff = (allItems ?? []).reduce((a, i) => a + Number(i.financial_diff ?? 0), 0);
+        await sendTemplateEmail({
+          templateName: "count-completed",
+          recipients,
+          idempotencyKeyPrefix: `close-${data.inventory_id}`,
+          templateData: {
+            counter_name: "—",
+            inventory_name: inv?.name ?? "",
+            finished_at: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+            mode: "closure",
+            total_diff_value: totalDiff,
+            items,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[notify] fechamento falhou", e);
+    }
+
     return { ok: true };
   });
+
