@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { render } from '@react-email/render'
-import { createClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
 import { TEMPLATES } from '@/lib/email-templates/registry'
 
@@ -33,10 +32,9 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-        if (!supabaseUrl || !supabaseServiceKey) {
+        if (!supabaseServiceKey) {
           console.error('Missing required environment variables')
           return Response.json(
             { error: 'Server configuration error' },
@@ -52,7 +50,7 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
         }
 
         const token = authHeader.slice('Bearer '.length).trim()
-        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        const { supabaseAdmin: supabase } = await import('@/integrations/supabase/client.server')
         const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
         if (authError || !user) {

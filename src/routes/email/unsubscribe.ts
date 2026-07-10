@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
 
 function redactEmail(email: string | null | undefined): string {
@@ -12,10 +11,9 @@ export const Route = createFileRoute("/email/unsubscribe")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-        if (!supabaseUrl || !supabaseServiceKey) {
+        if (!supabaseServiceKey) {
           return Response.json({ error: 'Server configuration error' }, { status: 500 })
         }
 
@@ -27,7 +25,7 @@ export const Route = createFileRoute("/email/unsubscribe")({
           return Response.json({ error: 'Token is required' }, { status: 400 })
         }
 
-        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        const { supabaseAdmin: supabase } = await import('@/integrations/supabase/client.server')
 
         // Look up the token
         const { data: tokenRecord, error: lookupError } = await supabase
@@ -48,10 +46,9 @@ export const Route = createFileRoute("/email/unsubscribe")({
       },
 
       POST: async ({ request }) => {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-        if (!supabaseUrl || !supabaseServiceKey) {
+        if (!supabaseServiceKey) {
           return Response.json({ error: 'Server configuration error' }, { status: 500 })
         }
 
@@ -90,7 +87,7 @@ export const Route = createFileRoute("/email/unsubscribe")({
           return Response.json({ error: 'Token is required' }, { status: 400 })
         }
 
-        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        const { supabaseAdmin: supabase } = await import('@/integrations/supabase/client.server')
 
         // Look up the token
         const { data: tokenRecord, error: lookupError } = await supabase

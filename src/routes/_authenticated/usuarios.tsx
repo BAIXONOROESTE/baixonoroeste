@@ -41,11 +41,7 @@ function UsuariosPage() {
       if (isSup && !email.trim()) throw new Error("Email obrigatório para supervisor/admin (usado no reset de PIN e notificações).");
       if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new Error("Email inválido.");
       const slug = slugify(name);
-      const res = await createUserFn({ data: { fullName: name.trim(), slug, pin, role, phone: phone.trim() || undefined } });
-      if (email.trim()) {
-        const { error } = await supabase.from("profiles").update({ email: email.trim().toLowerCase() }).eq("id", res.user_id);
-        if (error) throw new Error(`Usuário criado, mas falhou ao gravar email: ${error.message}`);
-      }
+      await createUserFn({ data: { fullName: name.trim(), slug, pin, role, phone: phone.trim() || undefined, email: email.trim() || undefined } });
     },
     onSuccess: () => {
       toast.success("Usuário criado.");

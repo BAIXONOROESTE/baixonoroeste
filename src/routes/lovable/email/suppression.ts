@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
 import { WebhookError, verifyWebhookRequest } from '@lovable.dev/webhooks-js'
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -56,10 +55,9 @@ export const Route = createFileRoute("/lovable/email/suppression")({
     handlers: {
       POST: async ({ request }) => {
         const apiKey = process.env.LOVABLE_API_KEY
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-        if (!apiKey || !supabaseUrl || !supabaseServiceKey) {
+        if (!apiKey || !supabaseServiceKey) {
           console.error('Missing required environment variables')
           return Response.json({ error: 'Server configuration error' }, { status: 500 })
         }
@@ -98,7 +96,8 @@ export const Route = createFileRoute("/lovable/email/suppression")({
           return Response.json({ error: 'Internal error' }, { status: 500 })
         }
 
-        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        const { supabaseAdmin } = await import('@/integrations/supabase/client.server')
+        const supabase = supabaseAdmin as any
         const normalizedEmail = payload.email.toLowerCase()
 
         // 1. Upsert to suppressed_emails (idempotent — safe for retries)
