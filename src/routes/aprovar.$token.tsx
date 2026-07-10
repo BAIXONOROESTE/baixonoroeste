@@ -34,8 +34,8 @@ function AprovarPage() {
         .select("id, inventory_id, status, requested_by, inventory:inventories(name)")
         .eq("approval_token", token).maybeSingle();
       if (!r) { setLoading(false); return; }
-      const [{ data: profs }, { count: divCount }, { data: items }] = await Promise.all([
-        supabase.rpc("list_login_profiles"),
+      const [profs, { count: divCount }, { data: items }] = await Promise.all([
+        listLoginProfiles(),
         supabase.from("count_items").select("id", { count: "exact", head: true })
           .eq("inventory_id", r.inventory_id).eq("status", "divergencia"),
         supabase.from("count_items").select("financial_diff").eq("inventory_id", r.inventory_id),
