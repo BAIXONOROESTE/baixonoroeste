@@ -11,7 +11,8 @@ export const requestCloseInventory = createServerFn({ method: "POST" })
   .inputValidator((d: { inventory_id: string; push_to_omie: boolean }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+
 
     // Já existe pedido pendente para este inventário? Reaproveita.
     const { data: existing } = await supabase
