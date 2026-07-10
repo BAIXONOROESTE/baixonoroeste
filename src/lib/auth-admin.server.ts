@@ -40,7 +40,50 @@ export async function createAuthUserAsService(input: CreateAuthUserInput) {
 
 export async function updateAuthUserPasswordAsService(userId: string, password: string) {
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
-  if (error) throw new Error(error.message);
+  if (!error) return;
+  if (!isAdminKeyCompatibilityError(error.message)) throw new Error(error.message);
+
+  const { data: profile, error: profileErr } = await supabaseAdmin
+    .from("profiles")
+    .select("full_name, slug, avatar_color, phone, email")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileErr) throw new Error(profileErr.message);
+  if (!profile?.slug || !profile.full_name) throw new Error("Perfil do usuário não encontrado.");
+
+  const { data: roles, error: rolesErr } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  if (rolesErr) throw new Error(rolesErr.message);
+  const role = roles?.some((r) => r.role === "admin") ? "admin" : roles?.some((r) => r.role === "supervisor") ? "supervisor" : "contador";
+  const resetEmail = `${profile.slug}.reset.${crypto.randomUUID()}@users.baixonoroeste.com.br`;
+
+  const { error: inviteErr } = await supabaseAdmin.from("auth_signup_invites").insert({
+    auth_email: resetEmail,
+    full_name: profile.full_name,
+    slug: profile.slug,
+    role,
+    avatar_color: profile.avatar_color ?? "amber",
+    phone: profile.phone,
+    contact_email: profile.email,
+    reset_for_user_id: userId,
+  });
+  if (inviteErr) throw new Error(`Falha ao preparar reset de PIN: ${inviteErr.message}`);
+
+  const publicAuth = createServerAuthClient();
+  const signup = await publicAuth.auth.signUp({
+    email: resetEmail,
+    password,
+    options: {
+      data: {
+        full_name: profile.full_name,
+        slug: profile.slug,
+        avatar_color: profile.avatar_color ?? "amber",
+      },
+    },
+  });
+  if (signup.error) throw new Error(signup.error.message);
 }
 
 function isAdminKeyCompatibilityError(message: string) {
