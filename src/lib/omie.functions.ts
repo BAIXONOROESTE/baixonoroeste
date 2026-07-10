@@ -139,6 +139,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
       codigo_produto: Number(item.product.omie_id),
       quantidade: diff,
       observacao: `Contagem Estoque App - inventário ${item.inventory_id}`,
+      valor_unitario: Number(item.unit_cost) || 0,
     });
 
     await supabaseAdmin
@@ -183,6 +184,7 @@ export const closeInventory = createServerFn({ method: "POST" })
             codigo_produto: Number(item.product.omie_id),
             quantidade: diff,
             observacao: `Fechamento inventário ${data.inventory_id}`,
+            valor_unitario: Number(item.unit_cost) || 0,
           });
           await supabaseAdmin
             .from("count_items")

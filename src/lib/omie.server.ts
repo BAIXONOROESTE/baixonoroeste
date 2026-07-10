@@ -138,11 +138,15 @@ export async function ajustarEstoqueOmie(params: {
   codigo_produto: number;
   quantidade: number;
   observacao: string;
+  valor_unitario?: number;
 }): Promise<unknown> {
   const hoje = new Date().toLocaleDateString("pt-BR"); // dd/mm/aaaa
   const q = Number(params.quantidade);
-  // tipo: ENT (entrada) para diferença positiva, SAI (saída) para negativa.
   const tipo = q >= 0 ? "ENT" : "SAI";
+  // A Omie exige "valor" (unitário) > 0 no IncluirAjusteEstoque.
+  // Se não vier custo do produto, usa mínimo simbólico para não travar o ajuste.
+  const valorUnit = Number(params.valor_unitario);
+  const valor = Number.isFinite(valorUnit) && valorUnit > 0 ? valorUnit : 0.01;
   return omieRequest({
     endpoint: "estoque/ajuste/",
     call: "IncluirAjusteEstoque",
@@ -152,7 +156,7 @@ export async function ajustarEstoqueOmie(params: {
       data: hoje,
       tipo,
       quan: Math.abs(q),
-      valor: 0,
+      valor,
       obs: params.observacao,
       origem: "AJU",
       motivo: "INV",
