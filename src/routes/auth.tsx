@@ -9,6 +9,7 @@ import { Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { bootstrapFirstAdmin } from "@/lib/bootstrap.functions";
+import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
