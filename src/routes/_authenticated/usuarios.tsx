@@ -80,17 +80,23 @@ function UsuariosPage() {
   );
 }
 
-function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: string; phone: string | null; active: boolean; roles: string[] }; onChanged: () => void }) {
+function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: string; phone: string | null; email: string | null; active: boolean; roles: string[] }; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const [phone, setPhone] = useState(profile.phone ?? "");
+  const [email, setEmail] = useState(profile.email ?? "");
   const [resetting, setResetting] = useState(false);
   const [newPin, setNewPin] = useState("");
   const resetFn = useServerFn(resetUserPinAsAdmin);
 
-  async function savePhone() {
-    const { error } = await supabase.from("profiles").update({ phone: phone.trim() || null }).eq("id", profile.id);
+  async function saveContact() {
+    const emailTrim = email.trim().toLowerCase();
+    if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) { toast.error("Email inválido."); return; }
+    const { error } = await supabase.from("profiles").update({
+      phone: phone.trim() || null,
+      email: emailTrim || null,
+    }).eq("id", profile.id);
     if (error) { toast.error(error.message); return; }
-    toast.success("Telefone atualizado.");
+    toast.success("Contato atualizado.");
     setEditing(false);
     onChanged();
   }
@@ -112,7 +118,10 @@ function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: 
         <div className="min-w-0 flex-1">
           <div className="font-medium truncate">{profile.full_name}</div>
           <div className="text-xs text-muted-foreground truncate">
-            {profile.roles.join(", ") || "sem papel"} · {profile.active ? "ativo" : "inativo"} · {profile.phone ?? "sem WhatsApp"}
+            {profile.roles.join(", ") || "sem papel"} · {profile.active ? "ativo" : "inativo"}
+          </div>
+          <div className="text-xs text-muted-foreground truncate">
+            ✉ {profile.email ?? "sem email"} · ☎ {profile.phone ?? "—"}
           </div>
         </div>
         <div className="flex gap-1 flex-shrink-0">
@@ -125,9 +134,12 @@ function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: 
         </div>
       </div>
       {editing && (
-        <div className="flex gap-2">
-          <Input inputMode="tel" placeholder="+5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <Button size="sm" onClick={savePhone}>Salvar</Button>
+        <div className="space-y-2">
+          <Input type="email" placeholder="Email para reset/notificação" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <div className="flex gap-2">
+            <Input inputMode="tel" placeholder="+5511999999999" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <Button size="sm" onClick={saveContact}>Salvar</Button>
+          </div>
         </div>
       )}
       {resetting && (
@@ -139,3 +151,4 @@ function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: 
     </div>
   );
 }
+
