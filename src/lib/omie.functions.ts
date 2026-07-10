@@ -114,7 +114,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
 
     const { data: item, error } = await supabase
       .from("count_items")
-      .select("*, product:products(omie_id, name), inventory:inventories(status)")
+      .select("*, product:products(omie_id, name, code, unit), inventory:inventories(status, name)")
       .eq("id", data.count_item_id)
       .single();
     if (error || !item) throw new Error("Contagem não encontrada.");
@@ -130,22 +130,22 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
 
 
     const diff = Number(item.difference);
+    let sentToOmie = false;
     if (diff === 0) {
       await supabaseAdmin.from("count_items").update({ status: "correto" }).eq("id", item.id);
-      return { ok: true, skipped: true };
+    } else {
+      const resp = await ajustarEstoqueOmie({
+        codigo_produto: Number(item.product.omie_id),
+        quantidade: diff,
+        observacao: `Contagem Estoque App - inventário ${item.inventory_id}`,
+        valor_unitario: Number(item.unit_cost) || 0,
+      });
+      await supabaseAdmin
+        .from("count_items")
+        .update({ status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as never })
+        .eq("id", item.id);
+      sentToOmie = true;
     }
-
-    const resp = await ajustarEstoqueOmie({
-      codigo_produto: Number(item.product.omie_id),
-      quantidade: diff,
-      observacao: `Contagem Estoque App - inventário ${item.inventory_id}`,
-      valor_unitario: Number(item.unit_cost) || 0,
-    });
-
-    await supabaseAdmin
-      .from("count_items")
-      .update({ status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as never })
-      .eq("id", item.id);
 
     await supabaseAdmin.from("logs").insert({
       user_id: userId,
@@ -153,8 +153,48 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
       entity: "count_item",
       details: { count_item_id: item.id, produto: item.product.name, diferenca: diff },
     });
-    return { ok: true };
+
+    // Notificação por email (não bloqueia a resposta em caso de erro).
+    try {
+      const { sendTemplateEmail, loadNotificationRecipients } = await import("@/lib/email/notify.server");
+      const { data: counter } = await supabaseAdmin
+        .from("profiles").select("email, full_name").eq("id", item.counted_by).maybeSingle();
+      const recipients = await loadNotificationRecipients(counter?.email ? [counter.email] : []);
+      if (recipients.length > 0) {
+        const expected = Number(item.quantity_before ?? 0);
+        const counted = Number(item.quantity_counted);
+
+        const diffPct = expected === 0 ? (counted === 0 ? 0 : 100) : (diff / expected) * 100;
+        await sendTemplateEmail({
+          templateName: "count-completed",
+          recipients,
+          idempotencyKeyPrefix: `count-${item.id}`,
+          templateData: {
+            counter_name: counter?.full_name ?? "—",
+            inventory_name: (item as { inventory?: { name?: string } }).inventory?.name ?? "",
+            finished_at: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+            mode: "individual",
+            total_diff_value: Number(item.financial_diff ?? 0),
+            items: [{
+              product: item.product.name,
+              code: item.product.code ?? undefined,
+              expected,
+              counted,
+              diff,
+              diff_pct: diffPct,
+              sent_to_omie: sentToOmie,
+              unit: item.product.unit ?? undefined,
+            }],
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[notify] contagem individual falhou", e);
+    }
+
+    return { ok: true, skipped: diff === 0 };
   });
+
 
 export const closeInventory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -208,5 +248,53 @@ export const closeInventory = createServerFn({ method: "POST" })
       user_id: userId, action: "inventario_fechado", entity: "inventory",
       details: { inventory_id: data.inventory_id, push_to_omie: data.push_to_omie },
     });
+
+    // Notificação por email do fechamento (fire-and-forget).
+    try {
+      const { sendTemplateEmail, loadNotificationRecipients } = await import("@/lib/email/notify.server");
+      const [{ data: inv }, { data: allItems }] = await Promise.all([
+        supabaseAdmin.from("inventories").select("name").eq("id", data.inventory_id).maybeSingle(),
+        supabaseAdmin
+          .from("count_items")
+          .select("quantity_before, quantity_counted, difference, financial_diff, status, product:products(name, code, unit)")
+          .eq("inventory_id", data.inventory_id),
+      ]);
+      const recipients = await loadNotificationRecipients();
+      if (recipients.length > 0) {
+        const items = (allItems ?? [])
+          .filter((i) => Number(i.difference) !== 0)
+          .map((i) => {
+            const expected = Number(i.quantity_before ?? 0);
+            const counted = Number(i.quantity_counted);
+            const d = Number(i.difference);
+            return {
+              product: (i.product as { name: string }).name,
+              code: (i.product as { code?: string }).code,
+              expected, counted, diff: d,
+              diff_pct: expected === 0 ? (counted === 0 ? 0 : 100) : (d / expected) * 100,
+              sent_to_omie: i.status === "atualizado",
+              unit: (i.product as { unit?: string | null }).unit ?? undefined,
+            };
+          });
+        const totalDiff = (allItems ?? []).reduce((a, i) => a + Number(i.financial_diff ?? 0), 0);
+        await sendTemplateEmail({
+          templateName: "count-completed",
+          recipients,
+          idempotencyKeyPrefix: `close-${data.inventory_id}`,
+          templateData: {
+            counter_name: "—",
+            inventory_name: inv?.name ?? "",
+            finished_at: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+            mode: "closure",
+            total_diff_value: totalDiff,
+            items,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[notify] fechamento falhou", e);
+    }
+
     return { ok: true };
   });
+
