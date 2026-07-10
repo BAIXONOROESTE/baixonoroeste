@@ -212,7 +212,7 @@ function InventoryDetail() {
             }
           }}
 
-          onOpenLoss={(count_item_id) => setLossFor({ product_id: selected.id, count_item_id })}
+          onOpenLoss={(count_item_id, presetQuantity) => setLossFor({ product_id: selected.id, count_item_id, presetQuantity, productName: selected.name })}
         />
 
       )}
