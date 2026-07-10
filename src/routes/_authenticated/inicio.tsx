@@ -89,6 +89,35 @@ function HomePage() {
         </div>
       )}
 
+      {isSup && pendingCloses && pendingCloses.length > 0 && (
+        <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-warning" />
+            <div className="text-sm font-medium">Pedidos de fechamento pendentes ({pendingCloses.length})</div>
+          </div>
+          <ul className="space-y-2">
+            {pendingCloses.map((r) => {
+              const inv = r.inventory as { name?: string } | null;
+              const req = r.requester as { full_name?: string } | null;
+              return (
+                <li key={r.id} className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2">
+                  <div className="min-w-0">
+                    <div className="text-sm truncate">{inv?.name ?? "Inventário"}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {req?.full_name ?? "—"} · {fmtDateTime(r.created_at)}
+                    </div>
+                  </div>
+                  <Link to="/aprovar/$token" params={{ token: r.approval_token }}>
+                    <Button size="sm" variant="outline">Abrir</Button>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+
       <div className="grid grid-cols-2 gap-3">
         {visible.map((t) => {
           const Icon = t.icon;
