@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw } from "lucide-react";
+import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
+
 
 export const Route = createFileRoute("/_authenticated/inicio")({ component: HomePage });
 
@@ -28,6 +29,9 @@ function HomePage() {
   const qc = useQueryClient();
   const syncFn = useServerFn(syncFamiliesAndProducts);
 
+  const role = profile?.role ?? "contador";
+  const isSup = role === "admin" || role === "supervisor";
+
   const { data: lastSync } = useQuery({
     queryKey: ["last-sync"],
     queryFn: async () => {
@@ -35,6 +39,28 @@ function HomePage() {
       return data;
     },
   });
+
+  const { data: pendingCloses } = useQuery({
+    queryKey: ["pending-close-requests"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("close_requests")
+        .select("id, approval_token, created_at, requested_by, inventory:inventories(name)")
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false });
+      const rows = data ?? [];
+      const ids = Array.from(new Set(rows.map((r) => r.requested_by)));
+      const { data: profs } = ids.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", ids)
+        : { data: [] as { id: string; full_name: string }[] };
+      const byId = new Map((profs ?? []).map((p) => [p.id, p.full_name] as const));
+      return rows.map((r) => ({ ...r, requester_name: byId.get(r.requested_by) ?? "—" }));
+    },
+    refetchOnWindowFocus: true,
+  });
+
+
 
   const sync = useMutation({
     mutationFn: () => syncFn(),
@@ -45,8 +71,8 @@ function HomePage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha na sincronização."),
   });
 
-  const role = profile?.role ?? "contador";
   const visible = tiles.filter((t) => (t.roles as readonly string[]).includes(role));
+
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 space-y-4">
@@ -69,6 +95,35 @@ function HomePage() {
           </div>
         </div>
       )}
+
+      {isSup && pendingCloses && pendingCloses.length > 0 && (
+        <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-warning" />
+            <div className="text-sm font-medium">Pedidos de fechamento pendentes ({pendingCloses.length})</div>
+          </div>
+          <ul className="space-y-2">
+            {pendingCloses.map((r) => {
+              const inv = r.inventory as { name?: string } | null;
+              const req = { full_name: r.requester_name };
+              return (
+                <li key={r.id} className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2">
+                  <div className="min-w-0">
+                    <div className="text-sm truncate">{inv?.name ?? "Inventário"}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {req?.full_name ?? "—"} · {fmtDateTime(r.created_at)}
+                    </div>
+                  </div>
+                  <Link to="/aprovar/$token" params={{ token: r.approval_token }}>
+                    <Button size="sm" variant="outline">Abrir</Button>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
 
       <div className="grid grid-cols-2 gap-3">
         {visible.map((t) => {
