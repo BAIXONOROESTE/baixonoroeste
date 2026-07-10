@@ -24,7 +24,7 @@ function InventoryDetail() {
   const [q, setQ] = useState("");
   const [scanning, setScanning] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
-  const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string } | null>(null);
+  const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string; presetQuantity?: number; productName?: string } | null>(null);
   const navigate = useNavigate();
   const closeFn = useServerFn(closeInventory);
   const requestCloseFn = useServerFn(requestCloseInventory);
