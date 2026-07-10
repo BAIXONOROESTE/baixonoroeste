@@ -277,7 +277,7 @@ function CountForm({ product, inventoryId, currentItem, onClose, onSaved, onOpen
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-lg bg-muted p-2">
-            <div className="text-xs text-muted-foreground">Estoque Omie</div>
+            <div className="text-xs text-muted-foreground">Estoque atual</div>
             <div className="font-semibold">{fmtNumber(product.stock_omie)} {product.unit ?? ""}</div>
           </div>
           <div className="rounded-lg bg-muted p-2">

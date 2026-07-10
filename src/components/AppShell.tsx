@@ -49,8 +49,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-lg font-display font-semibold text-primary">📦 Estoque</span>
-          <span className="text-sm font-display text-muted-foreground">Omie</span>
+          <span className="text-lg font-display font-semibold text-primary">📦 Baixo Noroeste</span>
+          <span className="text-sm font-display text-muted-foreground">Inventário</span>
         </div>
         <div className="h-9 w-9 rounded-full bg-primary/20 grid place-items-center text-xs font-semibold text-primary">
           {profile?.full_name?.slice(0, 2).toUpperCase() ?? "…"}
@@ -87,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 h-14 border-b border-sidebar-border">
-              <span className="font-display font-semibold text-primary">📦 Estoque Omie</span>
+              <span className="font-display font-semibold text-primary">📦 Baixo Noroeste</span>
               <button onClick={() => setOpen(false)} className="rounded p-1 hover:bg-sidebar-accent"><X className="h-5 w-5" /></button>
             </div>
             <div className="px-4 py-4 border-b border-sidebar-border">

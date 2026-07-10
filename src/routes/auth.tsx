@@ -38,8 +38,8 @@ function AuthPage() {
           <div className="h-16 w-16 rounded-2xl bg-primary/15 grid place-items-center mb-3 glow-primary">
             <Package className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-display font-semibold">Estoque Omie</h1>
-          <p className="text-sm text-muted-foreground">Contagem de estoque</p>
+          <h1 className="text-2xl font-display font-semibold">Baixo Noroeste</h1>
+          <p className="text-sm text-muted-foreground">Inventário</p>
         </div>
         {isFirstUse ? <FirstAdmin onDone={() => refetch()} /> : <PinLogin profiles={profiles ?? []} />}
       </div>
@@ -55,7 +55,7 @@ function PinLogin({ profiles }: { profiles: { id: string; full_name: string; slu
 
   async function submit() {
     if (!selected) return;
-    if (pin.length < 4) { toast.error("Digite o PIN completo."); return; }
+    if (pin.length < 6) { toast.error("O PIN tem no mínimo 6 dígitos."); return; }
     setLoading(true);
     const { error } = await signInWithPin(selected, pin);
     setLoading(false);
@@ -132,7 +132,7 @@ function FirstAdmin({ onDone }: { onDone: () => void }) {
   const [loading, setLoading] = useState(false);
 
   async function submit() {
-    if (!name.trim() || pin.length < 4) { toast.error("Nome e PIN (mín. 4 dígitos) obrigatórios."); return; }
+    if (!name.trim() || pin.length < 6) { toast.error("Nome e PIN (6 a 8 dígitos) obrigatórios."); return; }
     setLoading(true);
     const slug = slugify(name);
     const { error } = await signUpWithPin({ fullName: name.trim(), slug, pin });
@@ -154,7 +154,7 @@ function FirstAdmin({ onDone }: { onDone: () => void }) {
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: João Silva" />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">PIN (4 a 8 dígitos)</label>
+          <label className="text-xs text-muted-foreground">PIN (6 a 8 dígitos)</label>
           <Input type="password" inputMode="numeric" maxLength={8} value={pin}
                  onChange={(e) => setPin(e.target.value.replace(/\D/g,""))} className="text-center text-xl tracking-widest" />
         </div>
