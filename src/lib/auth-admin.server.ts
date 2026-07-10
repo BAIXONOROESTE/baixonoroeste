@@ -33,10 +33,19 @@ export async function createAuthUserAsService(input: CreateAuthUserInput) {
 }
 
 export async function updateAuthUserPasswordAsService(userId: string, password: string) {
+  if (usesNewOpaqueSecretKey()) {
+    await updateAuthUserPasswordViaInviteSignup(userId, password);
+    return;
+  }
+
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
   if (!error) return;
   if (!isAdminKeyCompatibilityError(error.message)) throw new Error(error.message);
 
+  await updateAuthUserPasswordViaInviteSignup(userId, password);
+}
+
+async function updateAuthUserPasswordViaInviteSignup(userId: string, password: string) {
   const { data: profile, error: profileErr } = await supabaseAdmin
     .from("profiles")
     .select("full_name, slug, avatar_color, phone, email")
@@ -77,7 +86,7 @@ export async function updateAuthUserPasswordAsService(userId: string, password: 
       },
     },
   });
-  if (signup.error) throw new Error(signup.error.message);
+  if (signup.error) throw new Error(formatAuthError(signup.error));
 }
 
 function isAdminKeyCompatibilityError(message: string) {
