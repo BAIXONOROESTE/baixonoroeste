@@ -272,7 +272,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
-  const [revealed, setRevealed] = useState<null | { diff: number; finDiff: number; status: string }>(null);
+  const [revealed, setRevealed] = useState<null | { diff: number; finDiff: number; status: string; itemId: string }>(null);
   // Só escondemos estoque/diferença enquanto o item ainda NÃO foi salvo nesta sessão.
   const hideStock = blind && !currentItem && !revealed;
 
