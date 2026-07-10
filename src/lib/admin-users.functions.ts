@@ -49,8 +49,9 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
 
     // Sobrescrever o slug do profile para bater com o email interno
     // (o trigger handle_new_user pode ter usado outro valor).
-    const profileUpdate: { slug: string; phone?: string } = { slug: data.slug };
+    const profileUpdate: { slug: string; phone?: string; email?: string } = { slug: data.slug };
     if (data.phone && data.phone.trim()) profileUpdate.phone = data.phone.trim();
+    if (data.email && data.email.trim()) profileUpdate.email = data.email.trim().toLowerCase();
     await supabase.from("profiles").update(profileUpdate).eq("id", newUserId);
 
     return { ok: true, user_id: newUserId };
