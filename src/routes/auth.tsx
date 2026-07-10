@@ -13,16 +13,23 @@ import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   component: AuthPage,
 });
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/inicio", replace: true });
+      if (data.user) {
+        if (next) window.location.assign(next);
+        else navigate({ to: "/inicio", replace: true });
+      }
     });
-  }, [navigate]);
+  }, [navigate, next]);
 
   const { data: profiles, isLoading, refetch } = useQuery({
     queryKey: ["auth-profiles"],
@@ -41,13 +48,13 @@ function AuthPage() {
           <h1 className="text-2xl font-display font-semibold">Baixo Noroeste</h1>
           <p className="text-sm text-muted-foreground">Inventário</p>
         </div>
-        {isFirstUse ? <FirstAdmin onDone={() => refetch()} /> : <PinLogin profiles={profiles ?? []} />}
+        {isFirstUse ? <FirstAdmin onDone={() => refetch()} next={next} /> : <PinLogin profiles={profiles ?? []} next={next} />}
       </div>
     </div>
   );
 }
 
-function PinLogin({ profiles }: { profiles: { id: string | null; full_name: string | null; slug: string | null; avatar_color: string | null }[] }) {
+function PinLogin({ profiles, next }: { profiles: { id: string | null; full_name: string | null; slug: string | null; avatar_color: string | null }[]; next?: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,7 +68,8 @@ function PinLogin({ profiles }: { profiles: { id: string | null; full_name: stri
     setLoading(false);
     if (error) { toast.error("PIN incorreto."); setPin(""); return; }
     await supabase.from("logs").insert({ action: "login", entity: "auth", user_id: (await supabase.auth.getUser()).data.user?.id });
-    navigate({ to: "/inicio", replace: true });
+    if (next) window.location.assign(next);
+    else navigate({ to: "/inicio", replace: true });
   }
 
   const selectedProfile = profiles.find((p) => p.slug === selected);
@@ -126,7 +134,7 @@ function PinPad({ onKey }: { onKey: (k: string) => void }) {
   );
 }
 
-function FirstAdmin({ onDone }: { onDone: () => void }) {
+function FirstAdmin({ onDone, next }: { onDone: () => void; next?: string }) {
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
@@ -146,6 +154,8 @@ function FirstAdmin({ onDone }: { onDone: () => void }) {
       if (error) {
         toast.message("Faça login com seu PIN para continuar.");
         onDone();
+      } else if (next) {
+        window.location.assign(next);
       } else {
         navigate({ to: "/inicio", replace: true });
       }

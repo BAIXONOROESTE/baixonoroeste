@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://lbfsfpxicubvcbjojtkr.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "baixo-noroeste-inventario",
+      "version": "0.1.0",
+      "title": "Baixo Noroeste — Inventário"
+    },
+    "tools": [
+      {
+        "name": "my_profile",
+        "title": "Meu perfil",
+        "description": "Retorna o perfil do usuário autenticado (nome, slug e papéis).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_inventories",
+        "title": "Listar inventários",
+        "description": "Lista inventários (aberto/fechado) com nome, tipo, status e datas. Respeita o papel do usuário.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "aberto",
+                "fechado",
+                "todos"
+              ],
+              "default": "todos",
+              "description": "Filtrar por status."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_inventory",
+        "title": "Detalhes do inventário",
+        "description": "Retorna um inventário com seus itens contados (produto, quantidade contada, diferença, status).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "inventory_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "ID do inventário."
+            }
+          },
+          "required": [
+            "inventory_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_products",
+        "title": "Buscar produtos",
+        "description": "Busca produtos ativos por nome, código ou código de barras.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Texto a procurar (nome, código ou código de barras)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_losses",
+        "title": "Listar perdas & quebras",
+        "description": "Lista perdas em uma janela de datas com produto, motivo, quantidade e quem lançou.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "Data inicial ISO (ex: 2026-07-01) ou 2026-07-01T00:00:00Z."
+            },
+            "to": {
+              "type": "string",
+              "description": "Data final ISO exclusiva."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
