@@ -46,13 +46,20 @@ function HomePage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("close_requests")
-        .select("id, approval_token, created_at, inventory:inventories(name), requester:profiles!close_requests_requested_by_fkey(full_name)")
+        .select("id, approval_token, created_at, requested_by, inventory:inventories(name)")
         .eq("status", "pendente")
         .order("created_at", { ascending: false });
-      return data ?? [];
+      const rows = data ?? [];
+      const ids = Array.from(new Set(rows.map((r) => r.requested_by)));
+      const { data: profs } = ids.length
+        ? await supabase.from("profiles").select("id, full_name").in("id", ids)
+        : { data: [] as { id: string; full_name: string }[] };
+      const byId = new Map((profs ?? []).map((p) => [p.id, p.full_name] as const));
+      return rows.map((r) => ({ ...r, requester_name: byId.get(r.requested_by) ?? "—" }));
     },
     refetchOnWindowFocus: true,
   });
+
 
 
   const sync = useMutation({
