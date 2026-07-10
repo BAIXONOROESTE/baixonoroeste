@@ -161,8 +161,9 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
         .from("profiles").select("email, full_name").eq("id", item.counted_by).maybeSingle();
       const recipients = await loadNotificationRecipients(counter?.email ? [counter.email] : []);
       if (recipients.length > 0) {
-        const expected = Number(item.stock_omie_snapshot ?? 0);
-        const counted = Number(item.counted_qty);
+        const expected = Number(item.quantity_before ?? 0);
+        const counted = Number(item.quantity_counted);
+
         const diffPct = expected === 0 ? (counted === 0 ? 0 : 100) : (diff / expected) * 100;
         await sendTemplateEmail({
           templateName: "count-completed",
