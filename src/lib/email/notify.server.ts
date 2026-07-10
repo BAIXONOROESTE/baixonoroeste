@@ -1,8 +1,8 @@
-// Server-only helper para disparar emails transacionais do sistema para
-// múltiplos destinatários (admins/supervisores + contador). Usa supabaseAdmin
-// para render + enqueue direto na fila `transactional_emails`, replicando o
-// que a rota /lovable/email/transactional/send faz — porém sem exigir JWT
-// (pois é chamado de dentro de server functions já autorizadas).
+// Server-only helper para disparar emails transacionais do sistema.
+// Usa supabaseAdmin (service_role) para renderizar e enfileirar direto na
+// fila `transactional_emails`. As tabelas de email ainda não estão no schema
+// gerado (`Database` types) — usamos casts pontuais para evitar erros de TS.
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from 'react'
 import { render } from '@react-email/render'
 import { TEMPLATES } from '@/lib/email-templates/registry'
@@ -19,22 +19,23 @@ function generateToken(): string {
 }
 
 async function getOrCreateUnsubToken(email: string): Promise<string> {
-  const { data: existing } = await supabaseAdmin
+  const admin = supabaseAdmin as any
+  const { data: existing } = await admin
     .from('email_unsubscribe_tokens')
     .select('token, used_at')
     .eq('email', email)
     .maybeSingle()
-  if (existing && !existing.used_at) return existing.token
+  if (existing && !existing.used_at) return existing.token as string
   const token = generateToken()
-  await supabaseAdmin
+  await admin
     .from('email_unsubscribe_tokens')
     .upsert({ token, email }, { onConflict: 'email', ignoreDuplicates: true })
-  const { data: stored } = await supabaseAdmin
+  const { data: stored } = await admin
     .from('email_unsubscribe_tokens')
     .select('token')
     .eq('email', email)
     .maybeSingle()
-  return stored?.token ?? token
+  return (stored?.token as string | undefined) ?? token
 }
 
 export async function sendTemplateEmail(opts: {
@@ -47,7 +48,9 @@ export async function sendTemplateEmail(opts: {
   const tpl = TEMPLATES[opts.templateName]
   if (!tpl) throw new Error(`Template não registrado: ${opts.templateName}`)
 
-  const unique = Array.from(new Set(opts.recipients.map((e) => e.trim().toLowerCase()).filter(Boolean)))
+  const unique = Array.from(new Set(
+    opts.recipients.map((e) => (e ?? '').trim().toLowerCase()).filter(Boolean),
+  ))
   let enqueued = 0
   let skipped = 0
 
@@ -56,11 +59,11 @@ export async function sendTemplateEmail(opts: {
   const text = await render(element, { plainText: true })
   const subject = typeof tpl.subject === 'function' ? tpl.subject(opts.templateData) : tpl.subject
   const fromName = opts.fromName ?? SITE_NAME
+  const admin = supabaseAdmin as any
 
   for (const email of unique) {
     try {
-      // suppression
-      const { data: sup } = await supabaseAdmin
+      const { data: sup } = await admin
         .from('suppressed_emails').select('id').eq('email', email).maybeSingle()
       if (sup) { skipped++; continue }
 
@@ -68,11 +71,14 @@ export async function sendTemplateEmail(opts: {
       const idempotency = `${opts.idempotencyKeyPrefix ?? opts.templateName}-${email}-${messageId}`
       const unsubscribeToken = await getOrCreateUnsubToken(email)
 
-      await supabaseAdmin.from('email_send_log').insert({
-        message_id: messageId, template_name: opts.templateName, recipient_email: email, status: 'pending',
+      await admin.from('email_send_log').insert({
+        message_id: messageId,
+        template_name: opts.templateName,
+        recipient_email: email,
+        status: 'pending',
       })
 
-      const { error: enqErr } = await supabaseAdmin.rpc('enqueue_email', {
+      const { error: enqErr } = await admin.rpc('enqueue_email', {
         queue_name: 'transactional_emails',
         payload: {
           message_id: messageId,
@@ -105,20 +111,18 @@ export async function sendTemplateEmail(opts: {
 }
 
 /**
- * Carrega os destinatários padrão: emails de admins/supervisores ativos +
- * lista extra em settings.notification_emails (se existir).
+ * Emails de admins/supervisores ativos + lista extra.
  */
 export async function loadNotificationRecipients(extraEmails: string[] = []): Promise<string[]> {
-  const { data: admins } = await supabaseAdmin
-    .from('profiles')
-    .select('email, id, user_roles:user_roles(role)')
-    .eq('active', true)
-
+  const [{ data: roles }, { data: profs }] = await Promise.all([
+    supabaseAdmin.from('user_roles').select('user_id, role').in('role', ['admin', 'supervisor']),
+    supabaseAdmin.from('profiles').select('id, email, active'),
+  ])
+  const ids = new Set((roles ?? []).map((r) => r.user_id))
   const emails: string[] = [...extraEmails]
-  for (const p of (admins ?? []) as Array<{ email: string | null; user_roles: Array<{ role: string }> }>) {
-    if (!p.email) continue
-    const roles = (p.user_roles ?? []).map((r) => r.role)
-    if (roles.includes('admin') || roles.includes('supervisor')) emails.push(p.email)
+  for (const p of profs ?? []) {
+    if (!p.active || !p.email) continue
+    if (ids.has(p.id)) emails.push(p.email)
   }
   return emails
 }
