@@ -1,7 +1,7 @@
 {
-  "name": "Estoque Omie",
-  "short_name": "Estoque",
-  "description": "Contagem de estoque integrada ao Omie",
+  "name": "Baixo Noroeste Inventário",
+  "short_name": "Baixo Noroeste",
+  "description": "Sistema de contagem de estoque da Baixo Noroeste, integrado ao Omie.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B0B0F",

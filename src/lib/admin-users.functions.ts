@@ -4,23 +4,20 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 type Role = "admin" | "supervisor" | "contador";
 
 /**
- * Cria um novo funcionário sem afetar a sessão do admin logado (que é o que
- * `supabase.auth.signUp` faria no browser). Só admins podem chamar.
- * Também define o papel do novo usuário via user_roles (o trigger cria com
- * "contador" e aqui atualizamos se necessário).
+ * Cria um novo funcionário sem afetar a sessão do admin logado. Só admins.
+ * Força profiles.slug a bater com o slug do email (evita bug de "PIN incorreto"
+ * quando o trigger handle_new_user gera um slug diferente).
  */
 export const createUserAsAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { fullName: string; slug: string; pin: string; role: Role; avatarColor?: string; phone?: string }) => d)
+  .inputValidator((d: { fullName: string; slug: string; pin: string; role: Role; avatarColor?: string; phone?: string; email?: string }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-
-    // Autoriza: apenas admin
     const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
     if (roleErr || !isAdmin) throw new Error("Apenas administradores podem criar usuários.");
 
-    if (!data.fullName.trim() || !data.slug.trim() || data.pin.length < 4) {
-      throw new Error("Nome, slug e PIN (mín. 4 dígitos) são obrigatórios.");
+    if (!data.fullName.trim() || !data.slug.trim() || data.pin.length < 6 || data.pin.length > 8 || !/^\d+$/.test(data.pin)) {
+      throw new Error("Nome, slug e PIN de 6 a 8 dígitos são obrigatórios.");
     }
     if (!["admin", "supervisor", "contador"].includes(data.role)) {
       throw new Error("Papel inválido.");
@@ -28,11 +25,10 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const email = `${data.slug}@estoque.local`;
+    const authEmail = `${data.slug}@estoque.local`;
     const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: authEmail,
       password: `${data.pin}#estq`,
-
       email_confirm: true,
       user_metadata: {
         full_name: data.fullName.trim(),
@@ -44,7 +40,6 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
 
     const newUserId = created.user.id;
 
-    // Se o papel desejado não for "contador" (default do trigger), ajustar.
     if (data.role !== "contador") {
       await supabase.from("user_roles").delete().eq("user_id", newUserId);
       const { error: insErr } = await supabase
@@ -53,10 +48,40 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
       if (insErr) throw new Error(`Usuário criado, mas falhou ao definir papel: ${insErr.message}`);
     }
 
-    if (data.phone && data.phone.trim()) {
-      await supabase.from("profiles").update({ phone: data.phone.trim() }).eq("id", newUserId);
-    }
+    // Sobrescrever o slug do profile para bater com o email interno
+    // (o trigger handle_new_user pode ter usado outro valor).
+    const profileUpdate: { slug: string; phone?: string } = { slug: data.slug };
+    if (data.phone && data.phone.trim()) profileUpdate.phone = data.phone.trim();
+    await supabase.from("profiles").update(profileUpdate).eq("id", newUserId);
 
     return { ok: true, user_id: newUserId };
   });
 
+/**
+ * Admin redefine o PIN de um funcionário (fluxo de emergência).
+ */
+export const resetUserPinAsAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string; new_pin: string }) => d)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+    if (roleErr || !isAdmin) throw new Error("Apenas administradores podem resetar PIN.");
+
+    if (!/^\d{6,8}$/.test(data.new_pin)) throw new Error("PIN deve ter de 6 a 8 dígitos.");
+    if (!data.user_id) throw new Error("Usuário inválido.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
+      password: `${data.new_pin}#estq`,
+    });
+    if (error) throw new Error(error.message);
+
+    await supabase.from("logs").insert({
+      user_id: userId,
+      action: "pin_reset_admin",
+      entity: "user",
+      details: { target_user_id: data.user_id },
+    });
+    return { ok: true };
+  });

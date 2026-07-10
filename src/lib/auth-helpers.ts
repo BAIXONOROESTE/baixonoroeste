@@ -21,9 +21,11 @@ export function emailFromSlug(slug: string): string {
 
 // Sufixo fixo aplicado ao PIN antes de virar senha do Auth.
 // O Supabase Auth exige senha com no mínimo 6 caracteres; a UX pede PIN de
-// 4 a 8 dígitos. Concatenamos o sufixo para satisfazer o mínimo sem mexer
-// na configuração global do Auth. Não é secreto — só padroniza o mapeamento.
+// 6 a 8 dígitos (regra da Baixo Noroeste). Concatenamos o sufixo por segurança
+// e para manter o mapeamento consistente. Não é secreto — só padroniza o mapeamento.
 const PIN_SUFFIX = "#estq";
+export const PIN_MIN = 6;
+export const PIN_MAX = 8;
 export function pinToPassword(pin: string): string {
   return `${pin}${PIN_SUFFIX}`;
 }

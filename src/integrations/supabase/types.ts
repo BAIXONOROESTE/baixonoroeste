@@ -348,6 +348,33 @@ export type Database = {
           },
         ]
       }
+      pin_reset_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          token: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active: boolean
@@ -418,6 +445,7 @@ export type Database = {
           active: boolean
           avatar_color: string
           created_at: string
+          email: string | null
           full_name: string
           id: string
           phone: string | null
@@ -428,6 +456,7 @@ export type Database = {
           active?: boolean
           avatar_color?: string
           created_at?: string
+          email?: string | null
           full_name: string
           id: string
           phone?: string | null
@@ -438,6 +467,7 @@ export type Database = {
           active?: boolean
           avatar_color?: string
           created_at?: string
+          email?: string | null
           full_name?: string
           id?: string
           phone?: string | null
@@ -449,16 +479,28 @@ export type Database = {
       settings: {
         Row: {
           id: number
+          notif_enabled: boolean
+          notif_from_email: string | null
+          notif_from_name: string | null
+          notif_reply_to: string | null
           omie_update_mode: string
           updated_at: string
         }
         Insert: {
           id?: number
+          notif_enabled?: boolean
+          notif_from_email?: string | null
+          notif_from_name?: string | null
+          notif_reply_to?: string | null
           omie_update_mode?: string
           updated_at?: string
         }
         Update: {
           id?: number
+          notif_enabled?: boolean
+          notif_from_email?: string | null
+          notif_from_name?: string | null
+          notif_reply_to?: string | null
           omie_update_mode?: string
           updated_at?: string
         }
