@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.list_login_profiles() TO anon, authenticated, service_role;
