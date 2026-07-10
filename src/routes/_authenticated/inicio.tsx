@@ -29,6 +29,9 @@ function HomePage() {
   const qc = useQueryClient();
   const syncFn = useServerFn(syncFamiliesAndProducts);
 
+  const role = profile?.role ?? "contador";
+  const isSup = role === "admin" || role === "supervisor";
+
   const { data: lastSync } = useQuery({
     queryKey: ["last-sync"],
     queryFn: async () => {
@@ -36,6 +39,21 @@ function HomePage() {
       return data;
     },
   });
+
+  const { data: pendingCloses } = useQuery({
+    queryKey: ["pending-close-requests"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("close_requests")
+        .select("id, approval_token, created_at, inventory:inventories(name), requester:profiles!close_requests_requested_by_fkey(full_name)")
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    },
+    refetchOnWindowFocus: true,
+  });
+
 
   const sync = useMutation({
     mutationFn: () => syncFn(),
