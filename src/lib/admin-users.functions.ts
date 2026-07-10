@@ -23,10 +23,10 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
       throw new Error("Papel inválido.");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { createAuthUserAsService } = await import("@/lib/auth-admin.server");
 
     const authEmail = `${data.slug}@users.baixonoroeste.com.br`;
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    const created = await createAuthUserAsService({
       email: authEmail,
       password: `${data.pin}#estq`,
       email_confirm: true,
@@ -36,9 +36,8 @@ export const createUserAsAdmin = createServerFn({ method: "POST" })
         avatar_color: data.avatarColor ?? "amber",
       },
     });
-    if (createErr || !created?.user) throw new Error(createErr?.message ?? "Falha ao criar usuário.");
 
-    const newUserId = created.user.id;
+    const newUserId = created.id;
 
     if (data.role !== "contador") {
       await supabase.from("user_roles").delete().eq("user_id", newUserId);
@@ -71,11 +70,8 @@ export const resetUserPinAsAdmin = createServerFn({ method: "POST" })
     if (!/^\d{6,8}$/.test(data.new_pin)) throw new Error("PIN deve ter de 6 a 8 dígitos.");
     if (!data.user_id) throw new Error("Usuário inválido.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
-      password: `${data.new_pin}#estq`,
-    });
-    if (error) throw new Error(error.message);
+    const { updateAuthUserPasswordAsService } = await import("@/lib/auth-admin.server");
+    await updateAuthUserPasswordAsService(data.user_id, `${data.new_pin}#estq`);
 
     await supabase.from("logs").insert({
       user_id: userId,
