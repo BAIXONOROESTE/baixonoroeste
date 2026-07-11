@@ -111,6 +111,7 @@ function InventoryDetail() {
   const showValidation = isSupOrAdmin && ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada"].includes(inv?.status ?? "");
   const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
   const submitValidationFn = useServerFn(submitForValidation);
+  const { pending: pendingQueue, flushing, online, flush } = useOfflineCountQueue(id);
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
@@ -120,6 +121,22 @@ function InventoryDetail() {
           {inv?.type === "familia" ? `Família: ${inv?.family?.name ?? "—"}` : inv?.type} · {inv?.status}
         </div>
       </div>
+
+      {!online && (
+        <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 text-xs flex items-center gap-2">
+          <CloudOff className="h-4 w-4 text-warning" />
+          <span>Você está offline. Contagens são salvas no aparelho e sincronizadas quando a internet voltar.</span>
+        </div>
+      )}
+      {pendingQueue.length > 0 && (
+        <div className="rounded-xl bg-primary/10 border border-primary/40 p-3 text-xs flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <SyncIcon className={`h-4 w-4 text-primary ${flushing ? "animate-spin" : ""}`} />
+            <span><b>{pendingQueue.length}</b> contagem(ns) aguardando sincronização.</span>
+          </div>
+          <button className="text-primary underline" onClick={() => flush()} disabled={flushing || !online}>Sincronizar</button>
+        </div>
+      )}
 
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
