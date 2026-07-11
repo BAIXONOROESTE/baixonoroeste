@@ -77,23 +77,26 @@ function HomePage() {
   return (
     <div className="mx-auto max-w-md px-4 pt-4 space-y-4">
       <div>
-        <p className="text-sm text-muted-foreground">Olá,</p>
-        <h1 className="text-2xl font-display font-semibold">{profile?.full_name}</h1>
+        <p className="text-sm text-muted-foreground">Olá, {profile?.full_name}</p>
+        <h1 className="text-2xl font-display font-semibold">Início</h1>
       </div>
 
       {role === "admin" && (
-        <div className="rounded-2xl bg-surface border border-border p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">Sincronização com Omie</div>
-              <div className="text-xs text-muted-foreground">Última: {fmtDateTime(lastSync?.started_at)}</div>
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Sincronização</h2>
+          <div className="rounded-2xl bg-surface border border-border p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">Sincronização com Omie</div>
+                <div className="text-xs text-muted-foreground">Última: {fmtDateTime(lastSync?.started_at)}</div>
+              </div>
+              <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} />
+                {sync.isPending ? "Sincronizando" : "Sincronizar"}
+              </Button>
             </div>
-            <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending}>
-              <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} />
-              {sync.isPending ? "Sincronizando" : "Sincronizar"}
-            </Button>
           </div>
-        </div>
+        </section>
       )}
 
       {isSup && pendingCloses && pendingCloses.length > 0 && (
@@ -125,17 +128,20 @@ function HomePage() {
       )}
 
 
-      <div className="grid grid-cols-2 gap-3">
-        {visible.map((t) => {
-          const Icon = t.icon;
-          return (
-            <Link key={t.to} to={t.to} className="rounded-2xl bg-surface border border-border p-4 flex flex-col gap-2 hover:border-primary/50 transition">
-              <Icon className="h-6 w-6 text-primary" />
-              <div className="text-sm font-medium">{t.label}</div>
-            </Link>
-          );
-        })}
-      </div>
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Navegação</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {visible.map((t) => {
+            const Icon = t.icon;
+            return (
+              <Link key={t.to} to={t.to} className="rounded-2xl bg-surface border border-border p-4 flex flex-col gap-2 hover:border-primary/50 transition">
+                <Icon className="h-6 w-6 text-primary" />
+                <div className="text-sm font-medium">{t.label}</div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

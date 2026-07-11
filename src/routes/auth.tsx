@@ -45,7 +45,7 @@ function AuthPage() {
           <div className="h-16 w-16 rounded-2xl bg-primary/15 grid place-items-center mb-3 glow-primary">
             <Package className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-display font-semibold">Baixo Noroeste</h1>
+          <h1 className="text-2xl font-display font-semibold">Estoque Omie — Contagem de estoque</h1>
           <p className="text-sm text-muted-foreground">Inventário</p>
         </div>
         {isLoading ? (
@@ -166,6 +166,7 @@ function PinPad({ onKey }: { onKey: (k: string) => void }) {
     <div className="grid grid-cols-3 gap-2 mt-4">
       {keys.map((k, i) => k === "" ? <div key={i} /> : (
         <button key={i} type="button" onClick={() => onKey(k)}
+          aria-label={k === "back" ? "Apagar" : undefined}
           className="h-14 rounded-xl bg-muted hover:bg-secondary text-xl font-medium text-foreground active:scale-95 transition">
           {k === "back" ? "⌫" : k}
         </button>
