@@ -263,13 +263,23 @@ function InventoryDetail() {
               <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 text-sm">
                 <div>
                   <div className="font-medium">
-                    {q.trim() ? "Nenhum produto encontrado" : inv?.type === "familia" ? "Sem produtos nessa família" : "Catálogo Omie vazio"}
+                    {q.trim()
+                      ? "Nenhum produto encontrado"
+                      : inv?.type === "familia"
+                        ? "Sem produtos nessa família"
+                        : (inv?.type === "personalizado" || inv?.type === "produto")
+                          ? "Nenhum produto selecionado para esta contagem"
+                          : "Catálogo Omie vazio"}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {q.trim() ? "Tente buscar por outro nome, código ou EAN." : profile?.role === "admin" ? "Sincronize o Omie para carregar os produtos." : "Peça para um admin sincronizar o Omie."}
+                    {q.trim()
+                      ? "Tente buscar por outro nome, código ou EAN."
+                      : (inv?.type === "personalizado" || inv?.type === "produto")
+                        ? "Esta contagem foi criada sem produtos. Crie uma nova contagem selecionando os itens desejados."
+                        : profile?.role === "admin" ? "Sincronize o Omie para carregar os produtos." : "Peça para um admin sincronizar o Omie."}
                   </div>
                 </div>
-                {!q.trim() && profile?.role === "admin" && (
+                {!q.trim() && profile?.role === "admin" && (inv?.type === "geral" || inv?.type === "familia") && (
                   <Button className="w-full" onClick={() => sync.mutate()} disabled={sync.isPending}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${sync.isPending ? "animate-spin" : ""}`} />
                     {sync.isPending ? "Sincronizando" : "Sincronizar Omie"}
