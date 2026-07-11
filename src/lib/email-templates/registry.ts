@@ -1,6 +1,13 @@
 import type { ComponentType } from 'react'
 import { template as countCompletedTemplate } from './count-completed'
 import { template as lossesDailyTemplate } from './losses-daily'
+import {
+  taskAssignedTemplate,
+  recountRequestedTemplate,
+  adjustRequestedTemplate,
+  revalidationNeededTemplate,
+  taskApprovedTemplate,
+} from './task-notification'
 
 
 export interface TemplateEntry {
@@ -15,5 +22,9 @@ export interface TemplateEntry {
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'count-completed': countCompletedTemplate,
   'losses-daily': lossesDailyTemplate,
+  'task-assigned': taskAssignedTemplate,
+  'recount-requested': recountRequestedTemplate,
+  'adjustment-requested': adjustRequestedTemplate,
+  'revalidation-needed': revalidationNeededTemplate,
+  'task-approved': taskApprovedTemplate,
 }
-
