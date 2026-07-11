@@ -14,6 +14,8 @@ import { requestCloseInventory } from "@/lib/close-requests.functions";
 import { notifyDivergence } from "@/lib/notify.functions";
 import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
+import { ValidationPanel, RecountAdjustView } from "@/components/ValidationPanel";
+import { submitForValidation } from "@/lib/inventory-flow.functions";
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
