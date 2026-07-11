@@ -194,9 +194,7 @@ export function RecountAdjustView({ inventoryId }: { inventoryId: string }) {
   const qc = useQueryClient();
   const [values, setValues] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const submitFn = useServerFn((import("@/lib/inventory-flow.functions").then((m) => m.submitRecountOrAdjust)) as never);
-  // Above line is a placeholder — real hook use next.
-  const _unused = submitFn;
+  const submitFn = useServerFn(submitRecountOrAdjust);
 
   const { data: items } = useQuery({
     queryKey: ["recount-items", inventoryId],
@@ -210,7 +208,6 @@ export function RecountAdjustView({ inventoryId }: { inventoryId: string }) {
   });
 
   async function submit() {
-    const { submitRecountOrAdjust } = await import("@/lib/inventory-flow.functions");
     const payload = Object.entries(values).map(([count_item_id, v]) => ({
       count_item_id,
       quantity_counted: Number(v.replace(",", ".")),
