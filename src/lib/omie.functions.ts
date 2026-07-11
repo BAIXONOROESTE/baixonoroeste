@@ -253,13 +253,11 @@ export const closeInventory = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: updated, error: updErr } = await supabaseAdmin
+    const { error: updErr } = await supabase
       .from("inventories")
       .update({ status: "fechado", closed_at: new Date().toISOString() })
-      .eq("id", data.inventory_id)
-      .select("id, status");
+      .eq("id", data.inventory_id);
     if (updErr) throw new Error(`Falha ao fechar inventário: ${updErr.message}`);
-    if (!updated || updated.length === 0) throw new Error("Inventário não encontrado para fechar.");
 
     await supabaseAdmin.from("logs").insert({
       user_id: userId, action: "inventario_fechado", entity: "inventory",
