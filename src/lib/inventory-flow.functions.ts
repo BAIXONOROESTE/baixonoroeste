@@ -93,7 +93,7 @@ export const createInventoryTask = createServerFn({ method: "POST" })
     }).select("id, name, deadline_at").single();
     if (error || !inv) throw new Error(error?.message ?? "Falha ao criar inventário");
 
-    if (data.type === "personalizado") {
+    if (data.type === "personalizado" || data.type === "produto") {
       if (data.family_ids?.length) {
         await supabase.from("inventory_families").insert(data.family_ids.map((family_id) => ({ inventory_id: inv.id, family_id })));
       }
