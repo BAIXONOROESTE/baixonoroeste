@@ -215,7 +215,7 @@ export function RecountAdjustView({ inventoryId }: { inventoryId: string }) {
     })).filter((x) => !Number.isNaN(x.quantity_counted));
     if (!payload.length) { toast.error("Preencha ao menos um item."); return; }
     try {
-      await submitRecountOrAdjust({ data: { inventory_id: inventoryId, items: payload } });
+      await submitFn({ data: { inventory_id: inventoryId, items: payload } });
       toast.success("Enviado para nova validação!");
       setValues({}); setNotes({});
       qc.invalidateQueries();
