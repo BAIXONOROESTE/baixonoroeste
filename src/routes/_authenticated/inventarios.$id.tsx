@@ -132,7 +132,7 @@ function InventoryDetail() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome, código ou EAN" className="pl-9" />
+              <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Nome, código ou EAN" className="pl-9" />
             </div>
             <Button variant="secondary" onClick={() => setScanning(true)}><Camera className="h-4 w-4" /></Button>
           </div>
