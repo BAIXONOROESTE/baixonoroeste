@@ -217,6 +217,19 @@ export function RecountAdjustView({ inventoryId }: { inventoryId: string }) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const submitFn = useServerFn(submitRecountOrAdjust);
 
+  const { data: rejection } = useQuery({
+    queryKey: ["last-rejection", inventoryId],
+    queryFn: async () => {
+      const { data } = await supabase.from("inventory_rejections")
+        .select("reason, notes, recount_deadline, created_at, rejected_by")
+        .eq("inventory_id", inventoryId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+  });
+
   const { data: items } = useQuery({
     queryKey: ["recount-items", inventoryId],
     queryFn: async () => {
