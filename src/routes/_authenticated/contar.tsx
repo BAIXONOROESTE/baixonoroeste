@@ -108,7 +108,7 @@ function ContarPage() {
         type: tipo!,
         family_id: tipo === "familia" ? familyId : null,
         family_ids: tipo === "personalizado" ? familyIds : undefined,
-        product_ids: tipo === "personalizado" ? productIds : undefined,
+        product_ids: (tipo === "personalizado" || tipo === "produto") ? productIds : undefined,
         assigned_counter_id: counterId || null,
         assigned_supervisor_id: supervisorId || null,
         assigned_admin_id: adminId || null,
