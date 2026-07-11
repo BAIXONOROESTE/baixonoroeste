@@ -83,7 +83,15 @@ export const notifyDivergence = createServerFn({ method: "POST" })
       });
       return { ok: true };
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       console.error("[notifyDivergence] falhou", e);
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await supabaseAdmin.from("logs").insert({
+          user_id: userId, action: "notify_divergence_erro", entity: "inventory",
+          details: { inventory_id: data.inventory_id, erro: msg },
+        });
+      } catch { /* ignore */ }
+      return { ok: false, error: msg };
     }
   });
