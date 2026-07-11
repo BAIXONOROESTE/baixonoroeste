@@ -22,6 +22,8 @@ function InventoryDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
   const [scanning, setScanning] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string; presetQuantity?: number; productName?: string } | null>(null);
