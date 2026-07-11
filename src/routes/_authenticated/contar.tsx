@@ -75,7 +75,7 @@ function ContarPage() {
         .limit(20);
       return data ?? [];
     },
-    enabled: tipo === "personalizado" && productSearch.trim().length >= 2,
+    enabled: (tipo === "personalizado" || tipo === "produto") && productSearch.trim().length >= 2,
   });
 
   const { data: catalogCounts } = useQuery({
@@ -108,7 +108,7 @@ function ContarPage() {
         type: tipo!,
         family_id: tipo === "familia" ? familyId : null,
         family_ids: tipo === "personalizado" ? familyIds : undefined,
-        product_ids: tipo === "personalizado" ? productIds : undefined,
+        product_ids: (tipo === "personalizado" || tipo === "produto") ? productIds : undefined,
         assigned_counter_id: counterId || null,
         assigned_supervisor_id: supervisorId || null,
         assigned_admin_id: adminId || null,
@@ -127,6 +127,7 @@ function ContarPage() {
     catalogCounts?.products === 0 ||
     (tipo === "familia" && (!familyId || catalogCounts?.families === 0)) ||
     (tipo === "personalizado" && familyIds.length === 0 && productIds.length === 0) ||
+    (tipo === "produto" && productIds.length === 0) ||
     create.isPending;
 
   return (
@@ -166,6 +167,30 @@ function ContarPage() {
           </select>
         </div>
       )}
+      {tipo === "produto" && (
+        <div className="space-y-2">
+          <label className="text-xs text-muted-foreground">Produtos ({productIds.length})</label>
+          <Input value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Buscar por nome, código ou EAN" />
+          {(prodResults ?? []).length > 0 && (
+            <div className="rounded-md border border-border bg-input max-h-52 overflow-auto">
+              {(prodResults ?? []).map((p) => {
+                const on = productIds.includes(p.id);
+                return (
+                  <button key={p.id} onClick={() => setProductIds((prev) => on ? prev.filter((x) => x !== p.id) : [...prev, p.id])}
+                    className={`w-full text-left text-sm px-3 py-2 flex justify-between ${on ? "bg-primary/10" : ""}`}>
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-xs text-muted-foreground">{p.code}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {productIds.length > 0 && (
+            <button className="text-xs text-muted-foreground underline" onClick={() => setProductIds([])}>Limpar seleção ({productIds.length})</button>
+          )}
+        </div>
+      )}
+
 
       {tipo === "personalizado" && (
         <div className="space-y-3">

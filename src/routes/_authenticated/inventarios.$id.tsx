@@ -50,14 +50,44 @@ function InventoryDetail() {
     queryFn: async () => (await supabase.from("count_items").select("*, product:products(name, code, unit)").eq("inventory_id", id)).data ?? [],
   });
 
+  const { data: scope } = useQuery({
+    queryKey: ["inventory-scope", id, inv?.type],
+    queryFn: async () => {
+      if (!inv) return { productIds: null as string[] | null, familyIds: null as string[] | null };
+      if (inv.type === "personalizado" || inv.type === "produto") {
+        const [{ data: ip }, { data: ifam }] = await Promise.all([
+          supabase.from("inventory_products").select("product_id").eq("inventory_id", id),
+          supabase.from("inventory_families").select("family_id").eq("inventory_id", id),
+        ]);
+        return {
+          productIds: (ip ?? []).map((r) => r.product_id),
+          familyIds: (ifam ?? []).map((r) => r.family_id),
+        };
+      }
+      return { productIds: null, familyIds: null };
+    },
+    enabled: !!inv,
+  });
+
   const { data: productsResp } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page],
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
     queryFn: async () => {
       const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
       let query = supabase
         .from("products")
         .select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active", { count: "exact" });
       if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
+      if (inv?.type === "personalizado" || inv?.type === "produto") {
+        const pIds = scope?.productIds ?? [];
+        const fIds = scope?.familyIds ?? [];
+        if (pIds.length === 0 && fIds.length === 0) {
+          return { data: [], count: 0 };
+        }
+        const filters: string[] = [];
+        if (pIds.length) filters.push(`id.in.(${pIds.join(",")})`);
+        if (fIds.length) filters.push(`family_id.in.(${fIds.join(",")})`);
+        query = query.or(filters.join(","));
+      }
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -68,7 +98,7 @@ function InventoryDetail() {
       if (error) throw error;
       return { data: data ?? [], count: count ?? 0 };
     },
-    enabled: !!inv,
+    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope),
     placeholderData: (previousData) => previousData ?? { data: [], count: 0 },
   });
   const products = productsResp?.data;
@@ -111,7 +141,10 @@ function InventoryDetail() {
 
   const closed = inv?.status === "fechado" || inv?.status === "aprovada" || inv?.status === "reprovada";
   const isSupOrAdmin = profile?.role === "admin" || profile?.role === "supervisor";
-  const showValidation = isSupOrAdmin && ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada"].includes(inv?.status ?? "");
+  const showValidation = isSupOrAdmin && (
+    ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada", "recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "")
+    || (divergencias > 0 && !closed)
+  );
   const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
   const submitValidationFn = useServerFn(submitForValidation);
   const { pending: pendingQueue, flushing, online, flush } = useOfflineCountQueue(id);
@@ -233,13 +266,23 @@ function InventoryDetail() {
               <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 text-sm">
                 <div>
                   <div className="font-medium">
-                    {q.trim() ? "Nenhum produto encontrado" : inv?.type === "familia" ? "Sem produtos nessa família" : "Catálogo Omie vazio"}
+                    {q.trim()
+                      ? "Nenhum produto encontrado"
+                      : inv?.type === "familia"
+                        ? "Sem produtos nessa família"
+                        : (inv?.type === "personalizado" || inv?.type === "produto")
+                          ? "Nenhum produto selecionado para esta contagem"
+                          : "Catálogo Omie vazio"}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {q.trim() ? "Tente buscar por outro nome, código ou EAN." : profile?.role === "admin" ? "Sincronize o Omie para carregar os produtos." : "Peça para um admin sincronizar o Omie."}
+                    {q.trim()
+                      ? "Tente buscar por outro nome, código ou EAN."
+                      : (inv?.type === "personalizado" || inv?.type === "produto")
+                        ? "Esta contagem foi criada sem produtos. Crie uma nova contagem selecionando os itens desejados."
+                        : profile?.role === "admin" ? "Sincronize o Omie para carregar os produtos." : "Peça para um admin sincronizar o Omie."}
                   </div>
                 </div>
-                {!q.trim() && profile?.role === "admin" && (
+                {!q.trim() && profile?.role === "admin" && (inv?.type === "geral" || inv?.type === "familia") && (
                   <Button className="w-full" onClick={() => sync.mutate()} disabled={sync.isPending}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${sync.isPending ? "animate-spin" : ""}`} />
                     {sync.isPending ? "Sincronizando" : "Sincronizar Omie"}
