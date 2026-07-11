@@ -127,6 +127,7 @@ function ContarPage() {
     catalogCounts?.products === 0 ||
     (tipo === "familia" && (!familyId || catalogCounts?.families === 0)) ||
     (tipo === "personalizado" && familyIds.length === 0 && productIds.length === 0) ||
+    (tipo === "produto" && productIds.length === 0) ||
     create.isPending;
 
   return (
