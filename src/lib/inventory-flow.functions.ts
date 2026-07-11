@@ -342,3 +342,113 @@ export const approveInventoryTask = createServerFn({ method: "POST" })
     await fireEvent(data.inventory_id, "tarefa_aprovada");
     return { ok: true };
   });
+
+// ---------- 6) Recusar inventário (formulário obrigatório) ----------
+const rejectSchema = z.object({
+  inventory_id: z.string().uuid(),
+  reason: z.string().min(3).max(1000),
+  notes: z.string().max(2000).nullable().optional(),
+  recount_deadline: z.string().nullable().optional(),
+  product_ids: z.array(z.string().uuid()).min(1),
+});
+export const rejectInventoryTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => rejectSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    if (!await ensureRole(supabase, userId, ["admin", "supervisor"])) {
+      throw new Error("Apenas admin/supervisor podem recusar inventário.");
+    }
+
+    const { data: inv } = await supabase.from("inventories")
+      .select("id, name, assigned_counter_id, assigned_supervisor_id, assigned_admin_id")
+      .eq("id", data.inventory_id).maybeSingle();
+    if (!inv) throw new Error("Inventário não encontrado.");
+
+    // Registra a recusa
+    const { error: rejErr } = await supabase.from("inventory_rejections").insert({
+      inventory_id: data.inventory_id,
+      rejected_by: userId,
+      reason: data.reason,
+      notes: data.notes ?? null,
+      recount_deadline: data.recount_deadline ?? null,
+      product_ids: data.product_ids,
+    });
+    if (rejErr) throw new Error(`Falha ao registrar recusa: ${rejErr.message}`);
+
+    // Busca count_items correspondentes aos product_ids
+    const { data: affected } = await supabase.from("count_items")
+      .select("id, product_id, quantity_before, quantity_counted, difference, round, product:products(name, code)")
+      .eq("inventory_id", data.inventory_id)
+      .in("product_id", data.product_ids);
+
+    // Marca para recontagem + histórico + review
+    for (const ci of affected ?? []) {
+      await supabase.from("count_item_history").insert({
+        count_item_id: ci.id,
+        inventory_id: data.inventory_id,
+        product_id: ci.product_id,
+        actor_id: userId,
+        action: "recusa",
+        quantity_before: ci.quantity_before,
+        quantity_counted: ci.quantity_counted,
+        difference: ci.difference,
+        round: ci.round ?? 1,
+        notes: data.reason,
+      });
+      await supabase.from("count_item_reviews").insert({
+        count_item_id: ci.id,
+        inventory_id: data.inventory_id,
+        reviewer_id: userId,
+        action: "recontagem",
+        reason: data.reason,
+        deadline_at: data.recount_deadline ?? null,
+      });
+      await supabase.from("count_items").update({
+        needs_recount: true,
+        needs_adjust: false,
+        reviewer_note: data.reason,
+        status: "divergencia",
+      }).eq("id", ci.id);
+    }
+
+    await supabase.from("inventories").update({
+      status: "recontagem_solicitada",
+      deadline_at: data.recount_deadline ?? undefined,
+    }).eq("id", data.inventory_id);
+
+    await supabase.from("logs").insert({
+      user_id: userId, action: "inventario_recusado", entity: "inventory",
+      details: { id: data.inventory_id, motivo: data.reason, produtos: data.product_ids.length, prazo: data.recount_deadline },
+    });
+
+    const itens = (affected ?? []).map((r) => ({
+      produto: (r.product as { name: string } | null)?.name ?? "—",
+      sku: (r.product as { code?: string } | null)?.code ?? null,
+      quantidade_esperada: Number(r.quantity_before ?? 0),
+      quantidade_contada: Number(r.quantity_counted),
+      diferenca: Number(r.difference ?? 0),
+    }));
+    await fireEvent(data.inventory_id, "inventario_recusado", {
+      motivo: data.reason,
+      deadline: data.recount_deadline ?? null,
+      itens_divergentes: itens,
+      extra: { observacoes: data.notes ?? null },
+    });
+
+    const emails = await profileEmails([inv.assigned_counter_id]);
+    await notifyEmail("recount-requested", emails, {
+      inventory_name: inv.name,
+      reason: data.reason,
+      deadline: data.recount_deadline ?? null,
+      items: (affected ?? []).map((r) => ({
+        product: (r.product as { name: string } | null)?.name ?? "—",
+        code: (r.product as { code?: string } | null)?.code,
+        expected: Number(r.quantity_before ?? 0),
+        counted: Number(r.quantity_counted),
+        diff: Number(r.difference ?? 0),
+      })),
+    }, `reject-${data.inventory_id}-${Date.now()}`);
+
+    return { ok: true, produtos: data.product_ids.length };
+  });
