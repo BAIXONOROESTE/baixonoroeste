@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /$
+Allow: /auth
+Disallow: /inicio
+Disallow: /contar
+Disallow: /inventarios
+Disallow: /dashboard
+Disallow: /ranking
+Disallow: /perdas
+Disallow: /relatorios
+Disallow: /usuarios
+Disallow: /logs
+Disallow: /configuracoes
+Disallow: /aprovar
+Disallow: /api/
+Disallow: /lovable/
+Disallow: /.mcp/
+Disallow: /.well-known/
+
+Sitemap: https://inventario.baixonoroeste.com.br/sitemap.xml

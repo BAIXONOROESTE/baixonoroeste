@@ -16,6 +16,17 @@ export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>) => ({
     next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
   }),
+  head: () => ({
+    meta: [
+      { title: "Entrar — Estoque Omie Baixo Noroeste" },
+      { name: "description", content: "Acesse o sistema de contagem de estoque da Baixo Noroeste com seu PIN pessoal. Área restrita a colaboradores." },
+      { property: "og:title", content: "Entrar — Estoque Omie Baixo Noroeste" },
+      { property: "og:description", content: "Login por PIN para colaboradores da Baixo Noroeste no sistema de inventário integrado ao Omie." },
+      { property: "og:url", content: "https://inventario.baixonoroeste.com.br/auth" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://inventario.baixonoroeste.com.br/auth" }],
+  }),
   component: AuthPage,
 });
 
