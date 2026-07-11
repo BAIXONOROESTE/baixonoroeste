@@ -260,6 +260,16 @@ export function RecountAdjustView({ inventoryId }: { inventoryId: string }) {
 
   return (
     <div className="space-y-3">
+      {rejection && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/40 p-3 text-xs space-y-1">
+          <div className="font-semibold text-destructive flex items-center gap-1"><XCircle className="h-4 w-4" /> Inventário recusado</div>
+          <div><span className="text-muted-foreground">Motivo: </span><b>{rejection.reason}</b></div>
+          {rejection.notes && <div className="italic text-muted-foreground">"{rejection.notes}"</div>}
+          {rejection.recount_deadline && (
+            <div><span className="text-muted-foreground">Prazo: </span><b>{new Date(rejection.recount_deadline).toLocaleString("pt-BR")}</b></div>
+          )}
+        </div>
+      )}
       <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 text-xs text-warning-foreground">
         <div className="flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
