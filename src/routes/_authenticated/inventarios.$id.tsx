@@ -196,6 +196,16 @@ function InventoryDetail() {
               </div>
             )}
           </div>
+          {totalProducts > PAGE_SIZE && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+              <span>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalProducts)} de {totalProducts}</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Anterior</Button>
+                <span className="self-center">{page + 1}/{totalPages}</span>
+                <Button size="sm" variant="secondary" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
