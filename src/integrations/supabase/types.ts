@@ -109,6 +109,121 @@ export type Database = {
           },
         ]
       }
+      count_item_history: {
+        Row: {
+          action: string
+          actor_id: string
+          count_item_id: string | null
+          created_at: string
+          difference: number | null
+          id: string
+          inventory_id: string
+          notes: string | null
+          product_id: string
+          quantity_before: number | null
+          quantity_counted: number | null
+          round: number
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          count_item_id?: string | null
+          created_at?: string
+          difference?: number | null
+          id?: string
+          inventory_id: string
+          notes?: string | null
+          product_id: string
+          quantity_before?: number | null
+          quantity_counted?: number | null
+          round?: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          count_item_id?: string | null
+          created_at?: string
+          difference?: number | null
+          id?: string
+          inventory_id?: string
+          notes?: string | null
+          product_id?: string
+          quantity_before?: number | null
+          quantity_counted?: number | null
+          round?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "count_item_history_count_item_id_fkey"
+            columns: ["count_item_id"]
+            isOneToOne: false
+            referencedRelation: "count_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "count_item_history_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "count_item_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      count_item_reviews: {
+        Row: {
+          action: string
+          count_item_id: string
+          created_at: string
+          deadline_at: string | null
+          id: string
+          inventory_id: string
+          reason: string | null
+          reviewer_id: string
+        }
+        Insert: {
+          action: string
+          count_item_id: string
+          created_at?: string
+          deadline_at?: string | null
+          id?: string
+          inventory_id: string
+          reason?: string | null
+          reviewer_id: string
+        }
+        Update: {
+          action?: string
+          count_item_id?: string
+          created_at?: string
+          deadline_at?: string | null
+          id?: string
+          inventory_id?: string
+          reason?: string | null
+          reviewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "count_item_reviews_count_item_id_fkey"
+            columns: ["count_item_id"]
+            isOneToOne: false
+            referencedRelation: "count_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "count_item_reviews_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       count_items: {
         Row: {
           counted_by: string
@@ -117,11 +232,15 @@ export type Database = {
           financial_diff: number | null
           id: string
           inventory_id: string
+          needs_adjust: boolean
+          needs_recount: boolean
           omie_response: Json | null
           omie_updated_at: string | null
           product_id: string
           quantity_before: number
           quantity_counted: number
+          reviewer_note: string | null
+          round: number
           status: Database["public"]["Enums"]["count_status"]
           unit_cost: number
           updated_at: string
@@ -133,11 +252,15 @@ export type Database = {
           financial_diff?: number | null
           id?: string
           inventory_id: string
+          needs_adjust?: boolean
+          needs_recount?: boolean
           omie_response?: Json | null
           omie_updated_at?: string | null
           product_id: string
           quantity_before?: number
           quantity_counted: number
+          reviewer_note?: string | null
+          round?: number
           status?: Database["public"]["Enums"]["count_status"]
           unit_cost?: number
           updated_at?: string
@@ -149,11 +272,15 @@ export type Database = {
           financial_diff?: number | null
           id?: string
           inventory_id?: string
+          needs_adjust?: boolean
+          needs_recount?: boolean
           omie_response?: Json | null
           omie_updated_at?: string | null
           product_id?: string
           quantity_before?: number
           quantity_counted?: number
+          reviewer_note?: string | null
+          round?: number
           status?: Database["public"]["Enums"]["count_status"]
           unit_cost?: number
           updated_at?: string
@@ -288,47 +415,173 @@ export type Database = {
       }
       inventories: {
         Row: {
+          assigned_admin_id: string | null
+          assigned_counter_id: string | null
+          assigned_supervisor_id: string | null
           closed_at: string | null
           created_at: string
+          deadline_at: string | null
           family_id: string | null
           id: string
           name: string
+          notes: string | null
           started_at: string
           started_by: string
           status: Database["public"]["Enums"]["inventory_status"]
+          tolerance_pct: number
           type: Database["public"]["Enums"]["inventory_type"]
           updated_at: string
         }
         Insert: {
+          assigned_admin_id?: string | null
+          assigned_counter_id?: string | null
+          assigned_supervisor_id?: string | null
           closed_at?: string | null
           created_at?: string
+          deadline_at?: string | null
           family_id?: string | null
           id?: string
           name: string
+          notes?: string | null
           started_at?: string
           started_by: string
           status?: Database["public"]["Enums"]["inventory_status"]
+          tolerance_pct?: number
           type: Database["public"]["Enums"]["inventory_type"]
           updated_at?: string
         }
         Update: {
+          assigned_admin_id?: string | null
+          assigned_counter_id?: string | null
+          assigned_supervisor_id?: string | null
           closed_at?: string | null
           created_at?: string
+          deadline_at?: string | null
           family_id?: string | null
           id?: string
           name?: string
+          notes?: string | null
           started_at?: string
           started_by?: string
           status?: Database["public"]["Enums"]["inventory_status"]
+          tolerance_pct?: number
           type?: Database["public"]["Enums"]["inventory_type"]
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "inventories_assigned_admin_id_fkey"
+            columns: ["assigned_admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_admin_id_fkey"
+            columns: ["assigned_admin_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_view"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_counter_id_fkey"
+            columns: ["assigned_counter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_counter_id_fkey"
+            columns: ["assigned_counter_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_view"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_supervisor_id_fkey"
+            columns: ["assigned_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_supervisor_id_fkey"
+            columns: ["assigned_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_view"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "inventories_family_id_fkey"
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_families: {
+        Row: {
+          created_at: string
+          family_id: string
+          inventory_id: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          inventory_id: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          inventory_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_families_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_families_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_products: {
+        Row: {
+          created_at: string
+          inventory_id: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          inventory_id: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          inventory_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_products_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -611,29 +864,38 @@ export type Database = {
       settings: {
         Row: {
           id: number
+          n8n_webhook_secret: string | null
+          n8n_webhook_url: string | null
           notif_enabled: boolean
           notif_from_email: string | null
           notif_from_name: string | null
           notif_reply_to: string | null
           omie_update_mode: string
+          tolerance_pct_default: number
           updated_at: string
         }
         Insert: {
           id?: number
+          n8n_webhook_secret?: string | null
+          n8n_webhook_url?: string | null
           notif_enabled?: boolean
           notif_from_email?: string | null
           notif_from_name?: string | null
           notif_reply_to?: string | null
           omie_update_mode?: string
+          tolerance_pct_default?: number
           updated_at?: string
         }
         Update: {
           id?: number
+          n8n_webhook_secret?: string | null
+          n8n_webhook_url?: string | null
           notif_enabled?: boolean
           notif_from_email?: string | null
           notif_from_name?: string | null
           notif_reply_to?: string | null
           omie_update_mode?: string
+          tolerance_pct_default?: number
           updated_at?: string
         }
         Relationships: []
@@ -776,8 +1038,21 @@ export type Database = {
       app_role: "admin" | "supervisor" | "contador"
       close_request_status: "pendente" | "aprovado" | "recusado" | "cancelado"
       count_status: "correto" | "divergencia" | "atualizado" | "justificado"
-      inventory_status: "aberto" | "fechado"
-      inventory_type: "geral" | "familia" | "produto"
+      inventory_status:
+        | "aberto"
+        | "fechado"
+        | "pendente"
+        | "em_andamento"
+        | "concluida"
+        | "pendente_validacao"
+        | "divergencia"
+        | "recontagem_solicitada"
+        | "ajuste_solicitado"
+        | "recontagem_enviada"
+        | "aguardando_validacao"
+        | "aprovada"
+        | "reprovada"
+      inventory_type: "geral" | "familia" | "produto" | "personalizado"
       sync_status: "sucesso" | "erro" | "em_andamento"
     }
     CompositeTypes: {
@@ -909,8 +1184,22 @@ export const Constants = {
       app_role: ["admin", "supervisor", "contador"],
       close_request_status: ["pendente", "aprovado", "recusado", "cancelado"],
       count_status: ["correto", "divergencia", "atualizado", "justificado"],
-      inventory_status: ["aberto", "fechado"],
-      inventory_type: ["geral", "familia", "produto"],
+      inventory_status: [
+        "aberto",
+        "fechado",
+        "pendente",
+        "em_andamento",
+        "concluida",
+        "pendente_validacao",
+        "divergencia",
+        "recontagem_solicitada",
+        "ajuste_solicitado",
+        "recontagem_enviada",
+        "aguardando_validacao",
+        "aprovada",
+        "reprovada",
+      ],
+      inventory_type: ["geral", "familia", "produto", "personalizado"],
       sync_status: ["sucesso", "erro", "em_andamento"],
     },
   },
