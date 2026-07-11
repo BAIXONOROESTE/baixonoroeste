@@ -143,20 +143,19 @@ export async function ajustarEstoqueOmie(params: {
   observacao: string;
   valor_unitario?: number;
 }): Promise<unknown> {
-  const hoje = new Date().toLocaleDateString("pt-BR"); // dd/mm/aaaa
   const q = Number(params.quantidade);
   const tipo = q >= 0 ? "ENT" : "SAI";
-  // A Omie exige "valor" (unitário) > 0 no IncluirAjusteEstoque.
-  // Se não vier custo do produto, usa mínimo simbólico para não travar o ajuste.
   const valorUnit = Number(params.valor_unitario);
   const valor = Number.isFinite(valorUnit) && valorUnit > 0 ? valorUnit : 0.01;
-  return omieRequest({
+
+  const fmt = (d: Date) => d.toLocaleDateString("pt-BR"); // dd/mm/aaaa
+  const call = (data: string) => omieRequest({
     endpoint: "estoque/ajuste/",
     call: "IncluirAjusteEstoque",
     param: {
       codigo_local_estoque: 0,
       id_prod: params.codigo_produto,
-      data: hoje,
+      data,
       tipo,
       quan: Math.abs(q),
       valor,
@@ -165,5 +164,22 @@ export async function ajustarEstoqueOmie(params: {
       motivo: "INV",
     },
   });
+
+  const today = new Date();
+  try {
+    return await call(fmt(today));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // Se relógio do servidor estiver à frente do Omie, tenta dias anteriores.
+    if (!/Data do Movimento/i.test(msg)) throw e;
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      try { return await call(fmt(d)); } catch (e2) {
+        if (!/Data do Movimento/i.test(e2 instanceof Error ? e2.message : String(e2))) throw e2;
+      }
+    }
+    throw e;
+  }
 }
 
