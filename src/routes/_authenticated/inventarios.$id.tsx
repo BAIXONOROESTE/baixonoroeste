@@ -22,6 +22,8 @@ function InventoryDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
   const [scanning, setScanning] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [lossFor, setLossFor] = useState<{ product_id: string; count_item_id?: string; presetQuantity?: number; productName?: string } | null>(null);
@@ -44,20 +46,30 @@ function InventoryDetail() {
     queryFn: async () => (await supabase.from("count_items").select("*, product:products(name, code, unit)").eq("inventory_id", id)).data ?? [],
   });
 
-  const { data: products } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim()],
+  const { data: productsResp } = useQuery({
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page],
     queryFn: async () => {
       const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
-      let query = supabase.from("products").select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active");
+      let query = supabase
+        .from("products")
+        .select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active", { count: "exact" });
       if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
-      const { data, error } = await query.order("active", { ascending: false }).order("name").limit(search ? 80 : 200);
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error, count } = await query
+        .order("active", { ascending: false })
+        .order("name")
+        .range(from, to);
       if (error) throw error;
-      return data ?? [];
+      return { data: data ?? [], count: count ?? 0 };
     },
     enabled: !!inv,
-    placeholderData: (previousData) => previousData ?? [],
+    placeholderData: (previousData) => previousData ?? { data: [], count: 0 },
   });
+  const products = productsResp?.data;
+  const totalProducts = productsResp?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
 
   const sync = useMutation({
     mutationFn: () => syncFn(),
@@ -120,7 +132,7 @@ function InventoryDetail() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome, código ou EAN" className="pl-9" />
+              <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Nome, código ou EAN" className="pl-9" />
             </div>
             <Button variant="secondary" onClick={() => setScanning(true)}><Camera className="h-4 w-4" /></Button>
           </div>
@@ -184,6 +196,16 @@ function InventoryDetail() {
               </div>
             )}
           </div>
+          {totalProducts > PAGE_SIZE && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+              <span>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalProducts)} de {totalProducts}</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Anterior</Button>
+                <span className="self-center">{page + 1}/{totalPages}</span>
+                <Button size="sm" variant="secondary" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
