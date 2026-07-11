@@ -1,0 +1,10 @@
+# Estoque Omie — Baixo Noroeste
+
+> Aplicativo interno de contagem de estoque da Baixo Noroeste, integrado ao ERP Omie. Uso restrito a colaboradores autenticados por PIN.
+
+O sistema permite criar tarefas de inventário, contar produtos por família ou seleção personalizada, validar divergências, registrar perdas e sincronizar automaticamente com o Omie. As telas internas exigem autenticação e não são indexáveis.
+
+## Pages
+
+- [Início](/): Redireciona para a tela de login ou para o painel do usuário autenticado.
+- [Entrar](/auth): Tela de login por PIN para colaboradores, supervisores e administradores.
