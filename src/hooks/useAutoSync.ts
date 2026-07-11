@@ -20,8 +20,11 @@ export function useAutoSync() {
   const runningRef = useRef(false);
 
   const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => (await supabase.from("settings").select("auto_sync_interval_seconds").eq("id", 1).maybeSingle()).data,
+    queryKey: ["public-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.rpc("get_public_settings");
+      return data?.[0] ?? null;
+    },
     staleTime: 60_000,
   });
 

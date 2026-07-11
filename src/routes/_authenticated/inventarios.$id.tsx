@@ -85,8 +85,11 @@ function InventoryDetail() {
   });
 
   const { data: settings } = useQuery({
-    queryKey: ["settings"],
-    queryFn: async () => (await supabase.from("settings").select("*").eq("id", 1).single()).data,
+    queryKey: ["public-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.rpc("get_public_settings");
+      return data?.[0] ?? null;
+    },
   });
 
   const filtered = useMemo(() => {

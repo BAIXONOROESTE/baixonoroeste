@@ -1046,6 +1046,15 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_public_settings: {
+        Args: never
+        Returns: {
+          auto_sync_interval_seconds: number
+          notif_enabled: boolean
+          omie_update_mode: string
+          tolerance_pct_default: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
