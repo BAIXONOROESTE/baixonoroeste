@@ -167,6 +167,30 @@ function ContarPage() {
           </select>
         </div>
       )}
+      {tipo === "produto" && (
+        <div className="space-y-2">
+          <label className="text-xs text-muted-foreground">Produtos ({productIds.length})</label>
+          <Input value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Buscar por nome, código ou EAN" />
+          {(prodResults ?? []).length > 0 && (
+            <div className="rounded-md border border-border bg-input max-h-52 overflow-auto">
+              {(prodResults ?? []).map((p) => {
+                const on = productIds.includes(p.id);
+                return (
+                  <button key={p.id} onClick={() => setProductIds((prev) => on ? prev.filter((x) => x !== p.id) : [...prev, p.id])}
+                    className={`w-full text-left text-sm px-3 py-2 flex justify-between ${on ? "bg-primary/10" : ""}`}>
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-xs text-muted-foreground">{p.code}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {productIds.length > 0 && (
+            <button className="text-xs text-muted-foreground underline" onClick={() => setProductIds([])}>Limpar seleção ({productIds.length})</button>
+          )}
+        </div>
+      )}
+
 
       {tipo === "personalizado" && (
         <div className="space-y-3">
