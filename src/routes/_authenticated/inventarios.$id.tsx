@@ -324,7 +324,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
   onOpenLoss: (count_item_id: string | undefined, presetQuantity?: number) => void;
 }) {
-
+  const { enqueue, flush, online } = useOfflineCountQueue(inventoryId);
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
@@ -339,18 +339,35 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
     const { data: u } = await supabase.auth.getUser();
     const stock = Number(product.stock_omie);
     const status: "correto" | "divergencia" = q === stock ? "correto" : "divergencia";
-    const payload = {
-      inventory_id: inventoryId, product_id: product.id, counted_by: u.user!.id,
-      quantity_before: stock, quantity_counted: q, unit_cost: Number(product.cost), status,
-    };
-    const { data, error } = await supabase.from("count_items").upsert(payload, { onConflict: "inventory_id,product_id" }).select("id").single();
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: data.id, produto: product.name, qtd: q, status } });
-    toast.success("Contagem salva!");
     const diff = q - stock;
-    setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: data.id });
-    onSaved(data.id, status);
+
+    // Salva na fila offline (grava localmente e tenta sincronizar imediatamente)
+    await enqueue({
+      inventory_id: inventoryId,
+      product_id: product.id,
+      counted_by: u.user!.id,
+      quantity_before: stock,
+      quantity_counted: q,
+      unit_cost: Number(product.cost),
+      status,
+    });
+
+    let realId = currentItem?.id ?? "";
+    if (online) {
+      const r = await flush();
+      if (r.ok) {
+        const { data: ci } = await supabase.from("count_items").select("id").eq("inventory_id", inventoryId).eq("product_id", product.id).maybeSingle();
+        if (ci?.id) {
+          realId = ci.id;
+          await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: ci.id, produto: product.name, qtd: q, status } });
+        }
+      }
+    }
+
+    setSaving(false);
+    toast.success(online ? "Contagem salva!" : "Salva offline · vai sincronizar sozinha");
+    setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: realId });
+    if (realId) onSaved(realId, status);
   }
 
   const qNum = Number(qty.replace(",", ".")) || 0;
