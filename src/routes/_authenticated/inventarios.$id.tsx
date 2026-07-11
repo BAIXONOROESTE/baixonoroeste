@@ -16,6 +16,8 @@ import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
 import { ValidationPanel, RecountAdjustView } from "@/components/ValidationPanel";
 import { submitForValidation } from "@/lib/inventory-flow.functions";
+import { useOfflineCountQueue } from "@/hooks/useOfflineCountQueue";
+import { CloudOff, RefreshCw as SyncIcon } from "lucide-react";
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
