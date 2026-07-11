@@ -226,6 +226,7 @@ export type Database = {
       }
       count_items: {
         Row: {
+          client_mutation_id: string | null
           counted_by: string
           created_at: string
           difference: number | null
@@ -246,6 +247,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          client_mutation_id?: string | null
           counted_by: string
           created_at?: string
           difference?: number | null
@@ -266,6 +268,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          client_mutation_id?: string | null
           counted_by?: string
           created_at?: string
           difference?: number | null
@@ -586,6 +589,47 @@ export type Database = {
           },
         ]
       }
+      inventory_rejections: {
+        Row: {
+          created_at: string
+          id: string
+          inventory_id: string
+          notes: string | null
+          product_ids: string[]
+          reason: string
+          recount_deadline: string | null
+          rejected_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inventory_id: string
+          notes?: string | null
+          product_ids?: string[]
+          reason: string
+          recount_deadline?: string | null
+          rejected_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inventory_id?: string
+          notes?: string | null
+          product_ids?: string[]
+          reason?: string
+          recount_deadline?: string | null
+          rejected_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_rejections_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "inventories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logs: {
         Row: {
           action: string
@@ -863,6 +907,7 @@ export type Database = {
       }
       settings: {
         Row: {
+          auto_sync_interval_seconds: number
           id: number
           n8n_webhook_secret: string | null
           n8n_webhook_url: string | null
@@ -875,6 +920,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_sync_interval_seconds?: number
           id?: number
           n8n_webhook_secret?: string | null
           n8n_webhook_url?: string | null
@@ -887,6 +933,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_sync_interval_seconds?: number
           id?: number
           n8n_webhook_secret?: string | null
           n8n_webhook_url?: string | null
