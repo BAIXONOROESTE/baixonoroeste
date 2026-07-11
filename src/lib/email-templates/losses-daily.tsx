@@ -1,5 +1,7 @@
 import * as React from 'react'
-import { Body, Container, Head, Heading, Html, Preview, Section, Text, Hr } from '@react-email/components'
+import { Body, Container, Head, Heading, Html, Img, Preview, Section, Text, Hr } from '@react-email/components'
+
+const LOGO_URL = 'https://baixonoroeste.lovable.app/__l5e/assets-v1/638c74d2-7edb-45e6-9a02-192e4ce3a36e/baixo-logo.png'
 import type { TemplateEntry } from './registry'
 
 interface Row {
@@ -27,7 +29,8 @@ const LossesDaily = ({ date_label = '—', rows = [], total_value = 0 }: Props) 
     <Body style={main}>
       <Container style={container}>
         <Section style={header}>
-          <Heading style={h1}>📦 Baixo Noroeste — Perdas & Quebras</Heading>
+          <Img src={LOGO_URL} alt="Baixo Noroeste" width="160" style={{ display: 'block', margin: '0 auto 12px auto', maxWidth: '160px', height: 'auto' }} />
+          <Heading style={h1}>Perdas & Quebras — Baixo Noroeste</Heading>
           <Text style={sub}>Relatório diário — {date_label}</Text>
         </Section>
 

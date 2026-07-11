@@ -1,5 +1,7 @@
 import * as React from 'react'
-import { Body, Container, Head, Heading, Html, Preview, Section, Text, Hr } from '@react-email/components'
+import { Body, Container, Head, Heading, Html, Img, Preview, Section, Text, Hr } from '@react-email/components'
+
+const LOGO_URL = 'https://baixonoroeste.lovable.app/__l5e/assets-v1/638c74d2-7edb-45e6-9a02-192e4ce3a36e/baixo-logo.png'
 import type { TemplateEntry } from './registry'
 
 interface Item {
@@ -40,7 +42,8 @@ const CountCompleted = ({
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Heading style={h1}>📦 Baixo Noroeste — Inventário</Heading>
+            <Img src={LOGO_URL} alt="Baixo Noroeste" width="160" style={logo} />
+            <Heading style={h1}>Inventário Baixo Noroeste</Heading>
             <Text style={sub}>{title}</Text>
           </Section>
 
@@ -108,7 +111,8 @@ function fmt(n: number): string {
 const main = { backgroundColor: '#ffffff', fontFamily: 'Inter, Arial, sans-serif', margin: 0, padding: 0 }
 const container = { maxWidth: '640px', margin: '0 auto', padding: '24px' }
 const header = { textAlign: 'center' as const, paddingBottom: '16px' }
-const h1 = { color: '#f5b400', fontSize: '22px', margin: '0 0 4px 0' }
+const logo = { display: 'block', margin: '0 auto 12px auto', maxWidth: '160px', height: 'auto' }
+const h1 = { color: '#0b0b0f', fontSize: '20px', margin: '0 0 4px 0', fontWeight: 700 }
 const h2 = { color: '#0b0b0f', fontSize: '16px', margin: '20px 0 8px 0' }
 const sub = { color: '#64748b', fontSize: '14px', margin: 0 }
 const card = { backgroundColor: '#faf7f0', border: '1px solid #eadfc4', borderRadius: '12px', padding: '16px' }
