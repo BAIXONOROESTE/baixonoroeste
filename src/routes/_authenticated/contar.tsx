@@ -75,7 +75,7 @@ function ContarPage() {
         .limit(20);
       return data ?? [];
     },
-    enabled: tipo === "personalizado" && productSearch.trim().length >= 2,
+    enabled: (tipo === "personalizado" || tipo === "produto") && productSearch.trim().length >= 2,
   });
 
   const { data: catalogCounts } = useQuery({
