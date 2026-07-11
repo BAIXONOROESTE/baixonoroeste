@@ -104,7 +104,11 @@ function InventoryDetail() {
 
   const selected = filtered.find((p) => p.id === selectedProduct);
 
-  const closed = inv?.status === "fechado";
+  const closed = inv?.status === "fechado" || inv?.status === "aprovada" || inv?.status === "reprovada";
+  const isSupOrAdmin = profile?.role === "admin" || profile?.role === "supervisor";
+  const showValidation = isSupOrAdmin && ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada"].includes(inv?.status ?? "");
+  const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
+  const submitValidationFn = useServerFn(submitForValidation);
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
