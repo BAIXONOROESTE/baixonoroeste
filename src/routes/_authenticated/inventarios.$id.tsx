@@ -50,14 +50,44 @@ function InventoryDetail() {
     queryFn: async () => (await supabase.from("count_items").select("*, product:products(name, code, unit)").eq("inventory_id", id)).data ?? [],
   });
 
+  const { data: scope } = useQuery({
+    queryKey: ["inventory-scope", id, inv?.type],
+    queryFn: async () => {
+      if (!inv) return { productIds: null as string[] | null, familyIds: null as string[] | null };
+      if (inv.type === "personalizado" || inv.type === "produto") {
+        const [{ data: ip }, { data: ifam }] = await Promise.all([
+          supabase.from("inventory_products").select("product_id").eq("inventory_id", id),
+          supabase.from("inventory_families").select("family_id").eq("inventory_id", id),
+        ]);
+        return {
+          productIds: (ip ?? []).map((r) => r.product_id),
+          familyIds: (ifam ?? []).map((r) => r.family_id),
+        };
+      }
+      return { productIds: null, familyIds: null };
+    },
+    enabled: !!inv,
+  });
+
   const { data: productsResp } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page],
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
     queryFn: async () => {
       const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
       let query = supabase
         .from("products")
         .select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active", { count: "exact" });
       if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
+      if (inv?.type === "personalizado" || inv?.type === "produto") {
+        const pIds = scope?.productIds ?? [];
+        const fIds = scope?.familyIds ?? [];
+        if (pIds.length === 0 && fIds.length === 0) {
+          return { data: [], count: 0 };
+        }
+        const filters: string[] = [];
+        if (pIds.length) filters.push(`id.in.(${pIds.join(",")})`);
+        if (fIds.length) filters.push(`family_id.in.(${fIds.join(",")})`);
+        query = query.or(filters.join(","));
+      }
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -68,7 +98,7 @@ function InventoryDetail() {
       if (error) throw error;
       return { data: data ?? [], count: count ?? 0 };
     },
-    enabled: !!inv,
+    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope),
     placeholderData: (previousData) => previousData ?? { data: [], count: 0 },
   });
   const products = productsResp?.data;
