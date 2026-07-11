@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { AlertTriangle, CheckCircle2, RefreshCcw, Wrench } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import { reviewCountItems, approveInventoryTask } from "@/lib/inventory-flow.functions";
+import { reviewCountItems, approveInventoryTask, submitRecountOrAdjust } from "@/lib/inventory-flow.functions";
 
 type Item = {
   id: string;
