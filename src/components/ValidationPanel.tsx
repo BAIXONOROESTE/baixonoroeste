@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, RefreshCcw, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCcw, Wrench, XCircle } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { reviewCountItems, approveInventoryTask, submitRecountOrAdjust } from "@/lib/inventory-flow.functions";
+import { RejectInventoryDialog } from "@/components/RejectInventoryDialog";
 
 type Item = {
   id: string;
@@ -29,6 +30,7 @@ export function ValidationPanel({ inventoryId, tolerancePct }: { inventoryId: st
   const [decisions, setDecisions] = useState<Record<string, { action: "aprovar" | "recontagem" | "ajuste" | "reprovar"; reason: string }>>({});
   const [bulkReason, setBulkReason] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [showReject, setShowReject] = useState(false);
   const reviewFn = useServerFn(reviewCountItems);
   const approveFn = useServerFn(approveInventoryTask);
 
@@ -182,10 +184,29 @@ export function ValidationPanel({ inventoryId, tolerancePct }: { inventoryId: st
         <Button className="w-full" onClick={saveDecisions} disabled={!Object.keys(decisions).length}>
           Salvar decisões ({Object.keys(decisions).length})
         </Button>
-        <Button className="w-full" variant="secondary" onClick={approve}>
-          <CheckCircle2 className="h-4 w-4 mr-2" /> Aprovar inventário
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="destructive" onClick={() => setShowReject(true)}>
+            <XCircle className="h-4 w-4 mr-1" /> Recusar
+          </Button>
+          <Button variant="secondary" onClick={approve}>
+            <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
+          </Button>
+        </div>
       </div>
+
+      {showReject && (
+        <RejectInventoryDialog
+          inventoryId={inventoryId}
+          divergentItems={(items ?? []).filter((i) => i.status === "divergencia").map((i) => ({
+            id: i.id, product_id: i.product_id,
+            quantity_before: Number(i.quantity_before ?? 0),
+            quantity_counted: Number(i.quantity_counted),
+            difference: Number(i.difference ?? 0),
+            product: i.product,
+          }))}
+          onClose={() => setShowReject(false)}
+        />
+      )}
     </div>
   );
 }
