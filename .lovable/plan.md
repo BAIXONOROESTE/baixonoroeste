@@ -1,64 +1,92 @@
-## Objetivo
-Resolver 4 problemas relatados: (1) códigos de barras não encontrados vindos do Omie, (2) UI da câmera com botões escondidos, (3) alertas via WhatsApp que devem ir por e-mail + desativar WhatsApp por completo, (4) lista de produtos deve incluir inativos marcados em vermelho.
+# Fase 1 — Fluxo de conferência, recontagem e ajuste
 
----
+Escopo confirmado: fluxo completo de validação + webhook n8n. WhatsApp fica **por conta do seu fluxo no n8n** (o app dispara os eventos; o n8n envia). Notificações diretas do app continuam por e-mail.
 
-## 1. Códigos de barras do Omie
+## 1. Banco de dados (uma migração)
 
-**Diagnóstico:** `src/lib/omie.functions.ts` grava só `barcode: p.codigo_barras`. A API `ListarProdutos` do Omie preenche o EAN em campos diferentes conforme o cadastro (`codigo_barras`, `ean`, `ean_13`). Se o produto foi cadastrado com EAN mas em outro campo, o `barcode` fica `null` no nosso banco e o scanner não acha nada.
+**`inventories`** — novos campos:
+- `status` expandido: `pendente`, `em_andamento`, `concluida`, `pendente_validacao`, `divergencia`, `recontagem_solicitada`, `ajuste_solicitado`, `recontagem_enviada`, `aguardando_validacao`, `aprovada`, `reprovada` (mantém `aberto`/`fechado` como aliases legados).
+- `type`: adiciona `'personalizado'` (mantém `total`/`familia`).
+- `assigned_counter_id uuid`, `assigned_supervisor_id uuid`, `assigned_admin_id uuid` (FK profiles).
+- `deadline_at timestamptz`, `notes text`, `tolerance_pct numeric default 0`.
 
-**O que fazer:**
-- Em `src/lib/omie.server.ts`, ampliar a interface `OmieProduto` para incluir `ean` e demais variantes.
-- Em `src/lib/omie.functions.ts`, escolher o barcode como `p.codigo_barras || p.ean || p.ean_13 || null` (com trim e ignorando `"0"` ou string vazia).
-- Adicionar no `sync_log` a contagem de produtos sem EAN (para o admin conseguir saber quantos itens ficaram sem código).
-- Testes rápidos via `supabase--read_query` depois da execução para confirmar que a taxa de produtos com barcode subiu.
+**Novas tabelas:**
+- `inventory_families(inventory_id, family_id)` — N famílias por inventário personalizado.
+- `inventory_products(inventory_id, product_id)` — N produtos escolhidos manualmente.
+- `count_item_history(id, count_item_id, inventory_id, product_id, quantity_before, quantity_counted, difference, action, actor_id, notes, created_at)` — snapshot a cada contagem/ajuste/recontagem.
+- `count_item_reviews(id, count_item_id, action['aprovar'|'recontagem'|'ajuste'|'aprovar_parcial'|'reprovar'], reason, deadline_at, reviewer_id, created_at)` — decisão do supervisor/admin.
+- `count_items`: adiciona `needs_recount boolean`, `needs_adjust boolean`, `round int default 1`, `reviewer_note text`.
 
-## 2. Câmera do scanner
+**`settings`** — novos campos: `n8n_webhook_url text`, `n8n_webhook_secret text`, `tolerance_pct_default numeric`.
 
-**Diagnóstico:** `BarcodeScanner` usa `<video className="flex-1 object-cover">` em tela cheia preta com o rodapé de texto pequeno. Em iOS/Android o vídeo cobre a área e o botão de fechar (X) fica muito discreto no topo; não há botão para captura manual nem para digitar o EAN quando a leitura falha.
+RLS + GRANTs padrão (authenticated + service_role); histórico só leitura para authenticated.
 
-**O que fazer (`src/components/BarcodeScanner.tsx`):**
-- Aumentar o botão de fechar (círculo grande com fundo escuro semi-transparente, canto superior direito, seguro contra safe-area do iOS: `env(safe-area-inset-top)`).
-- Adicionar sobreposição com “moldura de mira” central para o usuário enquadrar o código.
-- Adicionar barra inferior com:
-  - Botão “Digitar código” que abre um input para digitar/colar o EAN e devolve pelo `onScan`.
-  - Botão “Trocar câmera” quando houver mais de uma.
-  - Se disponível, botão de lanterna (`ImageCapture.getPhotoCapabilities().torch`).
-- Manter a decodificação automática (não é câmera de foto), mas com feedback visual (borda verde ao ler).
+## 2. Server functions novas (`src/lib/inventory-flow.functions.ts`)
 
-## 3. Desativar WhatsApp e migrar alertas para e-mail
+- `createInventory` — cria inventário com famílias/produtos/responsáveis/prazo/observações + dispara `tarefa_criada`.
+- `submitForValidation` — colaborador envia; muda para `pendente_validacao`; dispara `tarefa_concluida`.
+- `reviewCountItems({ inventory_id, decisions[] })` — supervisor/admin decide item a item (aprovar / recontagem / ajuste), grava em `count_item_reviews`, marca `needs_recount`/`needs_adjust` e atualiza status do inventário. Dispara `recontagem_solicitada` / `ajuste_solicitado`.
+- `submitRecountOrAdjust` — colaborador reenvia; snapshot em `count_item_history`; muda para `aguardando_validacao`; dispara `recontagem_enviada`.
+- `approveInventory` — aprovação final; dispara `tarefa_aprovada`; empurra ao Omie se `omie_update_mode='encerramento'`.
+- Cada mutação também grava em `count_item_history` e `logs`.
+- Permissões via `has_role`: só admin/supervisor podem aprovar/recontar/ajustar; colaborador só edita itens marcados.
 
-**Diagnóstico:** WhatsApp já é um stub no-op em `notify.functions.ts`, mas ainda existem menções e um input de telefone com rótulo “WhatsApp”. `pushCountToOmie` e `closeInventory` já mandam e-mail; só falta o alerta de **divergência** e o **pedido de fechamento**.
+## 3. Webhook n8n (`src/lib/n8n.server.ts`)
 
-**O que fazer:**
-- `src/lib/notify.functions.ts`: `notifyDivergence` passa a enviar e-mail (template `count-completed` ou template novo `divergence-alert`) para `loadNotificationRecipients()`, com dedupe por `idempotencyKeyPrefix: divergence-<inventory_id>-<count_item_id>`. Mantém a assinatura para não quebrar o cliente.
-- `src/lib/close-requests.functions.ts`: em `requestCloseInventory`, após criar o pedido, enviar e-mail para supervisores/admins com o link `/aprovar/<token>` (retornar `sent`/`targets` reais).
-- `src/routes/_authenticated/inventarios.$id.tsx`: trocar a mensagem “via WhatsApp” por “por e-mail”.
-- `src/routes/_authenticated/usuarios.tsx`: renomear rótulo do campo `phone` para “Telefone (opcional)” e remover qualquer sugestão de WhatsApp.
-- Remover o `sendWhatsApp` e comentários mortos de `notify.functions.ts` (a função vira só e-mail).
-- Manter a coluna `phone` no banco (não é destrutivo; pode voltar depois).
+- Helper `fireN8nEvent(evento, payload)` — lê URL/secret de `settings`, POST JSON, HMAC opcional no header `X-Signature`, timeout 5s, falha silenciosa + log.
+- Eventos: `tarefa_criada`, `tarefa_concluida`, `divergencia_encontrada`, `recontagem_solicitada`, `ajuste_solicitado`, `recontagem_enviada`, `tarefa_aprovada`.
+- Payload inclui: `evento`, `tarefa_id`, `tarefa_nome`, `responsavel {nome, email, telefone}`, `supervisor`, `admin`, `itens_divergentes[]`, `motivo`, `deadline`.
+- Configuração da URL na tela `Configurações` (existente) — dois campos novos.
 
-## 4. Lista de produtos: mostrar inativos em vermelho
+## 4. E-mails (templates novos em `src/lib/email-templates/`)
 
-**Diagnóstico:** Na tela `inventarios/$id.tsx` a consulta filtra `active=true`, escondendo produtos que o Omie inativou. O contador não consegue visualizar/conferir por que o item “sumiu”.
+- `task-assigned.tsx` — colaborador ao ser designado.
+- `recount-requested.tsx` — colaborador (itens + motivo + prazo).
+- `adjustment-requested.tsx` — colaborador (itens + motivo).
+- `revalidation-needed.tsx` — supervisor/admin quando o colaborador reenvia.
+- `task-approved.tsx` — todos os envolvidos.
+- Reaproveita `count-completed` para divergências (já existe).
 
-**O que fazer (`src/routes/_authenticated/inventarios.$id.tsx`):**
-- Remover o filtro `.eq("active", true)` da query `products-for-inv` e trazer `active` no `select`.
-- Ordenar por `active desc, name asc` para inativos irem para o fim.
-- Renderizar itens com `!p.active` em vermelho (classe `border-destructive/40 bg-destructive/5 text-destructive`) com selo “Inativo”.
-- Bloquear a seleção de produto inativo para contagem (mostrar toast “Produto inativo — peça reativação no Omie”), evitando novos `count_items` para inativos.
-- Ajustar a barra de progresso: denominador continua sendo só ativos, para não distorcer.
+## 5. UI
 
-## 5. Varredura geral por outros erros/conexões
+**Nova criação de inventário** (`inventarios.index.tsx` — modal expandido):
+- Tipo: total / família / **personalizado** (multi-select de famílias + busca de produtos).
+- Selects para colaborador, supervisor, admin (lista de profiles filtrada por role).
+- Data-limite (`datetime-local`), observações, tolerância %.
 
-Não vou refatorar código sem sintoma, mas nesta mesma passagem valido:
-- `pushCountToOmie`, `closeInventory`, `requestCloseInventory`, `syncFamiliesAndProducts` — chamadas server-fn, cliente Supabase, RLS.
-- Rodar `supabase--linter` e revisar `edge_function_logs` recentes (se houver) só para checar warnings críticos.
-- Confirmar via `code--exec` de build+typecheck que nada quebrou após as mudanças.
+**Lista de inventários**:
+- Cards de contagem: pendentes, em andamento, divergentes, pendentes de validação.
+- Filtros: responsável, supervisor, status, período.
+- Destaque visual (borda vermelha) para inventários com `deadline_at < now()` e status ainda aberto.
 
----
+**Detalhe do inventário** (`inventarios.$id.tsx`):
+- Contador vê só itens marcados quando status é `recontagem_solicitada`/`ajuste_solicitado`.
+- Para supervisor/admin: nova aba **"Validar"** com tabela: produto, SKU, esperado, contado, Δ, Δ%, obs, badge +/-, filtro (todos/divergentes/aprovados), ações por linha (aprovar/recontar/ajustar) + ação em massa.
+- Resumo no topo: nº divergências e Δ R$ total.
+- Botão "Aprovar inventário" só habilita quando todas as divergências têm decisão.
 
-### Fora do escopo
-- Sem mudanças de schema (não vamos apagar `phone`, `close_requests`, nem colunas de WhatsApp).
-- Sem alterar UI de outras telas além das listadas.
-- Sem mexer em MCP, auth, ou nas correções de segurança já em andamento.
+**Tela de recontagem/ajuste (colaborador)**:
+- Mostra só itens com `needs_recount`/`needs_adjust`, com quantidade original + campo nova quantidade + motivo do supervisor visível.
+- Botão "Enviar para nova validação".
+
+**Histórico de auditoria** — painel expansível no detalhe mostrando entradas de `count_item_history` + `count_item_reviews` + `logs` cronologicamente.
+
+## 6. Segurança / consistência
+
+- Todas as server fns usam `requireSupabaseAuth` + check `has_role`.
+- Trigger em `count_items` para detecção automática de divergência considerando `tolerance_pct` do inventário.
+- Não permite `approveInventory` se existir count_item divergente sem `count_item_reviews`.
+
+## Fora desta fase (fica pronto para fase 2)
+
+- WhatsApp direto pelo app (será via n8n).
+- Aprovar via link mágico por e-mail (o app já tem `aprovar.$token.tsx` — mantido como está).
+
+## Ordem de execução
+
+1. Migração (schema + RLS + grants).
+2. `n8n.server.ts` + campos em `settings` + tela de config.
+3. Server functions de fluxo.
+4. Templates de e-mail.
+5. UI: criação → validação → recontagem/ajuste → histórico.
+6. Testar fluxo end-to-end no preview autenticado (Playwright).
