@@ -46,20 +46,30 @@ function InventoryDetail() {
     queryFn: async () => (await supabase.from("count_items").select("*, product:products(name, code, unit)").eq("inventory_id", id)).data ?? [],
   });
 
-  const { data: products } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim()],
+  const { data: productsResp } = useQuery({
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page],
     queryFn: async () => {
       const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
-      let query = supabase.from("products").select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active");
+      let query = supabase
+        .from("products")
+        .select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active", { count: "exact" });
       if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
-      const { data, error } = await query.order("active", { ascending: false }).order("name").limit(search ? 80 : 200);
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error, count } = await query
+        .order("active", { ascending: false })
+        .order("name")
+        .range(from, to);
       if (error) throw error;
-      return data ?? [];
+      return { data: data ?? [], count: count ?? 0 };
     },
     enabled: !!inv,
-    placeholderData: (previousData) => previousData ?? [],
+    placeholderData: (previousData) => previousData ?? { data: [], count: 0 },
   });
+  const products = productsResp?.data;
+  const totalProducts = productsResp?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
 
   const sync = useMutation({
     mutationFn: () => syncFn(),
