@@ -208,7 +208,9 @@ function InventoryDetail() {
               catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao atualizar Omie."); }
             }
             if (status === "divergencia") {
-              notifyDivFn({ data: { inventory_id: id } }).catch((e) => console.warn("notifyDivergence:", e));
+              notifyDivFn({ data: { inventory_id: id } })
+                .then((r) => { if (r && (r as { ok?: boolean }).ok === false) toast.warning(`Alerta por e-mail falhou: ${(r as { error?: string }).error ?? "erro"}`); })
+                .catch((e) => { console.warn("notifyDivergence:", e); toast.warning("Não foi possível enviar alerta por e-mail."); });
             }
           }}
 
