@@ -14,6 +14,8 @@ import { requestCloseInventory } from "@/lib/close-requests.functions";
 import { notifyDivergence } from "@/lib/notify.functions";
 import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
+import { ValidationPanel, RecountAdjustView } from "@/components/ValidationPanel";
+import { submitForValidation } from "@/lib/inventory-flow.functions";
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
@@ -102,7 +104,11 @@ function InventoryDetail() {
 
   const selected = filtered.find((p) => p.id === selectedProduct);
 
-  const closed = inv?.status === "fechado";
+  const closed = inv?.status === "fechado" || inv?.status === "aprovada" || inv?.status === "reprovada";
+  const isSupOrAdmin = profile?.role === "admin" || profile?.role === "supervisor";
+  const showValidation = isSupOrAdmin && ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada"].includes(inv?.status ?? "");
+  const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
+  const submitValidationFn = useServerFn(submitForValidation);
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
@@ -127,8 +133,32 @@ function InventoryDetail() {
         </div>
       </div>
 
-      {!closed && (
+      {showValidation && (
+        <div className="rounded-2xl bg-primary/5 border border-primary/40 p-3 space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-primary" /> Validação do inventário</div>
+          <ValidationPanel inventoryId={id} tolerancePct={Number(inv?.tolerance_pct ?? 0)} />
+        </div>
+      )}
+
+      {showRecount && (
+        <div className="rounded-2xl bg-warning/5 border border-warning/40 p-3 space-y-2">
+          <div className="text-sm font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /> Ação necessária: {inv?.status === "recontagem_solicitada" ? "recontagem" : "ajuste"}</div>
+          <RecountAdjustView inventoryId={id} />
+        </div>
+      )}
+
+      {!closed && !showValidation && !showRecount && (
         <>
+          {(inv?.status === "pendente" || inv?.status === "em_andamento" || inv?.status === "aberto") && (items?.length ?? 0) > 0 && (
+            <Button variant="secondary" className="w-full" onClick={async () => {
+              try {
+                const r = await submitValidationFn({ data: { inventory_id: id } });
+                toast.success(r.divergencias > 0 ? `Enviado. ${r.divergencias} item(ns) para validar.` : "Sem divergências — inventário concluído.");
+                qc.invalidateQueries();
+              } catch (e) { toast.error(e instanceof Error ? e.message : "Falha."); }
+            }}>Enviar para validação</Button>
+          )}
+
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

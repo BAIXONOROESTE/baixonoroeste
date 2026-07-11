@@ -33,7 +33,7 @@ function ConfigPage() {
   if (me?.role !== "admin") return <div className="p-6 text-muted-foreground">Somente admin.</div>;
 
   return (
-    <div className="mx-auto max-w-md px-4 pt-4 space-y-4">
+    <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
       <h1 className="text-2xl font-display font-semibold">Configurações</h1>
 
       <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
@@ -50,6 +50,8 @@ function ConfigPage() {
       </div>
 
       <NotificationSettings settings={settings} onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })} />
+
+      <N8nSettings settings={settings} onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })} />
 
       <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
         <div className="font-medium text-sm">Motivos de perda</div>
@@ -85,6 +87,9 @@ type Settings = {
   notif_from_email: string | null;
   notif_from_name: string | null;
   notif_reply_to: string | null;
+  n8n_webhook_url?: string | null;
+  n8n_webhook_secret?: string | null;
+  tolerance_pct_default?: number | null;
 } | null | undefined;
 
 function NotificationSettings({ settings, onSaved }: { settings: Settings; onSaved: () => void }) {
@@ -154,3 +159,59 @@ function NotificationSettings({ settings, onSaved }: { settings: Settings; onSav
   );
 }
 
+function N8nSettings({ settings, onSaved }: { settings: Settings; onSaved: () => void }) {
+  const [url, setUrl] = useState("");
+  const [secret, setSecret] = useState("");
+  const [tol, setTol] = useState("0");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!settings) return;
+    setUrl(settings.n8n_webhook_url ?? "");
+    setSecret(settings.n8n_webhook_secret ?? "");
+    setTol(String(settings.tolerance_pct_default ?? 0));
+  }, [settings]);
+
+  async function save() {
+    setSaving(true);
+    const tolNum = Number(String(tol).replace(",", "."));
+    const { error } = await supabase.from("settings").update({
+      n8n_webhook_url: url.trim() || null,
+      n8n_webhook_secret: secret.trim() || null,
+      tolerance_pct_default: Number.isFinite(tolNum) ? tolNum : 0,
+    }).eq("id", 1);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Webhook e tolerância salvos.");
+    onSaved();
+  }
+
+  return (
+    <div className="rounded-2xl bg-surface border border-border p-4 space-y-3">
+      <div>
+        <div className="font-medium text-sm">Integração n8n (webhook)</div>
+        <div className="text-xs text-muted-foreground">
+          Envia eventos do fluxo (criação, divergência, recontagem, ajuste, aprovação) para o n8n disparar WhatsApp e automações.
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <label className="text-xs text-muted-foreground">URL do webhook n8n</label>
+          <Input placeholder="https://n8n.seu-dominio.com/webhook/..." value={url} onChange={(e) => setUrl(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Segredo (opcional — HMAC-SHA256 em X-Signature)</label>
+          <Input value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="segredo compartilhado com o n8n" />
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Tolerância padrão de divergência (%)</label>
+          <Input type="number" step="0.1" min="0" value={tol} onChange={(e) => setTol(e.target.value)} />
+        </div>
+      </div>
+      <Button className="w-full" onClick={save} disabled={saving}>{saving ? "Salvando" : "Salvar integração"}</Button>
+      <p className="text-[11px] text-muted-foreground leading-snug">
+        Payload JSON com os campos: evento, tarefa_id, tarefa_nome, responsavel, supervisor, admin, itens_divergentes[], motivo, deadline.
+      </p>
+    </div>
+  );
+}
