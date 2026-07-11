@@ -141,7 +141,10 @@ function InventoryDetail() {
 
   const closed = inv?.status === "fechado" || inv?.status === "aprovada" || inv?.status === "reprovada";
   const isSupOrAdmin = profile?.role === "admin" || profile?.role === "supervisor";
-  const showValidation = isSupOrAdmin && ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada"].includes(inv?.status ?? "");
+  const showValidation = isSupOrAdmin && (
+    ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada", "recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "")
+    || (divergencias > 0 && !closed)
+  );
   const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
   const submitValidationFn = useServerFn(submitForValidation);
   const { pending: pendingQueue, flushing, online, flush } = useOfflineCountQueue(id);
