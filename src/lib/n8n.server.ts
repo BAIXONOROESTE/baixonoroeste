@@ -12,7 +12,8 @@ export type N8nEvent =
   | "recontagem_solicitada"
   | "ajuste_solicitado"
   | "recontagem_enviada"
-  | "tarefa_aprovada";
+  | "tarefa_aprovada"
+  | "inventario_recusado";
 
 export interface N8nPayload {
   evento: N8nEvent;

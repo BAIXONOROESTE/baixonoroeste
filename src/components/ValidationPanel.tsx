@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, RefreshCcw, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCcw, Wrench, XCircle } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { reviewCountItems, approveInventoryTask, submitRecountOrAdjust } from "@/lib/inventory-flow.functions";
+import { RejectInventoryDialog } from "@/components/RejectInventoryDialog";
 
 type Item = {
   id: string;
@@ -29,6 +30,7 @@ export function ValidationPanel({ inventoryId, tolerancePct }: { inventoryId: st
   const [decisions, setDecisions] = useState<Record<string, { action: "aprovar" | "recontagem" | "ajuste" | "reprovar"; reason: string }>>({});
   const [bulkReason, setBulkReason] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [showReject, setShowReject] = useState(false);
   const reviewFn = useServerFn(reviewCountItems);
   const approveFn = useServerFn(approveInventoryTask);
 
@@ -182,10 +184,29 @@ export function ValidationPanel({ inventoryId, tolerancePct }: { inventoryId: st
         <Button className="w-full" onClick={saveDecisions} disabled={!Object.keys(decisions).length}>
           Salvar decisões ({Object.keys(decisions).length})
         </Button>
-        <Button className="w-full" variant="secondary" onClick={approve}>
-          <CheckCircle2 className="h-4 w-4 mr-2" /> Aprovar inventário
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="destructive" onClick={() => setShowReject(true)}>
+            <XCircle className="h-4 w-4 mr-1" /> Recusar
+          </Button>
+          <Button variant="secondary" onClick={approve}>
+            <CheckCircle2 className="h-4 w-4 mr-1" /> Aprovar
+          </Button>
+        </div>
       </div>
+
+      {showReject && (
+        <RejectInventoryDialog
+          inventoryId={inventoryId}
+          divergentItems={(items ?? []).filter((i) => i.status === "divergencia").map((i) => ({
+            id: i.id, product_id: i.product_id,
+            quantity_before: Number(i.quantity_before ?? 0),
+            quantity_counted: Number(i.quantity_counted),
+            difference: Number(i.difference ?? 0),
+            product: i.product,
+          }))}
+          onClose={() => setShowReject(false)}
+        />
+      )}
     </div>
   );
 }
@@ -195,6 +216,19 @@ export function RecountAdjustView({ inventoryId }: { inventoryId: string }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const submitFn = useServerFn(submitRecountOrAdjust);
+
+  const { data: rejection } = useQuery({
+    queryKey: ["last-rejection", inventoryId],
+    queryFn: async () => {
+      const { data } = await supabase.from("inventory_rejections")
+        .select("reason, notes, recount_deadline, created_at, rejected_by")
+        .eq("inventory_id", inventoryId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+  });
 
   const { data: items } = useQuery({
     queryKey: ["recount-items", inventoryId],
@@ -226,6 +260,16 @@ export function RecountAdjustView({ inventoryId }: { inventoryId: string }) {
 
   return (
     <div className="space-y-3">
+      {rejection && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/40 p-3 text-xs space-y-1">
+          <div className="font-semibold text-destructive flex items-center gap-1"><XCircle className="h-4 w-4" /> Inventário recusado</div>
+          <div><span className="text-muted-foreground">Motivo: </span><b>{rejection.reason}</b></div>
+          {rejection.notes && <div className="italic text-muted-foreground">"{rejection.notes}"</div>}
+          {rejection.recount_deadline && (
+            <div><span className="text-muted-foreground">Prazo: </span><b>{new Date(rejection.recount_deadline).toLocaleString("pt-BR")}</b></div>
+          )}
+        </div>
+      )}
       <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 text-xs text-warning-foreground">
         <div className="flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />

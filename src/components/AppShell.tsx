@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useProfile } from "@/hooks/useProfile";
+import { SyncStatusBadge } from "@/components/SyncStatusBadge";
+import { useAutoSync } from "@/hooks/useAutoSync";
 
 const bottomNav = [
   { to: "/inicio", label: "Início", icon: Home },
@@ -31,6 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
+  useAutoSync();
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -50,10 +53,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
         <div className="flex items-center gap-2">
           <span className="text-lg font-display font-semibold text-primary">📦 Baixo Noroeste</span>
-          <span className="text-sm font-display text-muted-foreground">Inventário</span>
+          <span className="hidden sm:inline text-sm font-display text-muted-foreground">Inventário</span>
         </div>
-        <div className="h-9 w-9 rounded-full bg-primary/20 grid place-items-center text-xs font-semibold text-primary">
-          {profile?.full_name?.slice(0, 2).toUpperCase() ?? "…"}
+        <div className="flex items-center gap-2">
+          <SyncStatusBadge />
+          <div className="h-9 w-9 rounded-full bg-primary/20 grid place-items-center text-xs font-semibold text-primary">
+            {profile?.full_name?.slice(0, 2).toUpperCase() ?? "…"}
+          </div>
         </div>
       </header>
 

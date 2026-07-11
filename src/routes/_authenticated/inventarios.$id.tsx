@@ -16,6 +16,8 @@ import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
 import { ValidationPanel, RecountAdjustView } from "@/components/ValidationPanel";
 import { submitForValidation } from "@/lib/inventory-flow.functions";
+import { useOfflineCountQueue } from "@/hooks/useOfflineCountQueue";
+import { CloudOff, RefreshCw as SyncIcon } from "lucide-react";
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
@@ -109,6 +111,7 @@ function InventoryDetail() {
   const showValidation = isSupOrAdmin && ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada"].includes(inv?.status ?? "");
   const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
   const submitValidationFn = useServerFn(submitForValidation);
+  const { pending: pendingQueue, flushing, online, flush } = useOfflineCountQueue(id);
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
@@ -118,6 +121,22 @@ function InventoryDetail() {
           {inv?.type === "familia" ? `Família: ${inv?.family?.name ?? "—"}` : inv?.type} · {inv?.status}
         </div>
       </div>
+
+      {!online && (
+        <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 text-xs flex items-center gap-2">
+          <CloudOff className="h-4 w-4 text-warning" />
+          <span>Você está offline. Contagens são salvas no aparelho e sincronizadas quando a internet voltar.</span>
+        </div>
+      )}
+      {pendingQueue.length > 0 && (
+        <div className="rounded-xl bg-primary/10 border border-primary/40 p-3 text-xs flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <SyncIcon className={`h-4 w-4 text-primary ${flushing ? "animate-spin" : ""}`} />
+            <span><b>{pendingQueue.length}</b> contagem(ns) aguardando sincronização.</span>
+          </div>
+          <button className="text-primary underline" onClick={() => flush()} disabled={flushing || !online}>Sincronizar</button>
+        </div>
+      )}
 
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
@@ -322,7 +341,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   onSaved: (count_item_id: string, status: "correto" | "divergencia") => void;
   onOpenLoss: (count_item_id: string | undefined, presetQuantity?: number) => void;
 }) {
-
+  const { enqueue, flush, online } = useOfflineCountQueue(inventoryId);
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
@@ -337,18 +356,35 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
     const { data: u } = await supabase.auth.getUser();
     const stock = Number(product.stock_omie);
     const status: "correto" | "divergencia" = q === stock ? "correto" : "divergencia";
-    const payload = {
-      inventory_id: inventoryId, product_id: product.id, counted_by: u.user!.id,
-      quantity_before: stock, quantity_counted: q, unit_cost: Number(product.cost), status,
-    };
-    const { data, error } = await supabase.from("count_items").upsert(payload, { onConflict: "inventory_id,product_id" }).select("id").single();
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: data.id, produto: product.name, qtd: q, status } });
-    toast.success("Contagem salva!");
     const diff = q - stock;
-    setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: data.id });
-    onSaved(data.id, status);
+
+    // Salva na fila offline (grava localmente e tenta sincronizar imediatamente)
+    await enqueue({
+      inventory_id: inventoryId,
+      product_id: product.id,
+      counted_by: u.user!.id,
+      quantity_before: stock,
+      quantity_counted: q,
+      unit_cost: Number(product.cost),
+      status,
+    });
+
+    let realId = currentItem?.id ?? "";
+    if (online) {
+      const r = await flush();
+      if (r.ok) {
+        const { data: ci } = await supabase.from("count_items").select("id").eq("inventory_id", inventoryId).eq("product_id", product.id).maybeSingle();
+        if (ci?.id) {
+          realId = ci.id;
+          await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: ci.id, produto: product.name, qtd: q, status } });
+        }
+      }
+    }
+
+    setSaving(false);
+    toast.success(online ? "Contagem salva!" : "Salva offline · vai sincronizar sozinha");
+    setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: realId });
+    if (realId) onSaved(realId, status);
   }
 
   const qNum = Number(qty.replace(",", ".")) || 0;

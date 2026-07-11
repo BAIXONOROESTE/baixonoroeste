@@ -1,92 +1,122 @@
-# Fase 1 — Fluxo de conferência, recontagem e ajuste
+# Revisão da Fase 1 + Plano da Fase 2
 
-Escopo confirmado: fluxo completo de validação + webhook n8n. WhatsApp fica **por conta do seu fluxo no n8n** (o app dispara os eventos; o n8n envia). Notificações diretas do app continuam por e-mail.
+## Status da Fase 1 (revisão)
 
-## 1. Banco de dados (uma migração)
+Já entregue e funcionando:
+- Novos status de inventário (`pendente`, `divergencia`, `recontagem_solicitada`, `ajuste_solicitado`, `aguardando_validacao`, `aprovada`, `reprovada`, etc.).
+- Tipo `personalizado` + tabelas `inventory_families` / `inventory_products`.
+- Tabelas de auditoria `count_item_history` e `count_item_reviews`.
+- Server functions do fluxo: `createInventoryTask`, `submitForValidation`, `reviewCountItems`, `submitRecountOrAdjust`, `approveInventoryTask`.
+- Webhook n8n (`src/lib/n8n.server.ts`) com HMAC opcional + templates de e-mail (task-assigned, recount, adjustment, revalidation, approved).
+- UI: `ValidationPanel`, `RecountAdjustView`, criação personalizada, contadores por status na lista, deadline destacada.
+- Paginação de produtos por família na tela de contagem.
 
-**`inventories`** — novos campos:
-- `status` expandido: `pendente`, `em_andamento`, `concluida`, `pendente_validacao`, `divergencia`, `recontagem_solicitada`, `ajuste_solicitado`, `recontagem_enviada`, `aguardando_validacao`, `aprovada`, `reprovada` (mantém `aberto`/`fechado` como aliases legados).
-- `type`: adiciona `'personalizado'` (mantém `total`/`familia`).
-- `assigned_counter_id uuid`, `assigned_supervisor_id uuid`, `assigned_admin_id uuid` (FK profiles).
-- `deadline_at timestamptz`, `notes text`, `tolerance_pct numeric default 0`.
+Pendências identificadas ao revisar:
+1. **Sem autosave offline real** — hoje o `CountForm` grava no Supabase no clique de "Salvar"; se cair a internet perde o valor digitado; não há fila local.
+2. **Recusa sem formulário estruturado** — `reviewCountItems` recebe decisões item a item, mas não há um "Recusar inventário" com motivo obrigatório + seleção em massa + prazo. Também não há um status `reprovada` amigável no fluxo (só via `approveInventoryTask({approved:false})`).
+3. **Sync Omie manual** — só roda no botão "Sincronizar Omie" (admin). Não abre sozinho, não roda em background, não roda ao entrar numa tarefa.
+4. **Sem indicador de conexão / última sync** na UI.
+5. **Notificação de recusa** ainda usa e-mail; falta disparar evento n8n `inventory.rejected` com produtos divergentes + prazo para WhatsApp.
 
-**Novas tabelas:**
-- `inventory_families(inventory_id, family_id)` — N famílias por inventário personalizado.
-- `inventory_products(inventory_id, product_id)` — N produtos escolhidos manualmente.
-- `count_item_history(id, count_item_id, inventory_id, product_id, quantity_before, quantity_counted, difference, action, actor_id, notes, created_at)` — snapshot a cada contagem/ajuste/recontagem.
-- `count_item_reviews(id, count_item_id, action['aprovar'|'recontagem'|'ajuste'|'aprovar_parcial'|'reprovar'], reason, deadline_at, reviewer_id, created_at)` — decisão do supervisor/admin.
-- `count_items`: adiciona `needs_recount boolean`, `needs_adjust boolean`, `round int default 1`, `reviewer_note text`.
+## Fase 2 — Escopo
 
-**`settings`** — novos campos: `n8n_webhook_url text`, `n8n_webhook_secret text`, `tolerance_pct_default numeric`.
+### 1. Autosave + Offline (contagem)
 
-RLS + GRANTs padrão (authenticated + service_role); histórico só leitura para authenticated.
+Banco:
+- Nada novo — `count_items` já tem unique `(inventory_id, product_id)` que serve de chave de idempotência.
+- Adicionar coluna `client_mutation_id uuid` em `count_items` para dedupe explícito da fila local.
 
-## 2. Server functions novas (`src/lib/inventory-flow.functions.ts`)
+Cliente:
+- Novo hook `useOfflineCountQueue(inventoryId)` em `src/hooks/useOfflineCountQueue.ts`:
+  - Persiste mutações em `IndexedDB` (via `idb-keyval`, leve, sem service worker).
+  - Cada mutação: `{id, inventory_id, product_id, quantity, unit_cost, quantity_before, created_at, synced_at?}`.
+  - Autosave dispara em `onChange` do input com debounce 400ms (rascunho) + no blur/enter (commit).
+  - Flush loop: sempre que `navigator.onLine` for true e houver pendências → upsert em lote em `count_items` com `onConflict: "inventory_id,product_id"`.
+  - Ao sucesso, marca `synced_at` local e invalida a query `count-items`.
+- Refatorar `CountForm` para chamar o hook em vez do `supabase.from(...).upsert` direto. Manter comportamento "às cegas" (revela após salvar/sync).
+- Badge global em `AppShell`: `Online • Sincronizado` / `Offline • N pendentes` / `Sincronizando…` / última sync `hh:mm`.
+- Toast discreto "Rascunho salvo" no autosave (throttled).
+- Ao abrir uma tarefa com pendências locais → banner "Retomar contagem (N itens não sincronizados)" + botão para forçar flush.
+- Status visual "Rascunho" na lista de inventários quando existe fila local para aquele id.
 
-- `createInventory` — cria inventário com famílias/produtos/responsáveis/prazo/observações + dispara `tarefa_criada`.
-- `submitForValidation` — colaborador envia; muda para `pendente_validacao`; dispara `tarefa_concluida`.
-- `reviewCountItems({ inventory_id, decisions[] })` — supervisor/admin decide item a item (aprovar / recontagem / ajuste), grava em `count_item_reviews`, marca `needs_recount`/`needs_adjust` e atualiza status do inventário. Dispara `recontagem_solicitada` / `ajuste_solicitado`.
-- `submitRecountOrAdjust` — colaborador reenvia; snapshot em `count_item_history`; muda para `aguardando_validacao`; dispara `recontagem_enviada`.
-- `approveInventory` — aprovação final; dispara `tarefa_aprovada`; empurra ao Omie se `omie_update_mode='encerramento'`.
-- Cada mutação também grava em `count_item_history` e `logs`.
-- Permissões via `has_role`: só admin/supervisor podem aprovar/recontar/ajustar; colaborador só edita itens marcados.
+Registro:
+- Ao sincronizar com sucesso, gravar em `logs` (action=`contagem_sincronizada`, details com contagem de itens e delay).
 
-## 3. Webhook n8n (`src/lib/n8n.server.ts`)
+### 2. Formulário obrigatório de recusa
 
-- Helper `fireN8nEvent(evento, payload)` — lê URL/secret de `settings`, POST JSON, HMAC opcional no header `X-Signature`, timeout 5s, falha silenciosa + log.
-- Eventos: `tarefa_criada`, `tarefa_concluida`, `divergencia_encontrada`, `recontagem_solicitada`, `ajuste_solicitado`, `recontagem_enviada`, `tarefa_aprovada`.
-- Payload inclui: `evento`, `tarefa_id`, `tarefa_nome`, `responsavel {nome, email, telefone}`, `supervisor`, `admin`, `itens_divergentes[]`, `motivo`, `deadline`.
-- Configuração da URL na tela `Configurações` (existente) — dois campos novos.
+Banco (migração):
+- Nova tabela `inventory_rejections`:
+  - `inventory_id`, `rejected_by`, `reason text not null`, `notes text`, `recount_deadline timestamptz`, `product_ids uuid[] not null` (produtos marcados p/ recontagem), `created_at`.
+  - Grants + RLS: só admin/supervisor insere; leitura para participantes do inventário.
+- Trigger/valida no server fn: bloqueia `approveInventoryTask({approved:false})` sem registro correspondente.
 
-## 4. E-mails (templates novos em `src/lib/email-templates/`)
+Server function nova em `src/lib/inventory-flow.functions.ts`:
+- `rejectInventoryTask({ inventory_id, reason, notes?, recount_deadline?, product_ids[] })`:
+  - Verifica role admin/supervisor via `has_role`.
+  - Insere `inventory_rejections`.
+  - Marca `count_items.needs_recount=true` para os `product_ids`, cria reviews `needs_recount` e histórico.
+  - Muda `inventories.status = 'recontagem_solicitada'` e `deadline_at = recount_deadline` quando informado.
+  - Dispara `fireN8nEvent('inventory.rejected', { inventario, motivo, prazo, itens_para_recontar: [...] })` (para WhatsApp via n8n).
+  - Envia e-mail template `recount-requested` (já existe).
+  - Grava em `logs`.
 
-- `task-assigned.tsx` — colaborador ao ser designado.
-- `recount-requested.tsx` — colaborador (itens + motivo + prazo).
-- `adjustment-requested.tsx` — colaborador (itens + motivo).
-- `revalidation-needed.tsx` — supervisor/admin quando o colaborador reenvia.
-- `task-approved.tsx` — todos os envolvidos.
-- Reaproveita `count-completed` para divergências (já existe).
+UI:
+- No `ValidationPanel`, botão "Recusar inventário" abre `RejectInventoryDialog`:
+  - Campo motivo (required, textarea).
+  - Multi-select dos itens divergentes (pré-marca todos com `status='divergencia'`).
+  - Campo observações e date-time picker para prazo.
+  - Validação: pelo menos 1 produto + motivo preenchido.
+- Botão atual de "reprovar" item-a-item continua para casos simples.
 
-## 5. UI
+### 3. Tela de recontagem (colaborador)
 
-**Nova criação de inventário** (`inventarios.index.tsx` — modal expandido):
-- Tipo: total / família / **personalizado** (multi-select de famílias + busca de produtos).
-- Selects para colaborador, supervisor, admin (lista de profiles filtrada por role).
-- Data-limite (`datetime-local`), observações, tolerância %.
+O `RecountAdjustView` já existe — melhorar:
+- Cabeçalho mostra `motivo` + `notes` + `recount_deadline` vindos do último `inventory_rejections`.
+- Lista somente itens com `needs_recount=true` (query já filtra).
+- Mostra `quantity_counted` anterior (rótulo "Contagem anterior") + novo input.
+- Botão "Enviar recontagem" → `submitRecountOrAdjust` (já existente) que grava em `count_item_history` (round++) e devolve para `aguardando_validacao`.
 
-**Lista de inventários**:
-- Cards de contagem: pendentes, em andamento, divergentes, pendentes de validação.
-- Filtros: responsável, supervisor, status, período.
-- Destaque visual (borda vermelha) para inventários com `deadline_at < now()` e status ainda aberto.
+### 4. Histórico
 
-**Detalhe do inventário** (`inventarios.$id.tsx`):
-- Contador vê só itens marcados quando status é `recontagem_solicitada`/`ajuste_solicitado`.
-- Para supervisor/admin: nova aba **"Validar"** com tabela: produto, SKU, esperado, contado, Δ, Δ%, obs, badge +/-, filtro (todos/divergentes/aprovados), ações por linha (aprovar/recontar/ajustar) + ação em massa.
-- Resumo no topo: nº divergências e Δ R$ total.
-- Botão "Aprovar inventário" só habilita quando todas as divergências têm decisão.
+- `count_item_history` já cobre. Adicionar view/panel "Histórico" na tela do inventário (admin/supervisor): quem recusou, quando, motivo, produtos, rounds, sync events (via `logs`).
 
-**Tela de recontagem/ajuste (colaborador)**:
-- Mostra só itens com `needs_recount`/`needs_adjust`, com quantidade original + campo nova quantidade + motivo do supervisor visível.
-- Botão "Enviar para nova validação".
+### 5. Sincronização automática Omie
 
-**Histórico de auditoria** — painel expansível no detalhe mostrando entradas de `count_item_history` + `count_item_reviews` + `logs` cronologicamente.
+- Renomear `syncFamiliesAndProducts` para permanecer + novo server fn `syncProductsIncremental` (busca só ativos + delta por `updated_at` quando disponível; caso Omie não retorne, faz full sync leve).
+- Novo hook `useAutoSync()` em `AppShell`:
+  - Roda no mount (com debounce se última sync <60s).
+  - Roda quando a rota casa `/inventarios/$id` (antes de renderizar contagem).
+  - Interval configurável em `settings.auto_sync_interval_seconds` (default 300s).
+  - Escuta `visibilitychange` → refaz se ficou >5min oculto.
+- **Nunca sobrescreve** count_items — apenas atualiza `products.stock_omie/cost/active`.
+- Última sync exibida no `AppShell` (mesmo badge do offline).
+- Remove necessidade do botão manual (mas botão continua disponível para admin forçar).
 
-## 6. Segurança / consistência
+### 6. Indicadores
 
-- Todas as server fns usam `requireSupabaseAuth` + check `has_role`.
-- Trigger em `count_items` para detecção automática de divergência considerando `tolerance_pct` do inventário.
-- Não permite `approveInventory` se existir count_item divergente sem `count_item_reviews`.
+Componente `<SyncStatusBadge/>` no header do `AppShell`:
+- Estados: `online-synced`, `syncing`, `offline`, `error`, com timestamp da última sync bem-sucedida.
+- Toast quando `offline → online` reconciliação começa e termina.
 
-## Fora desta fase (fica pronto para fase 2)
+### 7. Segurança / consistência
 
-- WhatsApp direto pelo app (será via n8n).
-- Aprovar via link mágico por e-mail (o app já tem `aprovar.$token.tsx` — mantido como está).
+- `rejectInventoryTask` e `approveInventoryTask` já usam `requireSupabaseAuth`; reforçar `has_role('admin'|'supervisor')`.
+- Bloquear approve quando `count_items.needs_recount = true` existe (SQL check no início do handler).
+- Colaborador só edita quando `inventory.status IN ('pendente','em_andamento','recontagem_solicitada','ajuste_solicitado')` e (`round=0` ou `needs_recount=true` para o item). Já hoje é UI-side; adicionar policy RLS coerente.
 
 ## Ordem de execução
 
-1. Migração (schema + RLS + grants).
-2. `n8n.server.ts` + campos em `settings` + tela de config.
-3. Server functions de fluxo.
-4. Templates de e-mail.
-5. UI: criação → validação → recontagem/ajuste → histórico.
-6. Testar fluxo end-to-end no preview autenticado (Playwright).
+1. Migração: `client_mutation_id`, `inventory_rejections`, RLS/GRANT, guarda em approve.
+2. Hook offline + refactor do `CountForm` + badge de sync.
+3. Server fn `rejectInventoryTask` + `RejectInventoryDialog` + evento n8n `inventory.rejected`.
+4. Auto-sync Omie (`useAutoSync`) + `SyncStatusBadge` + remoção da dependência do botão manual.
+5. Painel de histórico consolidado.
+6. Testes ponta a ponta: contagem offline → volta online → sync; recusa → notificação → recontagem → aprovação.
+
+## Fora de escopo desta fase
+
+- WhatsApp direto no app (continua via n8n).
+- Service Worker / PWA install (usaremos IndexedDB puro; PWA fica para depois se pedirem "instalar app").
+- Reescrita da tela de contagem — apenas troca a camada de persistência.
+
+Confirma para eu partir para implementação?
