@@ -37,12 +37,16 @@ function InventoryDetail() {
   const pushFn = useServerFn(pushCountToOmie);
   const notifyDivFn = useServerFn(notifyDivergence);
   const syncFn = useServerFn(syncFamiliesAndProducts);
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: profileLoading } = useProfile();
 
 
-  const { data: inv } = useQuery({
+  const { data: inv, isLoading: invLoading, error: invError } = useQuery({
     queryKey: ["inventory", id],
-    queryFn: async () => (await supabase.from("inventories").select("*, family:families(name)").eq("id", id).single()).data,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("inventories").select("*, family:families(name)").eq("id", id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
   });
 
   const { data: items } = useQuery({
@@ -139,8 +143,10 @@ function InventoryDetail() {
 
   const selected = filtered.find((p) => p.id === selectedProduct);
 
-  const closed = inv?.status === "fechado" || inv?.status === "aprovada" || inv?.status === "reprovada";
   const isSupOrAdmin = profile?.role === "admin" || profile?.role === "supervisor";
+  const canOpenInventory = !!inv && !!profile && (isSupOrAdmin || inv.assigned_counter_id === profile.id);
+  const closed = inv?.status === "fechado" || inv?.status === "aprovada" || inv?.status === "reprovada";
+  const canEditCounts = canOpenInventory && !closed;
   const showValidation = isSupOrAdmin && (
     ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada", "recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "")
     || (divergencias > 0 && !closed)
@@ -148,6 +154,26 @@ function InventoryDetail() {
   const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
   const submitValidationFn = useServerFn(submitForValidation);
   const { pending: pendingQueue, flushing, online, flush } = useOfflineCountQueue(id);
+
+  if (profileLoading || invLoading) {
+    return (
+      <div className="mx-auto max-w-md px-4 pt-8 text-sm text-muted-foreground">
+        Carregando inventário...
+      </div>
+    );
+  }
+
+  if (invError || !inv || !canOpenInventory) {
+    return (
+      <div className="mx-auto max-w-md px-4 pt-8 space-y-3">
+        <h1 className="text-xl font-display font-semibold">Inventário indisponível</h1>
+        <p className="text-sm text-muted-foreground">
+          Esta contagem não existe ou não está designada para este usuário. Supervisores e administradores podem abrir qualquer contagem.
+        </p>
+        <Button variant="secondary" onClick={() => navigate({ to: "/inventarios" })}>Voltar para inventários</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
@@ -202,7 +228,7 @@ function InventoryDetail() {
         </div>
       )}
 
-      {!closed && !showValidation && !showRecount && (
+      {canEditCounts && !showValidation && !showRecount && (
         <>
           {(inv?.status === "pendente" || inv?.status === "em_andamento" || inv?.status === "aberto") && (items?.length ?? 0) > 0 && (
             <Button variant="secondary" className="w-full" onClick={async () => {
@@ -312,7 +338,7 @@ function InventoryDetail() {
         </div>
       )}
 
-      {selectedProduct && selected && !closed && (
+      {selectedProduct && selected && canEditCounts && (
         <CountForm
           product={selected}
           inventoryId={id}
@@ -348,7 +374,7 @@ function InventoryDetail() {
 
       {lossFor && <LossModal {...lossFor} onClose={() => setLossFor(null)} onDone={() => { setLossFor(null); qc.invalidateQueries(); }} />}
 
-      {!closed && (
+      {canEditCounts && (
         <div className="pt-2">
           <Button className="w-full" variant="default"
             onClick={async () => {
@@ -402,6 +428,7 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
     if (Number.isNaN(q)) { toast.error("Quantidade inválida"); return; }
     setSaving(true);
     const { data: u } = await supabase.auth.getUser();
+    if (!u.user) { setSaving(false); toast.error("Sessão expirada. Entre novamente."); return; }
     const stock = Number(product.stock_omie);
     const status: "correto" | "divergencia" = q === stock ? "correto" : "divergencia";
     const diff = q - stock;
@@ -420,6 +447,11 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
     let realId = currentItem?.id ?? "";
     if (online) {
       const r = await flush();
+      if (!r.ok) {
+        setSaving(false);
+        toast.error(typeof r.reason === "string" ? r.reason : "Falha ao sincronizar a contagem.");
+        return;
+      }
       if (r.ok) {
         const { data: ci } = await supabase.from("count_items").select("id").eq("inventory_id", inventoryId).eq("product_id", product.id).maybeSingle();
         if (ci?.id) {

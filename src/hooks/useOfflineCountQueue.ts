@@ -136,10 +136,7 @@ export function useOfflineCountQueue(inventoryId?: string) {
     };
     await set(makeKey(client_mutation_id), record);
     await refresh();
-    if (navigator.onLine) {
-      // Fire-and-forget: try to sync immediately
-      void flush();
-    } else {
+    if (!navigator.onLine) {
       toast.message("Salvo offline", { description: "Vamos sincronizar assim que a internet voltar." });
     }
     return record;
