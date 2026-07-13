@@ -1,122 +1,180 @@
-# Revisão da Fase 1 + Plano da Fase 2
+Diagnóstico confirmado — sem aplicar correção.
 
-## Status da Fase 1 (revisão)
+1. O login por PIN usa Auth real
+- O login por PIN não é só uma sessão custom/localStorage.
+- Em `src/lib/auth-helpers.ts`, `signInWithPin(slug, pin)` chama `supabase.auth.signInWithPassword(...)`.
+- O email interno é montado como `{slug}@users.baixonoroeste.com.br`, e o PIN vira a senha do Auth.
+- Confirmei no banco que os perfis atuais têm usuário correspondente em `auth.users`:
+  - Colaborador: `has_auth_user = true`
+  - HIGOR BARBOSA: `has_auth_user = true`
+  - LUCAS AURELIANO: `has_auth_user = true`
+  - PEDROHMG/admin: `has_auth_user = true`
 
-Já entregue e funcionando:
-- Novos status de inventário (`pendente`, `divergencia`, `recontagem_solicitada`, `ajuste_solicitado`, `aguardando_validacao`, `aprovada`, `reprovada`, etc.).
-- Tipo `personalizado` + tabelas `inventory_families` / `inventory_products`.
-- Tabelas de auditoria `count_item_history` e `count_item_reviews`.
-- Server functions do fluxo: `createInventoryTask`, `submitForValidation`, `reviewCountItems`, `submitRecountOrAdjust`, `approveInventoryTask`.
-- Webhook n8n (`src/lib/n8n.server.ts`) com HMAC opcional + templates de e-mail (task-assigned, recount, adjustment, revalidation, approved).
-- UI: `ValidationPanel`, `RecountAdjustView`, criação personalizada, contadores por status na lista, deadline destacada.
-- Paginação de produtos por família na tela de contagem.
+Conclusão: `auth.uid()` deve existir e deve corresponder ao `profiles.id` / `user_roles.user_id` para esses usuários. Então a hipótese de “PIN não gera sessão real” não é a causa principal neste app.
 
-Pendências identificadas ao revisar:
-1. **Sem autosave offline real** — hoje o `CountForm` grava no Supabase no clique de "Salvar"; se cair a internet perde o valor digitado; não há fila local.
-2. **Recusa sem formulário estruturado** — `reviewCountItems` recebe decisões item a item, mas não há um "Recusar inventário" com motivo obrigatório + seleção em massa + prazo. Também não há um status `reprovada` amigável no fluxo (só via `approveInventoryTask({approved:false})`).
-3. **Sync Omie manual** — só roda no botão "Sincronizar Omie" (admin). Não abre sozinho, não roda em background, não roda ao entrar numa tarefa.
-4. **Sem indicador de conexão / última sync** na UI.
-5. **Notificação de recusa** ainda usa e-mail; falta disparar evento n8n `inventory.rejected` com produtos divergentes + prazo para WhatsApp.
+2. A policy nova realmente compara o responsável com `auth.uid()`
 
-## Fase 2 — Escopo
+Policy atual em `public.inventories`:
 
-### 1. Autosave + Offline (contagem)
+```sql
+CREATE POLICY "assigned or supervisor/admin read inventories"
+ON public.inventories
+FOR SELECT
+TO authenticated
+USING (
+  public.current_user_is_supervisor_or_admin()
+  OR assigned_counter_id = auth.uid()
+);
+```
 
-Banco:
-- Nada novo — `count_items` já tem unique `(inventory_id, product_id)` que serve de chave de idempotência.
-- Adicionar coluna `client_mutation_id uuid` em `count_items` para dedupe explícito da fila local.
+Ou seja:
+- supervisor/admin passa por `public.current_user_is_supervisor_or_admin()`;
+- colaborador passa somente se `inventories.assigned_counter_id = auth.uid()`.
 
-Cliente:
-- Novo hook `useOfflineCountQueue(inventoryId)` em `src/hooks/useOfflineCountQueue.ts`:
-  - Persiste mutações em `IndexedDB` (via `idb-keyval`, leve, sem service worker).
-  - Cada mutação: `{id, inventory_id, product_id, quantity, unit_cost, quantity_before, created_at, synced_at?}`.
-  - Autosave dispara em `onChange` do input com debounce 400ms (rascunho) + no blur/enter (commit).
-  - Flush loop: sempre que `navigator.onLine` for true e houver pendências → upsert em lote em `count_items` com `onConflict: "inventory_id,product_id"`.
-  - Ao sucesso, marca `synced_at` local e invalida a query `count-items`.
-- Refatorar `CountForm` para chamar o hook em vez do `supabase.from(...).upsert` direto. Manter comportamento "às cegas" (revela após salvar/sync).
-- Badge global em `AppShell`: `Online • Sincronizado` / `Offline • N pendentes` / `Sincronizando…` / última sync `hh:mm`.
-- Toast discreto "Rascunho salvo" no autosave (throttled).
-- Ao abrir uma tarefa com pendências locais → banner "Retomar contagem (N itens não sincronizados)" + botão para forçar flush.
-- Status visual "Rascunho" na lista de inventários quando existe fila local para aquele id.
+Policy de update em `public.inventories`:
 
-Registro:
-- Ao sincronizar com sucesso, gravar em `logs` (action=`contagem_sincronizada`, details com contagem de itens e delay).
+```sql
+CREATE POLICY "assigned or supervisor/admin update inventories"
+ON public.inventories
+FOR UPDATE
+TO authenticated
+USING (
+  public.current_user_is_supervisor_or_admin()
+  OR assigned_counter_id = auth.uid()
+)
+WITH CHECK (
+  public.current_user_is_supervisor_or_admin()
+  OR assigned_counter_id = auth.uid()
+);
+```
 
-### 2. Formulário obrigatório de recusa
+Policies de itens de contagem:
 
-Banco (migração):
-- Nova tabela `inventory_rejections`:
-  - `inventory_id`, `rejected_by`, `reason text not null`, `notes text`, `recount_deadline timestamptz`, `product_ids uuid[] not null` (produtos marcados p/ recontagem), `created_at`.
-  - Grants + RLS: só admin/supervisor insere; leitura para participantes do inventário.
-- Trigger/valida no server fn: bloqueia `approveInventoryTask({approved:false})` sem registro correspondente.
+```sql
+CREATE POLICY "assigned or supervisor/admin read counts"
+ON public.count_items
+FOR SELECT
+TO authenticated
+USING (
+  public.current_user_is_supervisor_or_admin()
+  OR EXISTS (
+    SELECT 1
+    FROM public.inventories i
+    WHERE i.id = count_items.inventory_id
+      AND i.assigned_counter_id = auth.uid()
+  )
+);
+```
 
-Server function nova em `src/lib/inventory-flow.functions.ts`:
-- `rejectInventoryTask({ inventory_id, reason, notes?, recount_deadline?, product_ids[] })`:
-  - Verifica role admin/supervisor via `has_role`.
-  - Insere `inventory_rejections`.
-  - Marca `count_items.needs_recount=true` para os `product_ids`, cria reviews `needs_recount` e histórico.
-  - Muda `inventories.status = 'recontagem_solicitada'` e `deadline_at = recount_deadline` quando informado.
-  - Dispara `fireN8nEvent('inventory.rejected', { inventario, motivo, prazo, itens_para_recontar: [...] })` (para WhatsApp via n8n).
-  - Envia e-mail template `recount-requested` (já existe).
-  - Grava em `logs`.
+```sql
+CREATE POLICY "assigned or supervisor/admin insert counts"
+ON public.count_items
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  public.current_user_is_supervisor_or_admin()
+  OR (
+    counted_by = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.inventories i
+      WHERE i.id = count_items.inventory_id
+        AND i.assigned_counter_id = auth.uid()
+    )
+  )
+);
+```
 
-UI:
-- No `ValidationPanel`, botão "Recusar inventário" abre `RejectInventoryDialog`:
-  - Campo motivo (required, textarea).
-  - Multi-select dos itens divergentes (pré-marca todos com `status='divergencia'`).
-  - Campo observações e date-time picker para prazo.
-  - Validação: pelo menos 1 produto + motivo preenchido.
-- Botão atual de "reprovar" item-a-item continua para casos simples.
+```sql
+CREATE POLICY "assigned or supervisor/admin update counts"
+ON public.count_items
+FOR UPDATE
+TO authenticated
+USING (
+  public.current_user_is_supervisor_or_admin()
+  OR EXISTS (
+    SELECT 1
+    FROM public.inventories i
+    WHERE i.id = count_items.inventory_id
+      AND i.assigned_counter_id = auth.uid()
+  )
+)
+WITH CHECK (
+  public.current_user_is_supervisor_or_admin()
+  OR EXISTS (
+    SELECT 1
+    FROM public.inventories i
+    WHERE i.id = count_items.inventory_id
+      AND i.assigned_counter_id = auth.uid()
+  )
+);
+```
 
-### 3. Tela de recontagem (colaborador)
+Policies do escopo do inventário:
 
-O `RecountAdjustView` já existe — melhorar:
-- Cabeçalho mostra `motivo` + `notes` + `recount_deadline` vindos do último `inventory_rejections`.
-- Lista somente itens com `needs_recount=true` (query já filtra).
-- Mostra `quantity_counted` anterior (rótulo "Contagem anterior") + novo input.
-- Botão "Enviar recontagem" → `submitRecountOrAdjust` (já existente) que grava em `count_item_history` (round++) e devolve para `aguardando_validacao`.
+```sql
+CREATE POLICY "assigned or supervisor/admin read inv_products"
+ON public.inventory_products
+FOR SELECT
+TO authenticated
+USING (
+  public.current_user_is_supervisor_or_admin()
+  OR EXISTS (
+    SELECT 1
+    FROM public.inventories i
+    WHERE i.id = inventory_products.inventory_id
+      AND i.assigned_counter_id = auth.uid()
+  )
+);
+```
 
-### 4. Histórico
+```sql
+CREATE POLICY "assigned or supervisor/admin read inv_families"
+ON public.inventory_families
+FOR SELECT
+TO authenticated
+USING (
+  public.current_user_is_supervisor_or_admin()
+  OR EXISTS (
+    SELECT 1
+    FROM public.inventories i
+    WHERE i.id = inventory_families.inventory_id
+      AND i.assigned_counter_id = auth.uid()
+  )
+);
+```
 
-- `count_item_history` já cobre. Adicionar view/panel "Histórico" na tela do inventário (admin/supervisor): quem recusou, quando, motivo, produtos, rounds, sync events (via `logs`).
+3. Contra qual coluna/valor ela compara
+- Compara `inventories.assigned_counter_id` contra `auth.uid()`.
+- Para inserir contagem, também exige `count_items.counted_by = auth.uid()`.
+- O `assigned_counter_id` referencia `public.profiles(id)`, e os `profiles.id` conferidos existem em `auth.users`, então essa comparação faz sentido neste modelo de autenticação.
 
-### 5. Sincronização automática Omie
+4. Diagnóstico da regressão do admin
+A causa mais provável da regressão do admin não é `auth.uid()` nulo. O ponto suspeito é outro:
 
-- Renomear `syncFamiliesAndProducts` para permanecer + novo server fn `syncProductsIncremental` (busca só ativos + delta por `updated_at` quando disponível; caso Omie não retorne, faz full sync leve).
-- Novo hook `useAutoSync()` em `AppShell`:
-  - Roda no mount (com debounce se última sync <60s).
-  - Roda quando a rota casa `/inventarios/$id` (antes de renderizar contagem).
-  - Interval configurável em `settings.auto_sync_interval_seconds` (default 300s).
-  - Escuta `visibilitychange` → refaz se ficou >5min oculto.
-- **Nunca sobrescreve** count_items — apenas atualiza `products.stock_omie/cost/active`.
-- Última sync exibida no `AppShell` (mesmo badge do offline).
-- Remove necessidade do botão manual (mas botão continua disponível para admin forçar).
+- O frontend decide se o usuário é admin/supervisor por `useProfile()`.
+- `useProfile()` lê `public.user_roles` direto do cliente.
+- A consulta de grants mostrou que `public.user_roles` está sem privilégio direto listado para `authenticated`.
+- Se essa leitura falha, o código ignora o erro e cai no fallback `contador`:
 
-### 6. Indicadores
+```ts
+const role: AppRole = roleList.includes("admin") ? "admin" : roleList.includes("supervisor") ? "supervisor" : "contador";
+```
 
-Componente `<SyncStatusBadge/>` no header do `AppShell`:
-- Estados: `online-synced`, `syncing`, `offline`, `error`, com timestamp da última sync bem-sucedida.
-- Toast quando `offline → online` reconciliação começa e termina.
+Resultado provável: o usuário admin é reconhecido pelo banco como admin para algumas policies, mas no frontend vira `contador`; então esta regra bloqueia a tela:
 
-### 7. Segurança / consistência
+```ts
+const isSupOrAdmin = profile?.role === "admin" || profile?.role === "supervisor";
+const canOpenInventory = !!inv && !!profile && (isSupOrAdmin || inv.assigned_counter_id === profile.id);
+```
 
-- `rejectInventoryTask` e `approveInventoryTask` já usam `requireSupabaseAuth`; reforçar `has_role('admin'|'supervisor')`.
-- Bloquear approve quando `count_items.needs_recount = true` existe (SQL check no início do handler).
-- Colaborador só edita quando `inventory.status IN ('pendente','em_andamento','recontagem_solicitada','ajuste_solicitado')` e (`round=0` ou `needs_recount=true` para o item). Já hoje é UI-side; adicionar policy RLS coerente.
+Se o inventário recém-criado foi designado para outro colaborador, o admin com role lida como `contador` cai em `canOpenInventory = false` e vê “Inventário indisponível”.
 
-## Ordem de execução
-
-1. Migração: `client_mutation_id`, `inventory_rejections`, RLS/GRANT, guarda em approve.
-2. Hook offline + refactor do `CountForm` + badge de sync.
-3. Server fn `rejectInventoryTask` + `RejectInventoryDialog` + evento n8n `inventory.rejected`.
-4. Auto-sync Omie (`useAutoSync`) + `SyncStatusBadge` + remoção da dependência do botão manual.
-5. Painel de histórico consolidado.
-6. Testes ponta a ponta: contagem offline → volta online → sync; recusa → notificação → recontagem → aprovação.
-
-## Fora de escopo desta fase
-
-- WhatsApp direto no app (continua via n8n).
-- Service Worker / PWA install (usaremos IndexedDB puro; PWA fica para depois se pedirem "instalar app").
-- Reescrita da tela de contagem — apenas troca a camada de persistência.
-
-Confirma para eu partir para implementação?
+5. Se aprovar a próxima correção, eu corrigiria sem mexer no modelo de autenticação
+- Restaurar/garantir leitura segura de `user_roles` para o próprio usuário autenticado, ou trocar `useProfile()` para buscar a role por função segura/RPC já existente.
+- Ajustar a tela para não depender de role frontend incorreta quando a policy do banco já autorizou admin/supervisor.
+- Revisar as policies para manter:
+  - colaborador: só inventários onde `assigned_counter_id = auth.uid()`;
+  - supervisor/admin: qualquer inventário;
+  - criação e sync: admin/supervisor conforme combinado.
+- Depois testar os três perfis reais: colaborador responsável, supervisor e admin.
