@@ -45,7 +45,7 @@ function HomePage() {
         .from("inventories")
         .select("id, name, status, started_at, deadline_at")
         .eq("assigned_counter_id", uid!)
-        .in("status", PENDING_STATUSES as unknown as string[])
+        .in("status", PENDING_STATUSES as unknown as InvStatus[])
         .order("deadline_at", { ascending: true, nullsFirst: false });
       return data ?? [];
     },
