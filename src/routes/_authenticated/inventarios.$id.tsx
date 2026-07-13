@@ -74,7 +74,6 @@ function InventoryDetail() {
     enabled: !!inv,
   });
 
-  const { data: productsResp } = useQuery({
   const debouncedQ = useDebouncedValue(q, 300);
   const { data: productsResp } = useQuery({
     queryKey: ["products-for-inv", inv?.type, inv?.family_id, debouncedQ.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
