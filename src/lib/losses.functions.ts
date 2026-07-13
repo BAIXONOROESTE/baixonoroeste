@@ -47,17 +47,19 @@ export const registerLoss = createServerFn({ method: "POST" })
       details: { loss_id: created.id, product_id: data.product_id, qtd: data.quantity, reason_id: data.reason_id },
     });
 
-    // Notificação por e-mail (admins/supervisores).
+    // Notificação por e-mail + ajuste imediato de estoque na Omie.
+    let product: { name: string | null; code: string | null; unit: string | null; cost: number | null; omie_id: number | null } | null = null;
+    let reason: { name: string | null } | null = null;
+    let actor: { full_name: string | null; email: string | null } | null = null;
+    let countItem: { inventory_id: string; inventory?: { name?: string } | null } | null = null;
+
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { sendTemplateEmail, loadNotificationRecipients } = await import(
-        "@/lib/email/notify.server"
-      );
 
-      const [{ data: product }, { data: reason }, { data: actor }, { data: countItem }] = await Promise.all([
+      const [prodRes, reasonRes, actorRes, ciRes] = await Promise.all([
         supabaseAdmin
           .from("products")
-          .select("name, code, unit, cost")
+          .select("name, code, unit, cost, omie_id")
           .eq("id", data.product_id)
           .maybeSingle(),
         supabaseAdmin.from("loss_reasons").select("name").eq("id", data.reason_id).maybeSingle(),
@@ -70,7 +72,51 @@ export const registerLoss = createServerFn({ method: "POST" })
               .maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
+      product = prodRes.data as typeof product;
+      reason = reasonRes.data as typeof reason;
+      actor = actorRes.data as typeof actor;
+      countItem = ciRes.data as typeof countItem;
 
+      // ---- Ajuste imediato de estoque na Omie ----
+      const codigoOmie = Number(product?.omie_id ?? 0);
+      const obsText = `Quebra: ${reason?.name ?? "—"} — registrado por ${actor?.full_name ?? "—"}${
+        data.observation ? `. Obs: ${data.observation}` : ""
+      }`;
+      if (codigoOmie > 0) {
+        try {
+          const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
+          const resp = await ajustarEstoqueOmie({
+            codigo_produto: codigoOmie,
+            quantidade: -Math.abs(Number(data.quantity)),
+            valor_unitario: Number(product?.cost ?? 0),
+            observacao: obsText,
+          });
+          await supabaseAdmin
+            .from("losses")
+            .update({ omie_updated_at: new Date().toISOString(), omie_response: resp as never })
+            .eq("id", created.id);
+        } catch (omieErr) {
+          const msg = omieErr instanceof Error ? omieErr.message : String(omieErr);
+          await supabaseAdmin.from("logs").insert({
+            user_id: userId,
+            action: "omie_ajuste_perda_erro",
+            entity: "loss",
+            details: { loss_id: created.id, product_id: data.product_id, quantidade: Number(data.quantity), erro: msg, obs: obsText },
+          });
+        }
+      } else {
+        await supabaseAdmin.from("logs").insert({
+          user_id: userId,
+          action: "omie_ajuste_perda_erro",
+          entity: "loss",
+          details: { loss_id: created.id, product_id: data.product_id, erro: "Produto sem omie_id — ajuste não enviado à Omie.", obs: obsText },
+        });
+      }
+
+      // ---- Notificação por e-mail ----
+      const { sendTemplateEmail, loadNotificationRecipients } = await import(
+        "@/lib/email/notify.server"
+      );
       const recipients = await loadNotificationRecipients();
       if (recipients.length > 0) {
         const unitCost = Number(product?.cost ?? 0);
@@ -89,8 +135,7 @@ export const registerLoss = createServerFn({ method: "POST" })
             reason: reason?.name ?? "—",
             observation: data.observation ?? "",
             registered_by: actor?.full_name ?? "—",
-            inventory_name:
-              (countItem as { inventory?: { name?: string } } | null)?.inventory?.name ?? null,
+            inventory_name: countItem?.inventory?.name ?? null,
             registered_at: new Date(created.created_at).toLocaleString("pt-BR", {
               timeZone: "America/Sao_Paulo",
             }),
@@ -98,7 +143,7 @@ export const registerLoss = createServerFn({ method: "POST" })
         });
       }
     } catch (e) {
-      console.error("[registerLoss] notify falhou", e);
+      console.error("[registerLoss] pós-insert falhou", e);
     }
 
     return { ok: true, id: created.id };
