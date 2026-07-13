@@ -84,20 +84,51 @@ export const createInventoryTask = createServerFn({ method: "POST" })
       throw new Error("Selecione ao menos uma família ou produto para a contagem personalizada.");
     }
     const settings = await loadSettings();
+
+    // Se o criador for apenas contador, força responsável = próprio usuário e herda supervisor/admin padrão.
+    const isPriv = await ensureRole(supabase, userId, ["admin", "supervisor"]);
+    let assigned_counter_id = data.assigned_counter_id ?? null;
+    let assigned_supervisor_id = data.assigned_supervisor_id ?? null;
+    let assigned_admin_id = data.assigned_admin_id ?? null;
+    let deadline_at = data.deadline_at ?? null;
+    let tolerance_pct: number | null = data.tolerance_pct ?? null;
+
+    if (!isPriv) {
+      assigned_counter_id = userId;
+      deadline_at = null;
+      tolerance_pct = null; // usará default do settings
+      // Herda supervisor/admin padrão: primeiro ativo com o papel correspondente
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const [{ data: supRows }, { data: admRows }] = await Promise.all([
+        supabaseAdmin.from("user_roles").select("user_id, profiles!inner(id, active, created_at)").eq("role", "supervisor"),
+        supabaseAdmin.from("user_roles").select("user_id, profiles!inner(id, active, created_at)").eq("role", "admin"),
+      ]);
+      const pickFirst = (rows: Array<{ user_id: string; profiles: { active: boolean; created_at: string } | Array<{ active: boolean; created_at: string }> }> | null) => {
+        const list = (rows ?? []).map((r) => {
+          const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+          return { user_id: r.user_id, active: p?.active, created_at: p?.created_at };
+        }).filter((r) => r.active).sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
+        return list[0]?.user_id ?? null;
+      };
+      assigned_supervisor_id = pickFirst(supRows as never) ?? null;
+      assigned_admin_id = pickFirst(admRows as never) ?? null;
+    }
+
     const { data: inv, error } = await supabase.from("inventories").insert({
       name: data.name,
       type: data.type,
       family_id: data.type === "familia" ? (data.family_id ?? null) : null,
       status: "pendente",
       started_by: userId,
-      assigned_counter_id: data.assigned_counter_id ?? null,
-      assigned_supervisor_id: data.assigned_supervisor_id ?? null,
-      assigned_admin_id: data.assigned_admin_id ?? null,
-      deadline_at: data.deadline_at ?? null,
+      assigned_counter_id,
+      assigned_supervisor_id,
+      assigned_admin_id,
+      deadline_at,
       notes: data.notes ?? null,
-      tolerance_pct: data.tolerance_pct ?? settings?.tolerance_pct_default ?? 0,
+      tolerance_pct: tolerance_pct ?? settings?.tolerance_pct_default ?? 0,
     }).select("id, name, deadline_at").single();
     if (error || !inv) throw new Error(error?.message ?? "Falha ao criar inventário");
+
 
     if (data.type === "personalizado" || data.type === "produto") {
       if (data.family_ids?.length) {
