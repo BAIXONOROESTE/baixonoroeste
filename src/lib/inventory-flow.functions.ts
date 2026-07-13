@@ -94,25 +94,18 @@ export const createInventoryTask = createServerFn({ method: "POST" })
     let tolerance_pct: number | null = data.tolerance_pct ?? null;
 
     if (!isPriv) {
+      // Colaborador: força defaults no servidor. O trigger
+      // enforce_inventory_contador_restrictions no banco garante o mesmo
+      // comportamento como defesa em profundidade (inclusive supervisor/admin
+      // padrão e tolerância). Aqui apenas pré-preenchemos o responsável para
+      // manter a UX consistente com o que o banco vai gravar.
       assigned_counter_id = userId;
+      assigned_supervisor_id = null;
+      assigned_admin_id = null;
       deadline_at = null;
-      tolerance_pct = null; // usará default do settings
-      // Herda supervisor/admin padrão: primeiro ativo com o papel correspondente
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const [{ data: supRows }, { data: admRows }] = await Promise.all([
-        supabaseAdmin.from("user_roles").select("user_id, profiles!inner(id, active, created_at)").eq("role", "supervisor"),
-        supabaseAdmin.from("user_roles").select("user_id, profiles!inner(id, active, created_at)").eq("role", "admin"),
-      ]);
-      const pickFirst = (rows: Array<{ user_id: string; profiles: { active: boolean; created_at: string } | Array<{ active: boolean; created_at: string }> }> | null) => {
-        const list = (rows ?? []).map((r) => {
-          const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
-          return { user_id: r.user_id, active: p?.active, created_at: p?.created_at };
-        }).filter((r) => r.active).sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
-        return list[0]?.user_id ?? null;
-      };
-      assigned_supervisor_id = pickFirst(supRows as never) ?? null;
-      assigned_admin_id = pickFirst(admRows as never) ?? null;
+      tolerance_pct = null;
     }
+
 
     const { data: inv, error } = await supabase.from("inventories").insert({
       name: data.name,
