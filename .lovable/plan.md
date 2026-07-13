@@ -1,180 +1,40 @@
-Diagnóstico confirmado — sem aplicar correção.
+## Causa raiz
 
-1. O login por PIN usa Auth real
-- O login por PIN não é só uma sessão custom/localStorage.
-- Em `src/lib/auth-helpers.ts`, `signInWithPin(slug, pin)` chama `supabase.auth.signInWithPassword(...)`.
-- O email interno é montado como `{slug}@users.baixonoroeste.com.br`, e o PIN vira a senha do Auth.
-- Confirmei no banco que os perfis atuais têm usuário correspondente em `auth.users`:
-  - Colaborador: `has_auth_user = true`
-  - HIGOR BARBOSA: `has_auth_user = true`
-  - LUCAS AURELIANO: `has_auth_user = true`
-  - PEDROHMG/admin: `has_auth_user = true`
+A tabela `public.user_roles` tem as policies RLS corretas (`read own roles or admin reads all` para `authenticated`), mas **não tem nenhum GRANT para o role `authenticated`** — `information_schema.role_table_grants` retorna vazio para essa tabela. Sem `GRANT SELECT`, o PostgREST bloqueia a leitura antes mesmo de avaliar a RLS, então `useProfile()` recebe erro de permissão, cai em `profileError` e o admin/supervisor perde a marcação de role no frontend → `isSupOrAdmin=false` → `canOpenInventory=false` para qualquer inventário que não seja dele → "Inventário indisponível".
 
-Conclusão: `auth.uid()` deve existir e deve corresponder ao `profiles.id` / `user_roles.user_id` para esses usuários. Então a hipótese de “PIN não gera sessão real” não é a causa principal neste app.
+A migration anterior (`20260713185500`) que tentou aplicar o grant não persistiu (provavelmente foi revertida ou nunca executou com sucesso).
 
-2. A policy nova realmente compara o responsável com `auth.uid()`
+## Correção
 
-Policy atual em `public.inventories`:
+Uma única migration, mínima, só em `user_roles` — sem tocar em `inventories`, `count_items`, `inventory_products` ou `inventory_families`:
 
 ```sql
-CREATE POLICY "assigned or supervisor/admin read inventories"
-ON public.inventories
-FOR SELECT
-TO authenticated
-USING (
-  public.current_user_is_supervisor_or_admin()
-  OR assigned_counter_id = auth.uid()
-);
+GRANT SELECT ON public.user_roles TO authenticated;
+GRANT ALL    ON public.user_roles TO service_role;
 ```
 
-Ou seja:
-- supervisor/admin passa por `public.current_user_is_supervisor_or_admin()`;
-- colaborador passa somente se `inventories.assigned_counter_id = auth.uid()`.
+Não vou trocar para RPC. A policy direta já está correta (`user_id = auth.uid() OR current_user_is_admin()`); só faltava o grant de tabela que o PostgREST exige antes da RLS.
 
-Policy de update em `public.inventories`:
+## Testes (item 3)
 
-```sql
-CREATE POLICY "assigned or supervisor/admin update inventories"
-ON public.inventories
-FOR UPDATE
-TO authenticated
-USING (
-  public.current_user_is_supervisor_or_admin()
-  OR assigned_counter_id = auth.uid()
-)
-WITH CHECK (
-  public.current_user_is_supervisor_or_admin()
-  OR assigned_counter_id = auth.uid()
-);
-```
+Após a migration, via Playwright no preview localhost, com sessões reais (login por PIN):
 
-Policies de itens de contagem:
+1. Logar como **admin** → criar inventário do tipo "Por família" ou "Geral" designado a um colaborador específico (não o próprio admin).
+2. **Admin**: abrir o inventário recém-criado → deve entrar normalmente.
+3. **Colaborador designado**: logar, abrir o inventário → deve entrar e conseguir editar contagens.
+4. **Segundo colaborador (não designado)**: logar, tentar abrir → deve ver "Inventário indisponível".
+5. **Supervisor**: logar, abrir o mesmo inventário → deve entrar normalmente.
 
-```sql
-CREATE POLICY "assigned or supervisor/admin read counts"
-ON public.count_items
-FOR SELECT
-TO authenticated
-USING (
-  public.current_user_is_supervisor_or_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.inventories i
-    WHERE i.id = count_items.inventory_id
-      AND i.assigned_counter_id = auth.uid()
-  )
-);
-```
+Cada passo com screenshot de evidência.
 
-```sql
-CREATE POLICY "assigned or supervisor/admin insert counts"
-ON public.count_items
-FOR INSERT
-TO authenticated
-WITH CHECK (
-  public.current_user_is_supervisor_or_admin()
-  OR (
-    counted_by = auth.uid()
-    AND EXISTS (
-      SELECT 1
-      FROM public.inventories i
-      WHERE i.id = count_items.inventory_id
-        AND i.assigned_counter_id = auth.uid()
-    )
-  )
-);
-```
+## Confirmação final ao usuário
 
-```sql
-CREATE POLICY "assigned or supervisor/admin update counts"
-ON public.count_items
-FOR UPDATE
-TO authenticated
-USING (
-  public.current_user_is_supervisor_or_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.inventories i
-    WHERE i.id = count_items.inventory_id
-      AND i.assigned_counter_id = auth.uid()
-  )
-)
-WITH CHECK (
-  public.current_user_is_supervisor_or_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.inventories i
-    WHERE i.id = count_items.inventory_id
-      AND i.assigned_counter_id = auth.uid()
-  )
-);
-```
+Vou reportar:
+- Grant que faltava: `GRANT SELECT ON public.user_roles TO authenticated` (e `ALL` para `service_role`).
+- Abordagem: ajuste do grant direto na policy existente, sem RPC.
+- Resultado dos 4 cenários de teste com evidência.
 
-Policies do escopo do inventário:
+## Fora de escopo (não vou mexer)
 
-```sql
-CREATE POLICY "assigned or supervisor/admin read inv_products"
-ON public.inventory_products
-FOR SELECT
-TO authenticated
-USING (
-  public.current_user_is_supervisor_or_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.inventories i
-    WHERE i.id = inventory_products.inventory_id
-      AND i.assigned_counter_id = auth.uid()
-  )
-);
-```
-
-```sql
-CREATE POLICY "assigned or supervisor/admin read inv_families"
-ON public.inventory_families
-FOR SELECT
-TO authenticated
-USING (
-  public.current_user_is_supervisor_or_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.inventories i
-    WHERE i.id = inventory_families.inventory_id
-      AND i.assigned_counter_id = auth.uid()
-  )
-);
-```
-
-3. Contra qual coluna/valor ela compara
-- Compara `inventories.assigned_counter_id` contra `auth.uid()`.
-- Para inserir contagem, também exige `count_items.counted_by = auth.uid()`.
-- O `assigned_counter_id` referencia `public.profiles(id)`, e os `profiles.id` conferidos existem em `auth.users`, então essa comparação faz sentido neste modelo de autenticação.
-
-4. Diagnóstico da regressão do admin
-A causa mais provável da regressão do admin não é `auth.uid()` nulo. O ponto suspeito é outro:
-
-- O frontend decide se o usuário é admin/supervisor por `useProfile()`.
-- `useProfile()` lê `public.user_roles` direto do cliente.
-- A consulta de grants mostrou que `public.user_roles` está sem privilégio direto listado para `authenticated`.
-- Se essa leitura falha, o código ignora o erro e cai no fallback `contador`:
-
-```ts
-const role: AppRole = roleList.includes("admin") ? "admin" : roleList.includes("supervisor") ? "supervisor" : "contador";
-```
-
-Resultado provável: o usuário admin é reconhecido pelo banco como admin para algumas policies, mas no frontend vira `contador`; então esta regra bloqueia a tela:
-
-```ts
-const isSupOrAdmin = profile?.role === "admin" || profile?.role === "supervisor";
-const canOpenInventory = !!inv && !!profile && (isSupOrAdmin || inv.assigned_counter_id === profile.id);
-```
-
-Se o inventário recém-criado foi designado para outro colaborador, o admin com role lida como `contador` cai em `canOpenInventory = false` e vê “Inventário indisponível”.
-
-5. Se aprovar a próxima correção, eu corrigiria sem mexer no modelo de autenticação
-- Restaurar/garantir leitura segura de `user_roles` para o próprio usuário autenticado, ou trocar `useProfile()` para buscar a role por função segura/RPC já existente.
-- Ajustar a tela para não depender de role frontend incorreta quando a policy do banco já autorizou admin/supervisor.
-- Revisar as policies para manter:
-  - colaborador: só inventários onde `assigned_counter_id = auth.uid()`;
-  - supervisor/admin: qualquer inventário;
-  - criação e sync: admin/supervisor conforme combinado.
-- Depois testar os três perfis reais: colaborador responsável, supervisor e admin.
+- Policies de `inventories`, `count_items`, `inventory_products`, `inventory_families` — permanecem como estão.
+- Lógica de `canOpenInventory` no frontend — permanece; ela funcionará corretamente assim que `useProfile()` voltar a ler o role.
