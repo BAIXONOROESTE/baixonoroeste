@@ -18,10 +18,10 @@ export const Route = createFileRoute("/auth")({
   }),
   head: () => ({
     meta: [
-      { title: "Entrar — Estoque Omie Baixo Noroeste" },
+      { title: "Entrar — Baixo Noroeste" },
       { name: "description", content: "Acesse o sistema de contagem de estoque da Baixo Noroeste com seu PIN pessoal. Área restrita a colaboradores." },
-      { property: "og:title", content: "Entrar — Estoque Omie Baixo Noroeste" },
-      { property: "og:description", content: "Login por PIN para colaboradores da Baixo Noroeste no sistema de inventário integrado ao Omie." },
+      { property: "og:title", content: "Entrar — Baixo Noroeste" },
+      { property: "og:description", content: "Login por PIN para colaboradores da Baixo Noroeste no sistema de inventário." },
       { property: "og:url", content: "https://inventario.baixonoroeste.com.br/auth" },
       { property: "og:type", content: "website" },
     ],
@@ -56,7 +56,7 @@ function AuthPage() {
           <div className="h-16 w-16 rounded-2xl bg-primary/15 grid place-items-center mb-3 glow-primary">
             <Package className="h-8 w-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-display font-semibold">Estoque Omie — Contagem de estoque</h1>
+          <h1 className="text-2xl font-display font-semibold">Baixo Noroeste — Contagem de estoque</h1>
           <p className="text-sm text-muted-foreground">Inventário</p>
         </div>
         {isLoading ? (
