@@ -64,8 +64,14 @@ export function RejectInventoryDialog({ inventoryId, divergentItems, onClose }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 flex items-end sm:items-center justify-center overflow-auto">
-      <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface border border-border p-5 space-y-3 max-h-[95dvh] overflow-auto">
+    <div
+      className="fixed inset-0 z-50 bg-background/95 flex items-end sm:items-center justify-center overflow-auto overscroll-contain"
+      style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top, 0px)" }}
+    >
+      <div
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface border border-border p-5 space-y-3 max-h-[100dvh] overflow-auto"
+        style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))" }}
+      >
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-destructive" />
