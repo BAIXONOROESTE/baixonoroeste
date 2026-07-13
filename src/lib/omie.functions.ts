@@ -5,8 +5,13 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const isAdmin = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
-    if (isAdmin.error || !isAdmin.data) throw new Error("Apenas admin pode sincronizar.");
+    const [isAdmin, isSupervisor] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "supervisor" }),
+    ]);
+    if ((isAdmin.error || !isAdmin.data) && (isSupervisor.error || !isSupervisor.data)) {
+      throw new Error("Apenas supervisor ou administrador podem sincronizar.");
+    }
 
     const { listarTodasFamilias, listarTodosProdutosAtivos, listarPosicaoEstoque } = await import("@/lib/omie.server");
 

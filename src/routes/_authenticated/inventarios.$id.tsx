@@ -271,18 +271,20 @@ function InventoryDetail() {
                       : inv?.type === "familia"
                         ? "Sem produtos nessa família"
                         : (inv?.type === "personalizado" || inv?.type === "produto")
-                          ? "Nenhum produto selecionado para esta contagem"
+                          ? "Este inventário não tem produtos vinculados"
                           : "Catálogo Omie vazio"}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {q.trim()
                       ? "Tente buscar por outro nome, código ou EAN."
                       : (inv?.type === "personalizado" || inv?.type === "produto")
-                        ? "Esta contagem foi criada sem produtos. Crie uma nova contagem selecionando os itens desejados."
-                        : profile?.role === "admin" ? "Sincronize o Omie para carregar os produtos." : "Peça para um admin sincronizar o Omie."}
+                        ? "A contagem foi criada sem itens selecionados. Contate o supervisor ou admin que criou esta contagem para refazê-la com os produtos corretos."
+                        : (profile?.role === "admin" || profile?.role === "supervisor")
+                          ? "Sincronize o Omie para carregar os produtos."
+                          : "Peça para um supervisor ou admin sincronizar o Omie."}
                   </div>
                 </div>
-                {!q.trim() && profile?.role === "admin" && (inv?.type === "geral" || inv?.type === "familia") && (
+                {!q.trim() && (profile?.role === "admin" || profile?.role === "supervisor") && (inv?.type === "geral" || inv?.type === "familia") && (
                   <Button className="w-full" onClick={() => sync.mutate()} disabled={sync.isPending}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${sync.isPending ? "animate-spin" : ""}`} />
                     {sync.isPending ? "Sincronizando" : "Sincronizar Omie"}

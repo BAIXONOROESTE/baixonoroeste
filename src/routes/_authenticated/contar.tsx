@@ -122,12 +122,19 @@ function ContarPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao criar."),
   });
 
+  const canSync = profile?.role === "admin" || profile?.role === "supervisor";
+  const scopeError =
+    tipo === "produto" && productIds.length === 0
+      ? "Selecione ao menos um produto abaixo antes de iniciar a contagem."
+      : tipo === "personalizado" && familyIds.length === 0 && productIds.length === 0
+        ? "Selecione ao menos uma família ou um produto para a contagem personalizada."
+        : null;
+
   const disabled =
     !tipo ||
     catalogCounts?.products === 0 ||
     (tipo === "familia" && (!familyId || catalogCounts?.families === 0)) ||
-    (tipo === "personalizado" && familyIds.length === 0 && productIds.length === 0) ||
-    (tipo === "produto" && productIds.length === 0) ||
+    !!scopeError ||
     create.isPending;
 
   return (
@@ -139,10 +146,10 @@ function ContarPage() {
           <div className="text-sm">
             <div className="font-medium">Catálogo Omie vazio</div>
             <div className="text-xs text-muted-foreground">
-              {profile?.role === "admin" ? "Sincronize antes de iniciar." : "Peça para um admin sincronizar."}
+              {canSync ? "Sincronize antes de iniciar." : "Peça para um supervisor ou admin sincronizar."}
             </div>
           </div>
-          {profile?.role === "admin" && (
+          {canSync && (
             <Button className="w-full" onClick={() => sync.mutate()} disabled={sync.isPending}>
               <RefreshCw className={`h-4 w-4 mr-2 ${sync.isPending ? "animate-spin" : ""}`} />
               {sync.isPending ? "Sincronizando" : "Sincronizar Omie"}
@@ -276,6 +283,12 @@ function ContarPage() {
               className="w-full rounded-md bg-input border border-border px-3 py-2 text-sm" placeholder="Detalhes, instruções, contexto..." />
           </div>
         </>
+      )}
+
+      {scopeError && tipo && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+          {scopeError}
+        </div>
       )}
 
       <Button className="w-full" disabled={disabled} onClick={() => create.mutate()}>

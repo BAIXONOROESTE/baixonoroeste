@@ -77,6 +77,12 @@ export const createInventoryTask = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => createSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    if (data.type === "produto" && (!data.product_ids || data.product_ids.length === 0)) {
+      throw new Error("Selecione ao menos um produto para iniciar a contagem por produto.");
+    }
+    if (data.type === "personalizado" && (!data.product_ids?.length && !data.family_ids?.length)) {
+      throw new Error("Selecione ao menos uma família ou produto para a contagem personalizada.");
+    }
     const settings = await loadSettings();
     const { data: inv, error } = await supabase.from("inventories").insert({
       name: data.name,
