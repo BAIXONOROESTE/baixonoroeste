@@ -123,12 +123,14 @@ function InventoriesList() {
 
       {filtered.map((inv) => {
         const overdue = inv.deadline_at && new Date(inv.deadline_at) < new Date() && !["aprovada", "concluida", "fechado", "reprovada"].includes(inv.status);
+        const mine = inv.assigned_counter_id === myId && PENDING_FOR_ME.includes(inv.status);
         return (
           <Link key={inv.id} to="/inventarios/$id" params={{ id: inv.id }}
-                className={`block rounded-2xl bg-surface border p-4 hover:border-primary/50 ${overdue ? "border-destructive/60" : "border-border"}`}>
+                className={`block rounded-2xl bg-surface border p-4 hover:border-primary/50 ${overdue ? "border-destructive/60" : mine ? "border-primary/60" : "border-border"}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="font-medium truncate flex items-center gap-2">
+                  {mine && <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/20 text-primary px-2 py-0.5 font-semibold shrink-0">Aguardando você</span>}
                   {inv.name}
                   {overdue && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
                 </div>
