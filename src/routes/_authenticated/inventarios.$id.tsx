@@ -43,7 +43,7 @@ function InventoryDetail() {
   const { data: inv, isLoading: invLoading, error: invError } = useQuery({
     queryKey: ["inventory", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("inventories").select("*, family:families(name)").eq("id", id).maybeSingle();
+      const { data, error } = await supabase.from("inventories").select("*, family:families!inventories_family_id_fkey(name)").eq("id", id).maybeSingle();
       if (error) throw error;
       return data;
     },
