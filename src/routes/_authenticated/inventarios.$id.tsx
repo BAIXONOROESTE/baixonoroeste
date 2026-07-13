@@ -75,9 +75,11 @@ function InventoryDetail() {
   });
 
   const { data: productsResp } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
+  const debouncedQ = useDebouncedValue(q, 300);
+  const { data: productsResp } = useQuery({
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, debouncedQ.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
     queryFn: async () => {
-      const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
+      const search = debouncedQ.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
       let query = supabase
         .from("products")
         .select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active", { count: "exact" });
