@@ -1,11 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtDateTime, fmtNumber } from "@/lib/format";
+import { useProfile } from "@/hooks/useProfile";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { QuickLossModal } from "@/components/QuickLossModal";
 
 export const Route = createFileRoute("/_authenticated/perdas")({ component: PerdasPage });
 
 function PerdasPage() {
+  const { data: profile } = useProfile();
+  const canRegisterLoss = profile?.role === "admin" || profile?.role === "supervisor";
+  const [showNew, setShowNew] = useState(false);
+
   const { data } = useQuery({
     queryKey: ["losses"],
     queryFn: async () => (await supabase.from("losses")
@@ -14,7 +23,14 @@ function PerdasPage() {
   });
   return (
     <div className="mx-auto max-w-md px-4 pt-4 space-y-2">
-      <h1 className="text-2xl font-display font-semibold">Perdas & Quebras</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-display font-semibold">Perdas & Quebras</h1>
+        {canRegisterLoss && (
+          <Button size="sm" onClick={() => setShowNew(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Nova perda
+          </Button>
+        )}
+      </div>
       {(data ?? []).map((l) => (
         <div key={l.id} className="rounded-xl bg-surface border border-border p-3">
           <div className="flex justify-between items-start">
@@ -31,6 +47,7 @@ function PerdasPage() {
         </div>
       ))}
       {!data?.length && <p className="text-sm text-muted-foreground text-center py-8">Nenhuma perda registrada.</p>}
+      {showNew && <QuickLossModal onClose={() => setShowNew(false)} />}
     </div>
   );
 }
