@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fmtDateTime } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { AlertTriangle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Clock, ArrowRight } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
 
 export const Route = createFileRoute("/_authenticated/inventarios/")({ component: InventoriesList });
 
@@ -32,9 +34,13 @@ function statusPill(status: string): string {
   return "bg-warning/20 text-warning";
 }
 
+const PENDING_FOR_ME = ["pendente", "aberto", "em_andamento", "recontagem_solicitada", "ajuste_solicitado"];
+
 function InventoriesList() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const { data: profile } = useProfile();
+  const myId = profile?.id;
 
   const { data } = useQuery({
     queryKey: ["inventories-list"],
@@ -73,6 +79,34 @@ function InventoriesList() {
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-3">
       <h1 className="text-2xl font-display font-semibold">Inventários</h1>
 
+      {(() => {
+        const mine = (data ?? []).filter((i) => i.assigned_counter_id === myId && PENDING_FOR_ME.includes(i.status));
+        if (!myId || mine.length === 0) return null;
+        return (
+          <section className="rounded-2xl border border-primary/40 bg-primary/5 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-primary">Aguardando você</div>
+              <span className="rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5">{mine.length}</span>
+            </div>
+            <ul className="space-y-2">
+              {mine.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{inv.name}</div>
+                    {inv.deadline_at && (
+                      <div className="text-[11px] text-muted-foreground truncate">Prazo: {fmtDateTime(inv.deadline_at)}</div>
+                    )}
+                  </div>
+                  <Link to="/inventarios/$id" params={{ id: inv.id }}>
+                    <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
+
       <div className="grid grid-cols-4 gap-2">
         <StatCard label="Pendentes" value={stats.pendentes} tone="warning" />
         <StatCard label="Divergentes" value={stats.divergentes} tone="destructive" />
@@ -89,12 +123,14 @@ function InventoriesList() {
 
       {filtered.map((inv) => {
         const overdue = inv.deadline_at && new Date(inv.deadline_at) < new Date() && !["aprovada", "concluida", "fechado", "reprovada"].includes(inv.status);
+        const mine = inv.assigned_counter_id === myId && PENDING_FOR_ME.includes(inv.status);
         return (
           <Link key={inv.id} to="/inventarios/$id" params={{ id: inv.id }}
-                className={`block rounded-2xl bg-surface border p-4 hover:border-primary/50 ${overdue ? "border-destructive/60" : "border-border"}`}>
+                className={`block rounded-2xl bg-surface border p-4 hover:border-primary/50 ${overdue ? "border-destructive/60" : mine ? "border-primary/60" : "border-border"}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="font-medium truncate flex items-center gap-2">
+                  {mine && <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/20 text-primary px-2 py-0.5 font-semibold shrink-0">Aguardando você</span>}
                   {inv.name}
                   {overdue && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
                 </div>

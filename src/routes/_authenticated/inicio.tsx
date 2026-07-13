@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox } from "lucide-react";
+import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -32,6 +32,25 @@ function HomePage() {
 
   const role = profile?.role ?? "contador";
   const isSup = role === "admin" || role === "supervisor";
+  const uid = profile?.id;
+
+  const PENDING_STATUSES = ["pendente", "aberto", "em_andamento", "recontagem_solicitada", "ajuste_solicitado"] as const;
+  type InvStatus = typeof PENDING_STATUSES[number];
+
+  const { data: myTasks } = useQuery({
+    queryKey: ["my-tasks", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventories")
+        .select("id, name, status, started_at, deadline_at")
+        .eq("assigned_counter_id", uid!)
+        .in("status", PENDING_STATUSES as unknown as InvStatus[])
+        .order("deadline_at", { ascending: true, nullsFirst: false });
+      return data ?? [];
+    },
+    refetchOnWindowFocus: true,
+  });
 
   const { data: lastSync } = useQuery({
     queryKey: ["last-sync"],
@@ -80,6 +99,50 @@ function HomePage() {
         <p className="text-sm text-muted-foreground">Olá, {profile?.full_name}</p>
         <h1 className="text-2xl font-display font-semibold">Início</h1>
       </div>
+
+      {myTasks && myTasks.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" /> Minhas tarefas
+            </h2>
+            <span className="rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5">
+              {myTasks.length}
+            </span>
+          </div>
+          <ul className="space-y-2">
+            {myTasks.map((t) => {
+              const overdue = t.deadline_at && new Date(t.deadline_at) < new Date();
+              return (
+                <li key={t.id} className={`rounded-2xl bg-surface border p-3 flex items-center justify-between gap-2 ${overdue ? "border-destructive/60" : "border-primary/40"}`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/20 text-primary px-2 py-0.5 font-semibold">
+                        Aguardando você
+                      </span>
+                      {overdue && (
+                        <span className="text-[10px] uppercase tracking-wide rounded-full bg-destructive/20 text-destructive px-2 py-0.5 font-semibold">
+                          Atrasada
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-medium truncate mt-1">{t.name}</div>
+                    {t.deadline_at && (
+                      <div className={`text-[11px] ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                        Prazo: {fmtDateTime(t.deadline_at)}
+                      </div>
+                    )}
+                  </div>
+                  <Link to="/inventarios/$id" params={{ id: t.id }}>
+                    <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
 
       {role === "admin" && (
         <section className="space-y-2">
