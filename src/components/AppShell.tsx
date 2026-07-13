@@ -9,14 +9,14 @@ import { SyncStatusBadge } from "@/components/SyncStatusBadge";
 import { useAutoSync } from "@/hooks/useAutoSync";
 
 const bottomNav = [
-  { to: "/inicio", label: "Início", icon: Home },
-  { to: "/contar", label: "Contar", icon: ClipboardList },
-  { to: "/dashboard", label: "Painel", icon: BarChart3 },
+  { to: "/inicio", label: "Início", icon: Home, roles: ["admin","supervisor","contador"] },
+  { to: "/contar", label: "Contar", icon: ClipboardList, roles: ["admin","supervisor"] },
+  { to: "/dashboard", label: "Painel", icon: BarChart3, roles: ["admin","supervisor","contador"] },
 ] as const;
 
 const drawerLinks = [
   { to: "/inicio", label: "Início", icon: Home, roles: ["admin","supervisor","contador"] },
-  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor","contador"] },
+  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor"] },
   { to: "/inventarios", label: "Inventários", icon: Package, roles: ["admin","supervisor","contador"] },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] },
