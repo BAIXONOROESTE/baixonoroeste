@@ -37,7 +37,7 @@ function InventoryDetail() {
   const pushFn = useServerFn(pushCountToOmie);
   const notifyDivFn = useServerFn(notifyDivergence);
   const syncFn = useServerFn(syncFamiliesAndProducts);
-  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: profile, isLoading: profileLoading, error: profileError } = useProfile();
 
 
   const { data: inv, isLoading: invLoading, error: invError } = useQuery({
@@ -159,6 +159,18 @@ function InventoryDetail() {
     return (
       <div className="mx-auto max-w-md px-4 pt-8 text-sm text-muted-foreground">
         Carregando inventário...
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="mx-auto max-w-md px-4 pt-8 space-y-3">
+        <h1 className="text-xl font-display font-semibold">Perfil indisponível</h1>
+        <p className="text-sm text-muted-foreground">
+          Não foi possível confirmar sua função de acesso. Saia e entre novamente; se persistir, contate um administrador.
+        </p>
+        <Button variant="secondary" onClick={() => navigate({ to: "/inventarios" })}>Voltar para inventários</Button>
       </div>
     );
   }
