@@ -685,6 +685,8 @@ export type Database = {
           created_by: string
           id: string
           observation: string | null
+          omie_response: Json | null
+          omie_updated_at: string | null
           product_id: string
           quantity: number
           reason_id: string
@@ -695,6 +697,8 @@ export type Database = {
           created_by: string
           id?: string
           observation?: string | null
+          omie_response?: Json | null
+          omie_updated_at?: string | null
           product_id: string
           quantity: number
           reason_id: string
@@ -705,6 +709,8 @@ export type Database = {
           created_by?: string
           id?: string
           observation?: string | null
+          omie_response?: Json | null
+          omie_updated_at?: string | null
           product_id?: string
           quantity?: number
           reason_id?: string
