@@ -34,6 +34,12 @@ function ContarPage() {
   const syncFn = useServerFn(syncFamiliesAndProducts);
   const createFn = useServerFn(createInventoryTask);
 
+  useEffect(() => {
+    if (profile && profile.role === "contador") {
+      navigate({ to: "/inicio", replace: true });
+    }
+  }, [profile, navigate]);
+
   const { data: families } = useQuery({
     queryKey: ["families"],
     queryFn: async () => (await supabase.from("families").select("id, name").order("name")).data ?? [],
