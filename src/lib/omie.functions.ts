@@ -16,8 +16,8 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
     const { listarTodasFamilias, listarTodosProdutosAtivos, listarPosicaoEstoque } = await import("@/lib/omie.server");
 
 
-    // Usa o cliente autenticado (RLS scoped) — o usuário já foi validado como admin
-    // e a policy "admin manages sync_log" permite escrita. Evita depender de
+    // Usa o cliente autenticado (RLS scoped) — o usuário já foi validado como supervisor/admin
+    // e a policy de sync_log permite escrita. Evita depender de
     // supabaseAdmin (que em ambientes com sb_secret_* pode não passar como service_role
     // para a Data API).
     const { data: syncRow, error: syncErr } = await supabase
@@ -41,17 +41,31 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
       const { data: famMap } = await supabase.from("families").select("id,omie_id");
       const famByOmie = new Map((famMap ?? []).map((f) => [f.omie_id!, f.id]));
 
-      // Produtos + posição de estoque (ListarProdutos não retorna saldo)
-      const [produtos, posicoes] = await Promise.all([
-        listarTodosProdutosAtivos(),
-        listarPosicaoEstoque(),
-      ]);
+      // Produtos + posição de estoque (ListarProdutos não retorna saldo).
+      // A consulta de estoque do Omie às vezes falha com SOAP-ERROR; nesse caso
+      // mantemos o último saldo salvo e não derrubamos a sincronização do catálogo.
+      const produtos = await listarTodosProdutosAtivos();
+      let posicoes: Awaited<ReturnType<typeof listarPosicaoEstoque>> = [];
+      let stockWarning: string | null = null;
+      try {
+        posicoes = await listarPosicaoEstoque();
+      } catch (e) {
+        stockWarning = e instanceof Error ? e.message : String(e);
+      }
       const saldoByCod = new Map<string, number>();
       for (const pos of posicoes) {
         // Preferir "fisico" (quantidade em estoque real); cai para nSaldo.
         const saldo = Number(pos.fisico ?? pos.nSaldo ?? 0);
         saldoByCod.set(String(pos.nCodProd), saldo);
       }
+      const { data: existingProducts } = stockWarning
+        ? await supabase.from("products").select("omie_id, stock_omie")
+        : { data: [] as Array<{ omie_id: string | null; stock_omie: number | null }> };
+      const existingStockByOmie = new Map(
+        (existingProducts ?? [])
+          .filter((p): p is { omie_id: string; stock_omie: number | null } => !!p.omie_id)
+          .map((p) => [p.omie_id, Number(p.stock_omie ?? 0)]),
+      );
       const pickBarcode = (p: import("@/lib/omie.server").OmieProduto): string | null => {
         const candidates = [p.codigo_barras, p.ean, p.ean_13, p.gtin];
         for (const c of candidates) {
@@ -73,7 +87,9 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
           family_id: p.codigo_familia ? famByOmie.get(String(p.codigo_familia)) ?? null : null,
           family_name: p.familia ?? null,
           unit: p.unidade ?? null,
-          stock_omie: saldoByCod.get(String(p.codigo_produto)) ?? 0,
+          stock_omie: saldoByCod.get(String(p.codigo_produto))
+            ?? existingStockByOmie.get(String(p.codigo_produto))
+            ?? Number(p.estoque_atual ?? p.quantidade_estoque ?? 0),
           cost: Number(p.valor_unitario ?? 0),
           price: p.valor_unitario ? Number(p.valor_unitario) : null,
           location: p.local_estoque ?? null,
@@ -97,7 +113,9 @@ export const syncFamiliesAndProducts = createServerFn({ method: "POST" })
         .update({
           status: "sucesso",
           items_count: prodRows.length,
-          message: `${famRows.length} famílias, ${prodRows.length} produtos (${semBarcode} sem código de barras).`,
+          message: stockWarning
+            ? `${famRows.length} famílias, ${prodRows.length} produtos (${semBarcode} sem código de barras). Estoque mantido do último sync: ${stockWarning}`
+            : `${famRows.length} famílias, ${prodRows.length} produtos (${semBarcode} sem código de barras).`,
           finished_at: new Date().toISOString(),
         })
         .eq("id", syncRow.id);
