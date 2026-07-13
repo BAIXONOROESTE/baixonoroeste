@@ -100,6 +100,50 @@ function HomePage() {
         <h1 className="text-2xl font-display font-semibold">Início</h1>
       </div>
 
+      {myTasks && myTasks.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" /> Minhas tarefas
+            </h2>
+            <span className="rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5">
+              {myTasks.length}
+            </span>
+          </div>
+          <ul className="space-y-2">
+            {myTasks.map((t) => {
+              const overdue = t.deadline_at && new Date(t.deadline_at) < new Date();
+              return (
+                <li key={t.id} className={`rounded-2xl bg-surface border p-3 flex items-center justify-between gap-2 ${overdue ? "border-destructive/60" : "border-primary/40"}`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/20 text-primary px-2 py-0.5 font-semibold">
+                        Aguardando você
+                      </span>
+                      {overdue && (
+                        <span className="text-[10px] uppercase tracking-wide rounded-full bg-destructive/20 text-destructive px-2 py-0.5 font-semibold">
+                          Atrasada
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-medium truncate mt-1">{t.name}</div>
+                    {t.deadline_at && (
+                      <div className={`text-[11px] ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                        Prazo: {fmtDateTime(t.deadline_at)}
+                      </div>
+                    )}
+                  </div>
+                  <Link to="/inventarios/$id" params={{ id: t.id }}>
+                    <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+
       {role === "admin" && (
         <section className="space-y-2">
           <h2 className="text-sm font-medium text-muted-foreground">Sincronização</h2>
