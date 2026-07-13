@@ -114,6 +114,26 @@ function HomePage() {
         <h1 className="text-2xl font-display font-semibold">Início</h1>
       </div>
 
+      {role === "admin" && missingEmails && missingEmails.length > 0 && (
+        <div className="rounded-2xl border border-warning/60 bg-warning/10 p-4 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <div className="font-medium">
+                {missingEmails.length} supervisor{missingEmails.length > 1 ? "es" : ""}/admin{missingEmails.length > 1 ? "s" : ""} sem e-mail configurado
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Notificações de fechamento e divergência não chegarão até isso ser corrigido:
+                {" "}{missingEmails.map((u) => u.full_name).join(", ")}.
+              </div>
+              <Link to="/usuarios" className="inline-block mt-2">
+                <Button size="sm" variant="outline">Abrir Usuários</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
