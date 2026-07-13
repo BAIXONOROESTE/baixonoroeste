@@ -44,7 +44,6 @@ export function useAutoSync() {
     enabled: isAdmin,
   });
 
-  const isAdmin = profile?.role === "admin";
   const intervalSec = settings?.auto_sync_interval_seconds ?? 300;
 
   useEffect(() => {
