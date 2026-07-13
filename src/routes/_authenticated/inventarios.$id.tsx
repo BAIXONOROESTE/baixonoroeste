@@ -485,8 +485,14 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   const showDiff = !!revealed || (!blind && qty !== "");
 
   return (
-    <div className="fixed inset-0 z-40 bg-background/95 flex items-end sm:items-center justify-center">
-      <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface border border-border p-5 space-y-3">
+    <div
+      className="fixed inset-0 z-40 bg-background/95 flex items-end sm:items-center justify-center overflow-y-auto overscroll-contain"
+      style={{ height: "100dvh", paddingBottom: "env(safe-area-inset-bottom, 0px)", paddingTop: "env(safe-area-inset-top, 0px)" }}
+    >
+      <div
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface border border-border p-5 space-y-3 max-h-[100dvh] overflow-y-auto"
+        style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))" }}
+      >
         <div className="flex items-start justify-between">
           <div className="min-w-0">
             <h3 className="font-display font-semibold text-lg truncate">{product.name}</h3>

@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { registerLoss } from "@/lib/losses.functions";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +21,7 @@ export function LossModal({ product_id, count_item_id, presetQuantity, productNa
   const [obs, setObs] = useState("");
   const qc = useQueryClient();
   const locked = presetQuantity != null;
+  const registerLossFn = useServerFn(registerLoss);
 
   const { data: reasons } = useQuery({
     queryKey: ["loss-reasons"],
@@ -27,26 +30,29 @@ export function LossModal({ product_id, count_item_id, presetQuantity, productNa
 
   const save = useMutation({
     mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
       const q = Number(qty.replace(",", "."));
       if (!reasonId || !q) throw new Error("Preencha motivo e quantidade.");
-      const { error } = await supabase.from("losses").insert({
-        product_id, count_item_id: count_item_id ?? null, reason_id: reasonId,
-        quantity: q, observation: obs || null, created_by: u.user!.id,
-      });
-      if (error) throw error;
-      if (count_item_id) {
-        await supabase.from("count_items").update({ status: "justificado" }).eq("id", count_item_id);
-      }
-      await supabase.from("logs").insert({ user_id: u.user!.id, action: "perda_registrada", entity: "loss", details: { product_id, qtd: q, reason_id: reasonId } });
+      await registerLossFn({ data: {
+        product_id,
+        reason_id: reasonId,
+        quantity: q,
+        observation: obs || null,
+        count_item_id: count_item_id ?? null,
+      } });
     },
     onSuccess: () => { toast.success("Perda registrada!"); qc.invalidateQueries(); onDone(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 flex items-end sm:items-center justify-center px-3">
-      <div className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface border border-border p-5 space-y-3">
+    <div
+      className="fixed inset-0 z-50 bg-background/95 flex items-end sm:items-center justify-center px-3 overflow-y-auto overscroll-contain"
+      style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top, 0px)" }}
+    >
+      <div
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface border border-border p-5 space-y-3 max-h-[100dvh] overflow-y-auto"
+        style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))" }}
+      >
         <div className="flex items-center justify-between">
           <div className="min-w-0">
             <h3 className="font-display font-semibold">Registrar perda</h3>
