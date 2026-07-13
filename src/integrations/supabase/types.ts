@@ -1035,16 +1035,6 @@ export type Database = {
       }
     }
     Functions: {
-      current_app_profile: {
-        Args: never
-        Returns: {
-          avatar_color: string
-          full_name: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          slug: string
-        }[]
-      }
       current_user_is_admin: { Args: never; Returns: boolean }
       current_user_is_supervisor_or_admin: { Args: never; Returns: boolean }
       delete_email: {
