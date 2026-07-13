@@ -48,10 +48,14 @@ export const registerLoss = createServerFn({ method: "POST" })
     });
 
     // Notificação por e-mail + ajuste imediato de estoque na Omie.
-    let product: { name: string | null; code: string | null; unit: string | null; cost: number | null; omie_id: number | null } | null = null;
-    let reason: { name: string | null } | null = null;
-    let actor: { full_name: string | null; email: string | null } | null = null;
-    let countItem: { inventory_id: string; inventory?: { name?: string } | null } | null = null;
+    type ProductRow = { name: string | null; code: string | null; unit: string | null; cost: number | null; omie_id: number | null };
+    type ReasonRow = { name: string | null };
+    type ActorRow = { full_name: string | null; email: string | null };
+    type CountItemRow = { inventory_id: string; inventory?: { name?: string } | null };
+    let product: ProductRow | null = null;
+    let reason: ReasonRow | null = null;
+    let actor: ActorRow | null = null;
+    let countItem: CountItemRow | null = null;
 
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -72,10 +76,10 @@ export const registerLoss = createServerFn({ method: "POST" })
               .maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
-      product = prodRes.data as typeof product;
-      reason = reasonRes.data as typeof reason;
-      actor = actorRes.data as typeof actor;
-      countItem = ciRes.data as typeof countItem;
+      product = (prodRes.data ?? null) as ProductRow | null;
+      reason = (reasonRes.data ?? null) as ReasonRow | null;
+      actor = (actorRes.data ?? null) as ActorRow | null;
+      countItem = (ciRes.data ?? null) as CountItemRow | null;
 
       // ---- Ajuste imediato de estoque na Omie ----
       const codigoOmie = Number(product?.omie_id ?? 0);
