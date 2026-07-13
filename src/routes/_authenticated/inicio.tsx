@@ -50,6 +50,8 @@ function HomePage() {
     },
     refetchOnWindowFocus: true,
   });
+
+  const { data: lastSync } = useQuery({
     queryKey: ["last-sync"],
     queryFn: async () => {
       const { data } = await supabase.from("sync_log").select("*").order("started_at", { ascending: false }).limit(1).maybeSingle();
