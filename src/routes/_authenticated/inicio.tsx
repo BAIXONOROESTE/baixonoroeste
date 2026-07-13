@@ -32,8 +32,24 @@ function HomePage() {
 
   const role = profile?.role ?? "contador";
   const isSup = role === "admin" || role === "supervisor";
+  const uid = profile?.id;
 
-  const { data: lastSync } = useQuery({
+  const PENDING_STATUSES = ["pendente", "aberto", "em_andamento", "recontagem_solicitada", "ajuste_solicitado"] as const;
+
+  const { data: myTasks } = useQuery({
+    queryKey: ["my-tasks", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventories")
+        .select("id, name, status, started_at, deadline_at")
+        .eq("assigned_counter_id", uid!)
+        .in("status", PENDING_STATUSES as unknown as string[])
+        .order("deadline_at", { ascending: true, nullsFirst: false });
+      return data ?? [];
+    },
+    refetchOnWindowFocus: true,
+  });
     queryKey: ["last-sync"],
     queryFn: async () => {
       const { data } = await supabase.from("sync_log").select("*").order("started_at", { ascending: false }).limit(1).maybeSingle();
