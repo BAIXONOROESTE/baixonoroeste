@@ -105,7 +105,7 @@ function AprovarPage() {
         {req && needsLogin && (
           <div className="rounded-2xl bg-warning/10 border border-warning/40 p-4 text-sm space-y-2">
             <div>Você precisa entrar como supervisor ou admin para responder.</div>
-            <Button className="w-full" onClick={() => navigate({ to: "/auth" })}>Ir para login</Button>
+            <Button className="w-full" onClick={() => navigate({ to: "/auth", search: { next: undefined } })}>Ir para login</Button>
           </div>
         )}
 
