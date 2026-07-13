@@ -34,9 +34,13 @@ function statusPill(status: string): string {
   return "bg-warning/20 text-warning";
 }
 
+const PENDING_FOR_ME = ["pendente", "aberto", "em_andamento", "recontagem_solicitada", "ajuste_solicitado"];
+
 function InventoriesList() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const { data: profile } = useProfile();
+  const myId = profile?.id;
 
   const { data } = useQuery({
     queryKey: ["inventories-list"],
