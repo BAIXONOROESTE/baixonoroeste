@@ -28,6 +28,8 @@ export function useAutoSync() {
     staleTime: 60_000,
   });
 
+  const isAdmin = profile?.role === "admin";
+
   const { data: lastSync } = useQuery({
     queryKey: ["last-sync-log"],
     queryFn: async () => (await supabase
@@ -39,6 +41,7 @@ export function useAutoSync() {
       .maybeSingle()).data,
     refetchInterval: 30000,
     staleTime: 15000,
+    enabled: isAdmin,
   });
 
   const isAdmin = profile?.role === "admin";
