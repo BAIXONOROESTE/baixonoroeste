@@ -17,6 +17,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { ValidationPanel, RecountAdjustView } from "@/components/ValidationPanel";
 import { submitForValidation } from "@/lib/inventory-flow.functions";
 import { useOfflineCountQueue } from "@/hooks/useOfflineCountQueue";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { CloudOff, RefreshCw as SyncIcon } from "lucide-react";
 
 
@@ -73,10 +74,11 @@ function InventoryDetail() {
     enabled: !!inv,
   });
 
+  const debouncedQ = useDebouncedValue(q, 300);
   const { data: productsResp } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, q.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, debouncedQ.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
     queryFn: async () => {
-      const search = q.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
+      const search = debouncedQ.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
       let query = supabase
         .from("products")
         .select("id, code, barcode, name, family_id, family_name, unit, stock_omie, cost, active", { count: "exact" });
