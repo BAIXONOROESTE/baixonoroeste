@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fmtDateTime } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { AlertTriangle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Clock, ArrowRight } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
 
 export const Route = createFileRoute("/_authenticated/inventarios/")({ component: InventoriesList });
 
