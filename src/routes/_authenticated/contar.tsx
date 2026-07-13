@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,12 @@ function ContarPage() {
   const { data: profile } = useProfile();
   const syncFn = useServerFn(syncFamiliesAndProducts);
   const createFn = useServerFn(createInventoryTask);
+
+  useEffect(() => {
+    if (profile && profile.role === "contador") {
+      navigate({ to: "/inicio", replace: true });
+    }
+  }, [profile, navigate]);
 
   const { data: families } = useQuery({
     queryKey: ["families"],

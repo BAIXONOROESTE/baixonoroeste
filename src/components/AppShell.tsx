@@ -9,14 +9,14 @@ import { SyncStatusBadge } from "@/components/SyncStatusBadge";
 import { useAutoSync } from "@/hooks/useAutoSync";
 
 const bottomNav = [
-  { to: "/inicio", label: "Início", icon: Home },
-  { to: "/contar", label: "Contar", icon: ClipboardList },
-  { to: "/dashboard", label: "Painel", icon: BarChart3 },
+  { to: "/inicio", label: "Início", icon: Home, roles: ["admin","supervisor","contador"] },
+  { to: "/contar", label: "Contar", icon: ClipboardList, roles: ["admin","supervisor"] },
+  { to: "/dashboard", label: "Painel", icon: BarChart3, roles: ["admin","supervisor","contador"] },
 ] as const;
 
 const drawerLinks = [
   { to: "/inicio", label: "Início", icon: Home, roles: ["admin","supervisor","contador"] },
-  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor","contador"] },
+  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor"] },
   { to: "/inventarios", label: "Inventários", icon: Package, roles: ["admin","supervisor","contador"] },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] },
@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed bottom-0 inset-x-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
         <ul className="mx-auto flex max-w-md items-stretch justify-around">
-          {bottomNav.map((item) => {
+          {bottomNav.filter((i) => (i.roles as readonly string[]).includes(role)).map((item) => {
             const active = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
             const Icon = item.icon;
             return (

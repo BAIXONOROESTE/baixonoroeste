@@ -14,7 +14,7 @@ import { fmtDateTime } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/inicio")({ component: HomePage });
 
 const tiles = [
-  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor","contador"] as const },
+  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor"] as const },
   { to: "/inventarios", label: "Inventários", icon: Package, roles: ["admin","supervisor","contador"] as const },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] as const },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] as const },
@@ -60,6 +60,20 @@ function HomePage() {
     },
   });
 
+  const { data: missingEmails } = useQuery({
+    queryKey: ["admins-missing-email"],
+    enabled: role === "admin",
+    queryFn: async () => {
+      const [{ data: roles }, { data: profs }] = await Promise.all([
+        supabase.from("user_roles").select("user_id, role").in("role", ["admin", "supervisor"]),
+        supabase.from("profiles").select("id, full_name, email, active"),
+      ]);
+      const ids = new Set((roles ?? []).map((r) => r.user_id));
+      return (profs ?? []).filter((p) => ids.has(p.id) && p.active && (!p.email || p.email.trim() === ""));
+    },
+    refetchOnWindowFocus: true,
+  });
+
   const { data: pendingCloses } = useQuery({
     queryKey: ["pending-close-requests"],
     enabled: isSup,
@@ -99,6 +113,26 @@ function HomePage() {
         <p className="text-sm text-muted-foreground">Olá, {profile?.full_name}</p>
         <h1 className="text-2xl font-display font-semibold">Início</h1>
       </div>
+
+      {role === "admin" && missingEmails && missingEmails.length > 0 && (
+        <div className="rounded-2xl border border-warning/60 bg-warning/10 p-4 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <div className="font-medium">
+                {missingEmails.length} supervisor{missingEmails.length > 1 ? "es" : ""}/admin{missingEmails.length > 1 ? "s" : ""} sem e-mail configurado
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Notificações de fechamento e divergência não chegarão até isso ser corrigido:
+                {" "}{missingEmails.map((u) => u.full_name).join(", ")}.
+              </div>
+              <Link to="/usuarios" className="inline-block mt-2">
+                <Button size="sm" variant="outline">Abrir Usuários</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
