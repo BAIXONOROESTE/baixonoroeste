@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav className="fixed bottom-0 inset-x-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
         <ul className="mx-auto flex max-w-md items-stretch justify-around">
-          {bottomNav.map((item) => {
+          {bottomNav.filter((i) => (i.roles as readonly string[]).includes(role)).map((item) => {
             const active = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
             const Icon = item.icon;
             return (
