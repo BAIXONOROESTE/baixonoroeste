@@ -60,6 +60,20 @@ function HomePage() {
     },
   });
 
+  const { data: missingEmails } = useQuery({
+    queryKey: ["admins-missing-email"],
+    enabled: role === "admin",
+    queryFn: async () => {
+      const [{ data: roles }, { data: profs }] = await Promise.all([
+        supabase.from("user_roles").select("user_id, role").in("role", ["admin", "supervisor"]),
+        supabase.from("profiles").select("id, full_name, email, active"),
+      ]);
+      const ids = new Set((roles ?? []).map((r) => r.user_id));
+      return (profs ?? []).filter((p) => ids.has(p.id) && p.active && (!p.email || p.email.trim() === ""));
+    },
+    refetchOnWindowFocus: true,
+  });
+
   const { data: pendingCloses } = useQuery({
     queryKey: ["pending-close-requests"],
     enabled: isSup,
