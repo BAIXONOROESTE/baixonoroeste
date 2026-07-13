@@ -70,10 +70,11 @@ function ContarPage() {
   const supervisors = (profs ?? []).filter((p) => p.roles.includes("supervisor") || p.roles.includes("admin"));
   const admins = (profs ?? []).filter((p) => p.roles.includes("admin"));
 
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
   const { data: prodResults } = useQuery({
-    queryKey: ["prod-search-contar", productSearch],
+    queryKey: ["prod-search-contar", debouncedProductSearch],
     queryFn: async () => {
-      const s = productSearch.trim();
+      const s = debouncedProductSearch.trim();
       if (s.length < 2) return [];
       const { data } = await supabase.from("products")
         .select("id, code, name, family_name, active")
@@ -82,7 +83,7 @@ function ContarPage() {
         .limit(20);
       return data ?? [];
     },
-    enabled: (tipo === "personalizado" || tipo === "produto") && productSearch.trim().length >= 2,
+    enabled: (tipo === "personalizado" || tipo === "produto") && debouncedProductSearch.trim().length >= 2,
   });
 
   const { data: catalogCounts } = useQuery({
