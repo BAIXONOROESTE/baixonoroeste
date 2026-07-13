@@ -79,6 +79,34 @@ function InventoriesList() {
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-3">
       <h1 className="text-2xl font-display font-semibold">Inventários</h1>
 
+      {(() => {
+        const mine = (data ?? []).filter((i) => i.assigned_counter_id === myId && PENDING_FOR_ME.includes(i.status));
+        if (!myId || mine.length === 0) return null;
+        return (
+          <section className="rounded-2xl border border-primary/40 bg-primary/5 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-primary">Aguardando você</div>
+              <span className="rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5">{mine.length}</span>
+            </div>
+            <ul className="space-y-2">
+              {mine.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{inv.name}</div>
+                    {inv.deadline_at && (
+                      <div className="text-[11px] text-muted-foreground truncate">Prazo: {fmtDateTime(inv.deadline_at)}</div>
+                    )}
+                  </div>
+                  <Link to="/inventarios/$id" params={{ id: inv.id }}>
+                    <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
+
       <div className="grid grid-cols-4 gap-2">
         <StatCard label="Pendentes" value={stats.pendentes} tone="warning" />
         <StatCard label="Divergentes" value={stats.divergentes} tone="destructive" />
