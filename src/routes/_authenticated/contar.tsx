@@ -244,39 +244,48 @@ function ContarPage() {
             <label className="text-xs text-muted-foreground">Nome (opcional)</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Estoque bar sexta-feira" />
           </div>
-          <div className="grid grid-cols-1 gap-2">
-            <div>
-              <label className="text-xs text-muted-foreground">Responsável (colaborador)</label>
-              <select value={counterId} onChange={(e) => setCounterId(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-                <option value="">— selecione —</option>
-                {counters.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-              </select>
+          {canSync ? (
+            <>
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">Responsável (colaborador)</label>
+                  <select value={counterId} onChange={(e) => setCounterId(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+                    <option value="">— selecione —</option>
+                    {counters.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Supervisor</label>
+                  <select value={supervisorId} onChange={(e) => setSupervisorId(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+                    <option value="">— selecione —</option>
+                    {supervisors.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Administrador</label>
+                  <select value={adminId} onChange={(e) => setAdminId(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+                    <option value="">— selecione —</option>
+                    {admins.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">Prazo</label>
+                  <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Tolerância (%)</label>
+                  <Input type="number" step="0.1" min="0" value={tolerance} onChange={(e) => setTolerance(e.target.value)} placeholder="0" />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
+              Você será o responsável por esta contagem. Supervisor, administrador, prazo e tolerância são definidos automaticamente.
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Supervisor</label>
-              <select value={supervisorId} onChange={(e) => setSupervisorId(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-                <option value="">— selecione —</option>
-                {supervisors.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Administrador</label>
-              <select value={adminId} onChange={(e) => setAdminId(e.target.value)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-                <option value="">— selecione —</option>
-                {admins.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-muted-foreground">Prazo</label>
-              <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Tolerância (%)</label>
-              <Input type="number" step="0.1" min="0" value={tolerance} onChange={(e) => setTolerance(e.target.value)} placeholder="0" />
-            </div>
-          </div>
+          )}
+
           <div>
             <label className="text-xs text-muted-foreground">Observações</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
