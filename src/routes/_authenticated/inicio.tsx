@@ -35,6 +35,7 @@ function HomePage() {
   const uid = profile?.id;
 
   const PENDING_STATUSES = ["pendente", "aberto", "em_andamento", "recontagem_solicitada", "ajuste_solicitado"] as const;
+  type InvStatus = typeof PENDING_STATUSES[number];
 
   const { data: myTasks } = useQuery({
     queryKey: ["my-tasks", uid],
