@@ -147,7 +147,17 @@ export const registerLoss = createServerFn({ method: "POST" })
         });
       }
     } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e);
       console.error("[registerLoss] pós-insert falhou", e);
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await supabaseAdmin.from("logs").insert({
+          user_id: userId,
+          action: "registerLoss_pos_insert_erro",
+          entity: "loss",
+          details: { loss_id: created.id, product_id: data.product_id, erro: msg },
+        });
+      } catch { /* ignore */ }
     }
 
     return { ok: true, id: created.id };
