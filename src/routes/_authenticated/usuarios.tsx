@@ -21,6 +21,7 @@ function UsuariosPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "supervisor" | "contador">("contador");
+  const [showInactive, setShowInactive] = useState(false);
 
   const { data: profiles } = useQuery({
     queryKey: ["all-profiles"],
@@ -32,6 +33,9 @@ function UsuariosPage() {
       return (p ?? []).map((prof) => ({ ...prof, roles: (r ?? []).filter((x) => x.user_id === prof.id).map((x) => x.role) }));
     },
   });
+
+  const visibleProfiles = (profiles ?? []).filter((p) => showInactive || p.active);
+
 
   const create = useMutation({
     mutationFn: async () => {
