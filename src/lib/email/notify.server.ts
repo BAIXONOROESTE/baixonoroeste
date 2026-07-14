@@ -131,3 +131,70 @@ export async function loadNotificationRecipients(extraEmails: string[] = []): Pr
   }
   return emails
 }
+
+/**
+ * Envia um e-mail transacional usando uma RPC `queue_transactional_email`
+ * (security definer). Não depende de supabaseAdmin — pode ser chamada com
+ * qualquer client autenticado (ex.: context.supabase do requireSupabaseAuth).
+ */
+export async function sendTemplateEmailViaRpc(
+  supabase: SupabaseClient<any, any>,
+  opts: {
+    templateName: string
+    recipients: string[]
+    templateData: Record<string, unknown>
+    idempotencyKeyPrefix?: string
+    fromName?: string
+  },
+): Promise<{ enqueued: number; skipped: number; errors: unknown[] }> {
+  const tpl = TEMPLATES[opts.templateName]
+  if (!tpl) throw new Error(`Template não registrado: ${opts.templateName}`)
+
+  const unique = Array.from(
+    new Set(opts.recipients.map((e) => (e ?? '').trim().toLowerCase()).filter(Boolean)),
+  )
+
+  const element = React.createElement(tpl.component, opts.templateData)
+  const html = await render(element)
+  const text = await render(element, { plainText: true })
+  const subject =
+    typeof tpl.subject === 'function' ? tpl.subject(opts.templateData) : tpl.subject
+  const fromName = opts.fromName ?? SITE_NAME
+
+  let enqueued = 0
+  let skipped = 0
+  const errors: unknown[] = []
+
+  for (const email of unique) {
+    const messageId = crypto.randomUUID()
+    const idempotency = `${opts.idempotencyKeyPrefix ?? opts.templateName}-${email}-${messageId}`
+    const payload = {
+      message_id: messageId,
+      to: email,
+      from: `${fromName} <noreply@${FROM_DOMAIN}>`,
+      sender_domain: SENDER_DOMAIN,
+      subject,
+      html,
+      text,
+      purpose: 'transactional',
+      label: opts.templateName,
+      template_name: opts.templateName,
+      idempotency_key: idempotency,
+      queued_at: new Date().toISOString(),
+    }
+    const { data, error } = await (supabase as any).rpc('queue_transactional_email', {
+      _payload: payload,
+    })
+    if (error) {
+      errors.push({ email, error })
+      skipped++
+      continue
+    }
+    const status = (data as any)?.status
+    if (status === 'enqueued') enqueued++
+    else skipped++
+  }
+
+  return { enqueued, skipped, errors }
+}
+
