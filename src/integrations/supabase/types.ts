@@ -1052,6 +1052,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_loss_notification_context: {
+        Args: { _loss_id: string }
+        Returns: Json
+      }
       get_public_settings: {
         Args: never
         Returns: {
@@ -1087,6 +1091,7 @@ export type Database = {
         }
         Returns: number
       }
+      queue_transactional_email: { Args: { _payload: Json }; Returns: Json }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
