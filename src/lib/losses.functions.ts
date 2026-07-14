@@ -149,9 +149,11 @@ export const registerLoss = createServerFn({ method: "POST" })
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e);
       console.error("[registerLoss] pós-insert falhou", e);
+      // Usa o client autenticado (context.supabase) — se supabaseAdmin estiver
+      // quebrado (env faltando), este ainda funciona porque RLS permite ao
+      // próprio usuário inserir em logs.
       try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await supabaseAdmin.from("logs").insert({
+        await supabase.from("logs").insert({
           user_id: userId,
           action: "registerLoss_pos_insert_erro",
           entity: "loss",
