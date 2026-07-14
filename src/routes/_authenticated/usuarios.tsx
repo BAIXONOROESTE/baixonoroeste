@@ -71,14 +71,25 @@ function UsuariosPage() {
         </select>
         <Button className="w-full" onClick={() => create.mutate()} disabled={create.isPending}>Criar</Button>
       </div>
+      <div className="flex items-center justify-between px-1">
+        <div className="text-sm text-muted-foreground">
+          {visibleProfiles.length} usuário{visibleProfiles.length === 1 ? "" : "s"}
+          {showInactive ? " (incluindo inativos)" : " ativos"}
+        </div>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+          Mostrar inativos
+        </label>
+      </div>
       <div className="space-y-2">
-        {profiles?.map((p) => (
+        {visibleProfiles.map((p) => (
           <ProfileRow key={p.id} profile={p} onChanged={() => qc.invalidateQueries()} />
         ))}
       </div>
     </div>
   );
 }
+
 
 function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: string; phone: string | null; email: string | null; active: boolean; roles: string[] }; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
