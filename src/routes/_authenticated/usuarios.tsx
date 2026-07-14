@@ -21,6 +21,7 @@ function UsuariosPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "supervisor" | "contador">("contador");
+  const [showInactive, setShowInactive] = useState(false);
 
   const { data: profiles } = useQuery({
     queryKey: ["all-profiles"],
@@ -32,6 +33,9 @@ function UsuariosPage() {
       return (p ?? []).map((prof) => ({ ...prof, roles: (r ?? []).filter((x) => x.user_id === prof.id).map((x) => x.role) }));
     },
   });
+
+  const visibleProfiles = (profiles ?? []).filter((p) => showInactive || p.active);
+
 
   const create = useMutation({
     mutationFn: async () => {
@@ -67,14 +71,25 @@ function UsuariosPage() {
         </select>
         <Button className="w-full" onClick={() => create.mutate()} disabled={create.isPending}>Criar</Button>
       </div>
+      <div className="flex items-center justify-between px-1">
+        <div className="text-sm text-muted-foreground">
+          {visibleProfiles.length} usuário{visibleProfiles.length === 1 ? "" : "s"}
+          {showInactive ? " (incluindo inativos)" : " ativos"}
+        </div>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+          Mostrar inativos
+        </label>
+      </div>
       <div className="space-y-2">
-        {profiles?.map((p) => (
+        {visibleProfiles.map((p) => (
           <ProfileRow key={p.id} profile={p} onChanged={() => qc.invalidateQueries()} />
         ))}
       </div>
     </div>
   );
 }
+
 
 function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: string; phone: string | null; email: string | null; active: boolean; roles: string[] }; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -126,7 +141,8 @@ function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: 
           <Button size="sm" variant="outline" onClick={async () => {
             await supabase.from("profiles").update({ active: !profile.active }).eq("id", profile.id);
             onChanged();
-          }}>{profile.active ? "Off" : "On"}</Button>
+          }}>{profile.active ? "Desativar" : "Ativar"}</Button>
+
         </div>
       </div>
       {editing && (
