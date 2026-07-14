@@ -64,22 +64,42 @@ export const registerLoss = createServerFn({ method: "POST" })
     });
 
     try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
       const [prodRes, reasonRes, actorRes, ciRes] = await Promise.all([
-        supabase
+        supabaseAdmin
           .from("products")
           .select("name, code, unit, cost, omie_id")
           .eq("id", data.product_id)
           .maybeSingle(),
-        supabase.from("loss_reasons").select("name").eq("id", data.reason_id).maybeSingle(),
-        supabase.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
+        supabaseAdmin.from("loss_reasons").select("name").eq("id", data.reason_id).maybeSingle(),
+        supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
         data.count_item_id
-          ? supabase
+          ? supabaseAdmin
               .from("count_items")
               .select("inventory_id, inventory:inventories!count_items_inventory_id_fkey(name)")
               .eq("id", data.count_item_id)
               .maybeSingle()
-          : Promise.resolve({ data: null }),
+          : Promise.resolve({ data: null, error: null }),
       ]);
+
+      // Diagnóstico: se algum select retornou erro, grava e aborta pós-insert.
+      const selectErrors = {
+        products: (prodRes as { error?: unknown }).error ?? null,
+        loss_reasons: (reasonRes as { error?: unknown }).error ?? null,
+        profiles: (actorRes as { error?: unknown }).error ?? null,
+        count_items: (ciRes as { error?: unknown }).error ?? null,
+      };
+      const hasSelectError = Object.values(selectErrors).some((e) => e !== null);
+      if (hasSelectError) {
+        await supabase.from("logs").insert({
+          user_id: userId,
+          action: "registerLoss_admin_select_erro",
+          entity: "loss",
+          details: { loss_id: created.id, errors: JSON.parse(JSON.stringify(selectErrors)) },
+        });
+      }
+
       product = (prodRes.data ?? null) as ProductRow | null;
       reason = (reasonRes.data ?? null) as ReasonRow | null;
       actor = (actorRes.data ?? null) as ActorRow | null;
@@ -99,7 +119,7 @@ export const registerLoss = createServerFn({ method: "POST" })
             valor_unitario: Number(product?.cost ?? 0),
             observacao: obsText,
           });
-          await supabase
+          await supabaseAdmin
             .from("losses")
             .update({ omie_updated_at: new Date().toISOString(), omie_response: resp as never })
             .eq("id", created.id);
@@ -117,9 +137,11 @@ export const registerLoss = createServerFn({ method: "POST" })
           user_id: userId,
           action: "omie_ajuste_perda_erro",
           entity: "loss",
-          details: { loss_id: created.id, product_id: data.product_id, erro: "Produto sem omie_id — ajuste não enviado à Omie.", obs: obsText },
+          details: { loss_id: created.id, product_id: data.product_id, erro: "Produto sem omie_id — ajuste não enviado à Omie.", obs: obsText, product_null: product === null },
         });
       }
+
+
 
 
 
