@@ -75,7 +75,7 @@ export const registerLoss = createServerFn({ method: "POST" })
 
       // ---- Ajuste imediato de estoque na Omie ----
       const codigoOmie = Number(product?.omie_id ?? 0);
-      const obsText = `Quebra: ${reason?.name ?? "—"} — registrado por ${actor?.full_name ?? "—"}${
+      const obsText = `Quebra: ${reason?.name ?? "-"} - registrado por ${actor?.full_name ?? "-"}${
         data.observation ? `. Obs: ${data.observation}` : ""
       }`;
       if (codigoOmie > 0) {
