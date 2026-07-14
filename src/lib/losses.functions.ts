@@ -57,6 +57,12 @@ export const registerLoss = createServerFn({ method: "POST" })
     let actor: ActorRow | null = null;
     let countItem: CountItemRow | null = null;
 
+    // Breadcrumb: prova que a versão nova está em produção.
+    await supabase.from("logs").insert({
+      user_id: userId, action: "registerLoss_pos_insert_start", entity: "loss",
+      details: { loss_id: created.id, product_id: data.product_id },
+    });
+
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
