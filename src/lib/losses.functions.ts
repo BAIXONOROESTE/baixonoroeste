@@ -64,18 +64,16 @@ export const registerLoss = createServerFn({ method: "POST" })
     });
 
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
       const [prodRes, reasonRes, actorRes, ciRes] = await Promise.all([
-        supabaseAdmin
+        supabase
           .from("products")
           .select("name, code, unit, cost, omie_id")
           .eq("id", data.product_id)
           .maybeSingle(),
-        supabaseAdmin.from("loss_reasons").select("name").eq("id", data.reason_id).maybeSingle(),
-        supabaseAdmin.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
+        supabase.from("loss_reasons").select("name").eq("id", data.reason_id).maybeSingle(),
+        supabase.from("profiles").select("full_name, email").eq("id", userId).maybeSingle(),
         data.count_item_id
-          ? supabaseAdmin
+          ? supabase
               .from("count_items")
               .select("inventory_id, inventory:inventories!count_items_inventory_id_fkey(name)")
               .eq("id", data.count_item_id)
@@ -101,13 +99,13 @@ export const registerLoss = createServerFn({ method: "POST" })
             valor_unitario: Number(product?.cost ?? 0),
             observacao: obsText,
           });
-          await supabaseAdmin
+          await supabase
             .from("losses")
             .update({ omie_updated_at: new Date().toISOString(), omie_response: resp as never })
             .eq("id", created.id);
         } catch (omieErr) {
           const msg = omieErr instanceof Error ? omieErr.message : String(omieErr);
-          await supabaseAdmin.from("logs").insert({
+          await supabase.from("logs").insert({
             user_id: userId,
             action: "omie_ajuste_perda_erro",
             entity: "loss",
@@ -115,13 +113,15 @@ export const registerLoss = createServerFn({ method: "POST" })
           });
         }
       } else {
-        await supabaseAdmin.from("logs").insert({
+        await supabase.from("logs").insert({
           user_id: userId,
           action: "omie_ajuste_perda_erro",
           entity: "loss",
           details: { loss_id: created.id, product_id: data.product_id, erro: "Produto sem omie_id — ajuste não enviado à Omie.", obs: obsText },
         });
       }
+
+
 
       // ---- Notificação por e-mail ----
       const { sendTemplateEmail, loadNotificationRecipients } = await import(
