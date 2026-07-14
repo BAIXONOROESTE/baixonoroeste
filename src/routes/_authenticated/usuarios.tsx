@@ -141,7 +141,8 @@ function ProfileRow({ profile, onChanged }: { profile: { id: string; full_name: 
           <Button size="sm" variant="outline" onClick={async () => {
             await supabase.from("profiles").update({ active: !profile.active }).eq("id", profile.id);
             onChanged();
-          }}>{profile.active ? "Off" : "On"}</Button>
+          }}>{profile.active ? "Desativar" : "Ativar"}</Button>
+
         </div>
       </div>
       {editing && (
