@@ -1,5 +1,5 @@
 import { sendLovableEmail } from '@lovable.dev/email-js'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
 
 const MAX_RETRIES = 5
@@ -88,13 +88,27 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           return Response.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        // New-format sb_secret_ keys are opaque, not JWTs. Use the admin client
-        // which installs a fetch shim that strips the bogus Authorization Bearer
-        // header and sets apikey — otherwise PostgREST rejects every request
-        // with "Expected 3 parts in JWT; got 1" and read_email_batch returns
-        // nothing (endpoint reports processed:0 while the queue keeps growing).
-        const { supabaseAdmin } = await import('@/integrations/supabase/client.server')
-        const supabase: SupabaseClient<any, any> = supabaseAdmin as unknown as SupabaseClient<any, any>
+        // New-format sb_secret_ keys are opaque, not JWTs. Without this fetch
+        // shim the client sends `Authorization: Bearer sb_secret_...`, PostgREST
+        // fails to parse it as JWT and falls back to the anon role, which
+        // yields `permission denied for function read_email_batch`. Sending
+        // only `apikey: sb_secret_...` resolves the caller as service_role.
+        const isOpaqueKey = supabaseServiceKey.startsWith('sb_secret_') || supabaseServiceKey.startsWith('sb_publishable_')
+        const supabaseFetch: typeof fetch = (input, init) => {
+          const headers = new Headers(
+            typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
+          )
+          if (init?.headers) new Headers(init.headers).forEach((v, k) => headers.set(k, v))
+          if (isOpaqueKey && headers.get('Authorization') === `Bearer ${supabaseServiceKey}`) {
+            headers.delete('Authorization')
+          }
+          headers.set('apikey', supabaseServiceKey)
+          return fetch(input, { ...init, headers })
+        }
+        const supabase: SupabaseClient<any, any> = createClient(supabaseUrl, supabaseServiceKey, {
+          global: { fetch: supabaseFetch },
+          auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+        })
 
         // 1. Check rate-limit cooldown and read queue config
         const { data: state } = await supabase
