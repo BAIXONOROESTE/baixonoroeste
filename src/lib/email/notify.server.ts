@@ -1,16 +1,21 @@
 // Server-only helper para disparar emails transacionais do sistema.
-// Usa supabaseAdmin (service_role) para renderizar e enfileirar direto na
-// fila `transactional_emails`. As tabelas de email ainda não estão no schema
-// gerado (`Database` types) — usamos casts pontuais para evitar erros de TS.
+// Duas variantes:
+//  - sendTemplateEmail: usa supabaseAdmin (service_role). Depende de a chave
+//    admin estar funcional no runtime.
+//  - sendTemplateEmailViaRpc: recebe um SupabaseClient (ex.: context.supabase
+//    do requireSupabaseAuth) e enfileira via RPC `queue_transactional_email`
+//    — não depende do supabaseAdmin.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from 'react'
 import { render } from '@react-email/render'
 import { TEMPLATES } from '@/lib/email-templates/registry'
 import { supabaseAdmin } from '@/integrations/supabase/client.server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const SITE_NAME = 'baixonoroeste'
 const SENDER_DOMAIN = 'notify.inventario.baixonoroeste.com.br'
 const FROM_DOMAIN = 'inventario.baixonoroeste.com.br'
+
 
 function generateToken(): string {
   const bytes = new Uint8Array(32)
