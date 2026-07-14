@@ -1,5 +1,5 @@
 import { sendLovableEmail } from '@lovable.dev/email-js'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
 
 const MAX_RETRIES = 5
@@ -88,7 +88,13 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           return Response.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        const supabase: SupabaseClient<any, any> = createClient(supabaseUrl, supabaseServiceKey)
+        // New-format sb_secret_ keys are opaque, not JWTs. Use the admin client
+        // which installs a fetch shim that strips the bogus Authorization Bearer
+        // header and sets apikey — otherwise PostgREST rejects every request
+        // with "Expected 3 parts in JWT; got 1" and read_email_batch returns
+        // nothing (endpoint reports processed:0 while the queue keeps growing).
+        const { supabaseAdmin } = await import('@/integrations/supabase/client.server')
+        const supabase: SupabaseClient<any, any> = supabaseAdmin as unknown as SupabaseClient<any, any>
 
         // 1. Check rate-limit cooldown and read queue config
         const { data: state } = await supabase
