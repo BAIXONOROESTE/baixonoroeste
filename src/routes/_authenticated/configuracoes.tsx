@@ -53,6 +53,10 @@ function ConfigPage() {
 
       <N8nSettings settings={settings} onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })} />
 
+      <CountableFamiliesSettings />
+
+
+
       <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
         <div className="font-medium text-sm">Motivos de perda</div>
         {reasons?.map((r) => (
@@ -215,3 +219,51 @@ function N8nSettings({ settings, onSaved }: { settings: Settings; onSaved: () =>
     </div>
   );
 }
+
+function CountableFamiliesSettings() {
+  const qc = useQueryClient();
+  const { data: families } = useQuery({
+    queryKey: ["families", "all-admin"],
+    queryFn: async () => (await supabase.from("families").select("id, name, countable").order("name")).data ?? [],
+  });
+  const toggle = useMutation({
+    mutationFn: async (f: { id: string; countable: boolean }) => {
+      const { error } = await supabase.from("families").update({ countable: !f.countable }).eq("id", f.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Família atualizada.");
+      qc.invalidateQueries({ queryKey: ["families"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao atualizar."),
+  });
+
+  return (
+    <div className="rounded-2xl bg-surface border border-border p-4 space-y-3">
+      <div>
+        <div className="font-medium text-sm">Famílias na contagem</div>
+        <div className="text-xs text-muted-foreground">
+          Desative famílias que não devem entrar em contagens. Famílias inativas somem das opções de "Por família" e "Personalizado", e seus produtos não aparecem em inventários "Geral".
+        </div>
+      </div>
+      <div className="max-h-80 overflow-auto divide-y divide-border">
+        {(families ?? []).map((f) => (
+          <div key={f.id} className="flex items-center justify-between py-2 text-sm">
+            <span className={f.countable ? "" : "text-muted-foreground line-through"}>{f.name}</span>
+            <button
+              onClick={() => toggle.mutate({ id: f.id, countable: !!f.countable })}
+              disabled={toggle.isPending}
+              className={`text-xs px-2 py-1 rounded-md border ${f.countable ? "border-success/50 bg-success/10 text-success" : "border-border bg-muted text-muted-foreground"}`}
+            >
+              {f.countable ? "Ativa" : "Inativa"}
+            </button>
+          </div>
+        ))}
+        {(!families || families.length === 0) && (
+          <div className="py-3 text-xs text-muted-foreground">Nenhuma família cadastrada.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+

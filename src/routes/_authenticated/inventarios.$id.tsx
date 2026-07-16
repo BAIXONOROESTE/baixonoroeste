@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw } from "lucide-react";
+import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw, ArrowLeft, Save } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { closeInventory, pushCountToOmie, syncFamiliesAndProducts } from "@/lib/omie.functions";
@@ -74,9 +74,17 @@ function InventoryDetail() {
     enabled: !!inv,
   });
 
+  const { data: nonCountableFamilyIds } = useQuery({
+    queryKey: ["families", "non-countable-ids"],
+    queryFn: async () => {
+      const { data } = await supabase.from("families").select("id").eq("countable", false);
+      return (data ?? []).map((f) => f.id as string);
+    },
+  });
+
   const debouncedQ = useDebouncedValue(q, 300);
   const { data: productsResp } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, debouncedQ.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, debouncedQ.trim(), page, scope?.productIds?.length, scope?.familyIds?.length, nonCountableFamilyIds?.length],
     queryFn: async () => {
       const search = debouncedQ.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
       let query = supabase
@@ -94,6 +102,10 @@ function InventoryDetail() {
         if (fIds.length) filters.push(`family_id.in.(${fIds.join(",")})`);
         query = query.or(filters.join(","));
       }
+      // Inventário geral: exclui produtos de famílias marcadas como não-contáveis
+      if (inv?.type === "geral" && (nonCountableFamilyIds?.length ?? 0) > 0) {
+        query = query.not("family_id", "in", `(${nonCountableFamilyIds!.join(",")})`);
+      }
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -104,9 +116,10 @@ function InventoryDetail() {
       if (error) throw error;
       return { data: data ?? [], count: count ?? 0 };
     },
-    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope),
+    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope) && (inv?.type !== "geral" || nonCountableFamilyIds !== undefined),
     placeholderData: (previousData) => previousData ?? { data: [], count: 0 },
   });
+
   const products = productsResp?.data;
   const totalProducts = productsResp?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
@@ -191,12 +204,27 @@ function InventoryDetail() {
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <button
+          onClick={() => navigate({ to: "/inventarios" })}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -ml-1 px-1 py-1"
+          aria-label="Voltar para inventários"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </button>
+        <div className="text-[11px] text-muted-foreground inline-flex items-center gap-1 text-right">
+          <Save className="h-3 w-3" />
+          Seu progresso já foi salvo
+        </div>
+      </div>
       <div>
         <h1 className="text-xl font-display font-semibold">{inv?.name}</h1>
         <div className="text-xs text-muted-foreground">
           {inv?.type === "familia" ? `Família: ${inv?.family?.name ?? "—"}` : inv?.type} · {inv?.status}
         </div>
       </div>
+
 
       {!online && (
         <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 text-xs flex items-center gap-2">
