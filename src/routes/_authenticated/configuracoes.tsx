@@ -53,6 +53,10 @@ function ConfigPage() {
 
       <N8nSettings settings={settings} onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })} />
 
+      <CountableFamiliesSettings />
+
+
+
       <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
         <div className="font-medium text-sm">Motivos de perda</div>
         {reasons?.map((r) => (

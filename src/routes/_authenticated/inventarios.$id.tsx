@@ -74,9 +74,17 @@ function InventoryDetail() {
     enabled: !!inv,
   });
 
+  const { data: nonCountableFamilyIds } = useQuery({
+    queryKey: ["families", "non-countable-ids"],
+    queryFn: async () => {
+      const { data } = await supabase.from("families").select("id").eq("countable", false);
+      return (data ?? []).map((f) => f.id as string);
+    },
+  });
+
   const debouncedQ = useDebouncedValue(q, 300);
   const { data: productsResp } = useQuery({
-    queryKey: ["products-for-inv", inv?.type, inv?.family_id, debouncedQ.trim(), page, scope?.productIds?.length, scope?.familyIds?.length],
+    queryKey: ["products-for-inv", inv?.type, inv?.family_id, debouncedQ.trim(), page, scope?.productIds?.length, scope?.familyIds?.length, nonCountableFamilyIds?.length],
     queryFn: async () => {
       const search = debouncedQ.trim().replace(/[%_,().:]/g, " ").replace(/\s+/g, " ").trim();
       let query = supabase
@@ -94,6 +102,10 @@ function InventoryDetail() {
         if (fIds.length) filters.push(`family_id.in.(${fIds.join(",")})`);
         query = query.or(filters.join(","));
       }
+      // Inventário geral: exclui produtos de famílias marcadas como não-contáveis
+      if (inv?.type === "geral" && (nonCountableFamilyIds?.length ?? 0) > 0) {
+        query = query.not("family_id", "in", `(${nonCountableFamilyIds!.join(",")})`);
+      }
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
@@ -104,9 +116,10 @@ function InventoryDetail() {
       if (error) throw error;
       return { data: data ?? [], count: count ?? 0 };
     },
-    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope),
+    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope) && (inv?.type !== "geral" || nonCountableFamilyIds !== undefined),
     placeholderData: (previousData) => previousData ?? { data: [], count: 0 },
   });
+
   const products = productsResp?.data;
   const totalProducts = productsResp?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
