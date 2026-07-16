@@ -162,10 +162,7 @@ function InventoryDetail() {
   const canOpenInventory = !!inv && !!profile && (isSupOrAdmin || inv.assigned_counter_id === profile.id);
   const closed = inv?.status === "fechado" || inv?.status === "aprovada" || inv?.status === "reprovada";
   const canEditCounts = canOpenInventory && !closed;
-  const showValidation = isSupOrAdmin && (
-    ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada", "recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "")
-    || (divergencias > 0 && !closed)
-  );
+  const showValidation = isSupOrAdmin && ["pendente_validacao", "aguardando_validacao", "divergencia", "recontagem_enviada", "recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
   const showRecount = !isSupOrAdmin && ["recontagem_solicitada", "ajuste_solicitado"].includes(inv?.status ?? "");
   const submitValidationFn = useServerFn(submitForValidation);
   const { pending: pendingQueue, flushing, online, flush } = useOfflineCountQueue(id);
