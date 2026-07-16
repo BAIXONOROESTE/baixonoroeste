@@ -1,40 +1,49 @@
-## Causa raiz
+## Bug
 
-A tabela `public.user_roles` tem as policies RLS corretas (`read own roles or admin reads all` para `authenticated`), mas **não tem nenhum GRANT para o role `authenticated`** — `information_schema.role_table_grants` retorna vazio para essa tabela. Sem `GRANT SELECT`, o PostgREST bloqueia a leitura antes mesmo de avaliar a RLS, então `useProfile()` recebe erro de permissão, cai em `profileError` e o admin/supervisor perde a marcação de role no frontend → `isSupOrAdmin=false` → `canOpenInventory=false` para qualquer inventário que não seja dele → "Inventário indisponível".
+Em `src/routes/_authenticated/inventarios.$id.tsx` (linhas 165–168), a condição:
 
-A migration anterior (`20260713185500`) que tentou aplicar o grant não persistiu (provavelmente foi revertida ou nunca executou com sucesso).
+```ts
+const showValidation = isSupOrAdmin && (
+  [...status de validação...].includes(inv?.status ?? "")
+  || (divergencias > 0 && !closed)   // ← problema
+);
+```
+
+Faz com que, para supervisor/admin, **basta uma única divergência** para a tela de contagem ser substituída pela tela de validação — mesmo com o inventário ainda em `pendente` / `em_andamento` e produtos por contar. Isso interrompe a contagem no meio, especialmente em inventários "Por família" e "Personalizado" contados pelo próprio supervisor.
 
 ## Correção
 
-Uma única migration, mínima, só em `user_roles` — sem tocar em `inventories`, `count_items`, `inventory_products` ou `inventory_families`:
+Remover o fallback `divergencias > 0 && !closed` e passar a mostrar a tela de validação **apenas** quando o inventário efetivamente entrou em um status de validação (ou seja, a contagem já foi enviada / o inventário está em fluxo de aprovação).
 
-```sql
-GRANT SELECT ON public.user_roles TO authenticated;
-GRANT ALL    ON public.user_roles TO service_role;
+Nova condição:
+
+```ts
+const validationStatuses = [
+  "pendente_validacao",
+  "aguardando_validacao",
+  "divergencia",
+  "recontagem_enviada",
+  "recontagem_solicitada",
+  "ajuste_solicitado",
+];
+const showValidation = isSupOrAdmin && validationStatuses.includes(inv?.status ?? "");
 ```
 
-Não vou trocar para RPC. A policy direta já está correta (`user_id = auth.uid() OR current_user_is_admin()`); só faltava o grant de tabela que o PostgREST exige antes da RLS.
+Assim:
 
-## Testes (item 3)
+- Supervisor/admin contando um inventário `pendente` ou `em_andamento` continua vendo a tela de contagem até terminar, independentemente de haver itens divergentes durante o processo.
+- Quando ele (ou outro contador) clica em "Enviar para validação" e o inventário muda para `pendente_validacao` / `aguardando_validacao` / `divergencia`, aí sim a tela de validação aparece.
+- Fluxo de recontagem/ajuste solicitado continua acionando a tela para o supervisor, como já acontece hoje.
+- Nada muda para contador comum (`showRecount` permanece igual).
 
-Após a migration, via Playwright no preview localhost, com sessões reais (login por PIN):
+## Escopo
 
-1. Logar como **admin** → criar inventário do tipo "Por família" ou "Geral" designado a um colaborador específico (não o próprio admin).
-2. **Admin**: abrir o inventário recém-criado → deve entrar normalmente.
-3. **Colaborador designado**: logar, abrir o inventário → deve entrar e conseguir editar contagens.
-4. **Segundo colaborador (não designado)**: logar, tentar abrir → deve ver "Inventário indisponível".
-5. **Supervisor**: logar, abrir o mesmo inventário → deve entrar normalmente.
+- Editar somente as linhas 165–168 de `src/routes/_authenticated/inventarios.$id.tsx`.
+- Nenhuma alteração de schema, RLS, server function, ou outros componentes.
 
-Cada passo com screenshot de evidência.
+## Teste manual após aplicar
 
-## Confirmação final ao usuário
-
-Vou reportar:
-- Grant que faltava: `GRANT SELECT ON public.user_roles TO authenticated` (e `ALL` para `service_role`).
-- Abordagem: ajuste do grant direto na policy existente, sem RPC.
-- Resultado dos 4 cenários de teste com evidência.
-
-## Fora de escopo (não vou mexer)
-
-- Policies de `inventories`, `count_items`, `inventory_products`, `inventory_families` — permanecem como estão.
-- Lógica de `canOpenInventory` no frontend — permanece; ela funcionará corretamente assim que `useProfile()` voltar a ler o role.
+1. Login como supervisor, criar inventário "Por família".
+2. Contar um item com quantidade divergente do esperado.
+3. Confirmar que a tela **continua** na contagem (não pula para validação) e o restante dos produtos ainda pode ser contado.
+4. Ao clicar "Enviar para validação", a tela de validação aparece normalmente.
