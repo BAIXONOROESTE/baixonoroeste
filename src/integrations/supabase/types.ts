@@ -394,6 +394,7 @@ export type Database = {
       }
       families: {
         Row: {
+          countable: boolean
           created_at: string
           id: string
           name: string
@@ -401,6 +402,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          countable?: boolean
           created_at?: string
           id?: string
           name: string
@@ -408,6 +410,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          countable?: boolean
           created_at?: string
           id?: string
           name?: string
@@ -1071,6 +1074,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      list_assignable_profiles: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+          roles: string[]
+        }[]
       }
       list_login_profiles: {
         Args: never
