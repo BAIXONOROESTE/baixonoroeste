@@ -88,11 +88,8 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           return Response.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        // New-format sb_secret_ keys are opaque, not JWTs. Without this fetch
-        // shim the client sends `Authorization: Bearer sb_secret_...`, PostgREST
-        // fails to parse it as JWT and falls back to the anon role, which
-        // yields `permission denied for function read_email_batch`. Sending
-        // only `apikey: sb_secret_...` resolves the caller as service_role.
+        // New-format sb_secret_ keys are opaque, not JWTs. Without this fetch shim,
+        // PostgREST rejects the Bearer header and read_email_batch returns permission denied.
         const isOpaqueKey = supabaseServiceKey.startsWith('sb_secret_') || supabaseServiceKey.startsWith('sb_publishable_')
         const supabaseFetch: typeof fetch = (input, init) => {
           const headers = new Headers(
