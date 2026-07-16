@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw } from "lucide-react";
+import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw, ArrowLeft, Save } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
 import { closeInventory, pushCountToOmie, syncFamiliesAndProducts } from "@/lib/omie.functions";
@@ -191,12 +191,27 @@ function InventoryDetail() {
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <button
+          onClick={() => navigate({ to: "/inventarios" })}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -ml-1 px-1 py-1"
+          aria-label="Voltar para inventários"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </button>
+        <div className="text-[11px] text-muted-foreground inline-flex items-center gap-1 text-right">
+          <Save className="h-3 w-3" />
+          Seu progresso já foi salvo
+        </div>
+      </div>
       <div>
         <h1 className="text-xl font-display font-semibold">{inv?.name}</h1>
         <div className="text-xs text-muted-foreground">
           {inv?.type === "familia" ? `Família: ${inv?.family?.name ?? "—"}` : inv?.type} · {inv?.status}
         </div>
       </div>
+
 
       {!online && (
         <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 text-xs flex items-center gap-2">

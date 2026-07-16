@@ -151,7 +151,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
 
     const { data: item, error } = await supabase
       .from("count_items")
-      .select("*, product:products(omie_id, name, code, unit), inventory:inventories(status, name)")
+      .select("*, product:products(omie_id, name, code, unit), inventory:inventories(status, name), counter:profiles!count_items_counted_by_fkey(full_name)")
       .eq("id", data.count_item_id)
       .single();
     if (error || !item) throw new Error("Contagem não encontrada.");
@@ -171,10 +171,12 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
     if (diff === 0) {
       await supabaseAdmin.from("count_items").update({ status: "correto" }).eq("id", item.id);
     } else {
+      const invName = (item as { inventory?: { name?: string } }).inventory?.name ?? `inventario ${item.inventory_id}`;
+      const counterName = (item as { counter?: { full_name?: string } }).counter?.full_name ?? "desconhecido";
       const resp = await ajustarEstoqueOmie({
         codigo_produto: Number(item.product.omie_id),
         quantidade: diff,
-        observacao: `Contagem Estoque App - inventário ${item.inventory_id}`,
+        observacao: `Contagem: ${invName} - contado por ${counterName}`,
         valor_unitario: Number(item.unit_cost) || 0,
       });
       await supabaseAdmin
@@ -183,6 +185,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
         .eq("id", item.id);
       sentToOmie = true;
     }
+
 
     await supabaseAdmin.from("logs").insert({
       user_id: userId,
@@ -247,9 +250,17 @@ export const closeInventory = createServerFn({ method: "POST" })
 
 
     if (data.push_to_omie) {
+      const { data: inv } = await supabase
+        .from("inventories")
+        .select("name, counter:profiles!inventories_assigned_counter_id_fkey(full_name)")
+        .eq("id", data.inventory_id)
+        .maybeSingle();
+      const invName = (inv as { name?: string } | null)?.name ?? `inventario ${data.inventory_id}`;
+      const invCounterName = (inv as { counter?: { full_name?: string } } | null)?.counter?.full_name ?? null;
+
       const { data: pending } = await supabase
         .from("count_items")
-        .select("*, product:products(omie_id, name)")
+        .select("*, product:products(omie_id, name), counter:profiles!count_items_counted_by_fkey(full_name)")
         .eq("inventory_id", data.inventory_id)
         .eq("status", "divergencia");
 
@@ -257,10 +268,11 @@ export const closeInventory = createServerFn({ method: "POST" })
         const diff = Number(item.difference);
         if (diff === 0) continue;
         try {
+          const counterName = (item as { counter?: { full_name?: string } }).counter?.full_name ?? invCounterName ?? "desconhecido";
           const resp = await ajustarEstoqueOmie({
             codigo_produto: Number(item.product.omie_id),
             quantidade: diff,
-            observacao: `Fechamento inventário ${data.inventory_id}`,
+            observacao: `Contagem: ${invName} - contado por ${counterName}`,
             valor_unitario: Number(item.unit_cost) || 0,
           });
           await supabaseAdmin
@@ -275,6 +287,7 @@ export const closeInventory = createServerFn({ method: "POST" })
         }
       }
     }
+
 
     const { error: updErr } = await supabase
       .from("inventories")

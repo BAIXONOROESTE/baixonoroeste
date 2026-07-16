@@ -42,26 +42,20 @@ function ContarPage() {
   }, [profile, navigate]);
 
   const { data: families } = useQuery({
-    queryKey: ["families"],
-    queryFn: async () => (await supabase.from("families").select("id, name").order("name")).data ?? [],
+    queryKey: ["families", "countable"],
+    queryFn: async () => (await supabase.from("families").select("id, name").eq("countable", true).order("name")).data ?? [],
   });
 
   const { data: profs } = useQuery({
-    queryKey: ["profiles-with-roles"],
+    queryKey: ["assignable-profiles"],
+    enabled: profile?.role === "admin" || profile?.role === "supervisor",
     queryFn: async () => {
-      const [{ data: ps }, { data: rs }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").eq("active", true).order("full_name"),
-        supabase.from("user_roles").select("user_id, role"),
-      ]);
-      const byUser = new Map<string, string[]>();
-      for (const r of rs ?? []) {
-        const list = byUser.get(r.user_id) ?? [];
-        list.push(r.role);
-        byUser.set(r.user_id, list);
-      }
-      return (ps ?? []).map((p) => ({
-        ...p,
-        roles: byUser.get(p.id) ?? ["contador"],
+      const { data, error } = await supabase.rpc("list_assignable_profiles");
+      if (error) throw error;
+      return (data ?? []).map((p: { id: string; full_name: string; roles: string[] | null }) => ({
+        id: p.id,
+        full_name: p.full_name,
+        roles: p.roles ?? ["contador"],
       }));
     },
   });
@@ -69,6 +63,7 @@ function ContarPage() {
   const counters = (profs ?? []).filter((p) => p.roles.includes("contador") || p.roles.includes("supervisor") || p.roles.includes("admin"));
   const supervisors = (profs ?? []).filter((p) => p.roles.includes("supervisor") || p.roles.includes("admin"));
   const admins = (profs ?? []).filter((p) => p.roles.includes("admin"));
+
 
   const debouncedProductSearch = useDebouncedValue(productSearch, 300);
   const { data: prodResults } = useQuery({
