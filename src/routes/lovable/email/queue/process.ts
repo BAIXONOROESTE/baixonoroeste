@@ -92,7 +92,12 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           supabaseServiceKey.startsWith('sb_secret_') ||
           supabaseServiceKey.startsWith('sb_publishable_')
         const supabaseFetch: typeof fetch = (input, init) => {
-          const headers = new Headers(init?.headers)
+          const headers = new Headers(
+            typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
+          )
+          if (init?.headers) {
+            new Headers(init.headers).forEach((value, key) => headers.set(key, value))
+          }
           if (isOpaqueKey && headers.get('Authorization') === `Bearer ${supabaseServiceKey}`) {
             headers.delete('Authorization')
           }
