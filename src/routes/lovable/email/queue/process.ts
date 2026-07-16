@@ -88,7 +88,24 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           return Response.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        const supabase: SupabaseClient<any, any> = createClient(supabaseUrl, supabaseServiceKey)
+        // New-format sb_secret_ keys are opaque, not JWTs. Without this fetch shim,
+        // PostgREST rejects the Bearer header and read_email_batch returns permission denied.
+        const isOpaqueKey = supabaseServiceKey.startsWith('sb_secret_') || supabaseServiceKey.startsWith('sb_publishable_')
+        const supabaseFetch: typeof fetch = (input, init) => {
+          const headers = new Headers(
+            typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
+          )
+          if (init?.headers) new Headers(init.headers).forEach((v, k) => headers.set(k, v))
+          if (isOpaqueKey && headers.get('Authorization') === `Bearer ${supabaseServiceKey}`) {
+            headers.delete('Authorization')
+          }
+          headers.set('apikey', supabaseServiceKey)
+          return fetch(input, { ...init, headers })
+        }
+        const supabase: SupabaseClient<any, any> = createClient(supabaseUrl, supabaseServiceKey, {
+          global: { fetch: supabaseFetch },
+          auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+        })
 
         // 1. Check rate-limit cooldown and read queue config
         const { data: state } = await supabase
