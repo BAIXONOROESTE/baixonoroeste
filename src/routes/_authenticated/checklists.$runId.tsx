@@ -266,7 +266,7 @@ function RunPage() {
 
   return (
     <div className="flex flex-col min-h-[calc(100dvh-3.5rem)]">
-      <div className="max-w-2xl w-full mx-auto p-4 pb-32 space-y-4 flex-1">
+      <div className="max-w-2xl w-full mx-auto p-4 pb-44 space-y-4 flex-1">
         {/* Header */}
         <div>
           <div className="flex items-center justify-between gap-2 mb-2">
@@ -478,7 +478,7 @@ function RunPage() {
       </div>
 
       {/* Footer sticky */}
-      <div className="fixed bottom-0 inset-x-0 border-t border-border bg-surface/95 backdrop-blur px-4 py-3 z-20">
+      <div className="fixed bottom-16 inset-x-0 border-t border-border bg-surface/95 backdrop-blur px-4 py-3 z-20">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <Button
             variant="outline"
