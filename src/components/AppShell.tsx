@@ -31,9 +31,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
   useAutoSync();
+
+  const mainTabs = ["/inicio", "/contar", "/dashboard"];
+  const isMainTab = mainTabs.includes(location.pathname);
+
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.history.back();
+    } else {
+      navigate({ to: "/inicio" });
+    }
+  }
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
