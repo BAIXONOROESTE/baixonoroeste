@@ -1,71 +1,86 @@
-# Checklists — Entrega 1 de 2: Menu + Tela "Lista do dia"
+# Checklists — Entrega 2 de 2: Wizard `/checklists/$runId`
 
-Escopo desta entrega: link no menu + rota `/checklists` (lista do dia). O wizard `/checklists/$runId` fica para um segundo prompt. Nenhum outro arquivo é alterado.
+Substitui o stub atual (`src/routes/_authenticated/checklists.$runId.tsx`) pelo wizard item-a-item completo. Nenhum outro arquivo é alterado.
 
-## 1. `src/components/AppShell.tsx`
-- Importar `CheckSquare` de `lucide-react`.
-- Adicionar em `drawerLinks` (após "Inventários"): `{ to: "/checklists", label: "Checklists", icon: CheckSquare, roles: ["admin","supervisor","contador"] }`.
+## Query única do run
+```
+select id, status, started_by, submitted_at, template_id,
+       template:checklist_templates(name, scheduled_time),
+       items:checklist_run_items(
+         id, done, done_by, done_at, observacao, review_status,
+         template_item:checklist_template_items(title, orientacao, evidence_required, position),
+         evidence:checklist_run_item_evidence(id, evidence_path, evidence_type, created_by, created_at)
+       )
+where id = $runId
+```
+Itens ordenados client-side por `template_item.position`.
 
-## 2. `src/routes/_authenticated/checklists.tsx` (novo)
+## Estado local
+- `currentIndex` (useState, 0) — item ativo do wizard.
+- `expanded` — toggle "Ver mais +" da orientação.
+- `rejectingId` + `rejectReason` — controla o modo "informar justificativa" na aprovação.
+- Signed URLs das evidências geradas sob demanda com `supabase.storage.from('checklist-evidence').createSignedUrl(path, 3600)`, cacheadas via `useQuery(['sig', path])`.
 
-`createFileRoute("/_authenticated/checklists")` com `head()` ("Checklists · Baixo Noroeste") e `component`. Sem loader; usa `useQuery` direto conforme padrão de `ranking.tsx`/`inventarios.index.tsx`. Também define `errorComponent` e `notFoundComponent` mínimos.
+## Determinação do modo
+- `execucao` — `run.status='em_andamento'` E (`uid === run.started_by` OU `role in ('admin','supervisor')`).
+- `aprovacao` — `run.status='aguardando_aprovacao'` E `role in ('admin','supervisor')`.
+- `leitura` — qualquer outro caso.
 
-### Data de hoje
-`const todayISO = ` a data local formatada `YYYY-MM-DD` (sem UTC shift).
+## Layout
+- Header (dentro do main; AppShell já renderiza back/menu): nome do template · "Progresso 40%" · `<Progress />`.
+- Pill "Item X de N" + Badge "Obrigatório" quando `evidence_required`.
+- Card do item: título · disclosure "Ver mais +" com `orientacao` · corpo específico do modo.
+- Rodapé sticky com "Anterior" / "Próximo". No último item o "Próximo" muda:
+  - Execução → "Enviar para aprovação".
+  - Aprovação → "Concluir revisão".
+  - Leitura → apenas "Anterior/Próximo".
 
-### Header
-`"HOJE — quarta-feira, 17 de julho de 2026"` via `Intl.DateTimeFormat('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })`.
+## Modo execução
+- Botões lado a lado "Não Feito" (outline destructive) / "Feito" (outline emerald). O selecionado ganha fill. Cada clique `useMutation` faz `update` em `checklist_run_items` (`done`, `done_by=uid`, `done_at=now()`). Toast + invalidate.
+- Seção **Evidências**:
+  - Grid de chips: ícone `Image` (foto) / `Video` (vídeo) + nome curto do path + botão de remover (apenas para dono ou sup/admin, conforme RLS).
+  - Botão "+" abre `<input type="file" ref hidden accept="image/*,video/*" capture="environment">`.
+  - Ao selecionar:
+    1. `type = file.type.startsWith('video') ? 'video' : 'foto'`.
+    2. `path = ${uid}/${runItemId}/${Date.now()}.${ext}`.
+    3. `supabase.storage.from('checklist-evidence').upload(path, file, { contentType: file.type })`.
+    4. `insert` em `checklist_run_item_evidence`.
+    5. Invalidate + toast. Em erro de upload, mostra toast e não insere linha.
+- Textarea "Observação" com `defaultValue` da observação atual. `onBlur` só faz update se mudou.
 
-### Queries
-- **Templates + runs de hoje** (uma query): `checklist_templates` com `active=true`, embed dos runs de hoje e contagem de itens:
-  ```
-  select id, name, scheduled_time,
-         runs:checklist_runs!checklist_runs_template_id_fkey(
-           id, status, started_by, submitted_at,
-           items:checklist_run_items(id, done)
-         )
-  from checklist_templates
-  where active = true
-  ```
-  Filtro `run_date = todayISO` aplicado com `.eq` no embed via `filter('runs.run_date', 'eq', todayISO)` (padrão PostgREST). Ordenação client-side: `scheduled_time` asc com nulls no fim, depois `name`.
-- **Aprovações pendentes** (só admin/supervisor): `checklist_runs` where `status='aguardando_aprovacao'`, embed do template (name) e do starter (`profiles!checklist_runs_started_by_fkey(full_name)`). Query habilitada só quando `role in ('admin','supervisor')`.
+## Modo aprovação
+- Mostra orientação, `observacao` do colaborador (se houver) e evidências renderizadas:
+  - `foto` → `<img>` com `object-cover` + click para abrir em nova aba.
+  - `video` → `<video controls>` com o signed URL.
+- Botões "Reprovar" / "Aprovar" abaixo do item:
+  - "Aprovar" → `insert` em `checklist_run_item_reviews { action:'aprovar' }` + `update` `review_status='aprovado'`.
+  - "Reprovar" → expande um `Textarea` de justificativa. Botão "Confirmar reprovação" fica disabled enquanto vazio. Ao confirmar → `insert` `{ action:'reprovar', reason }` + `update` `review_status='reprovado'`.
+- Toast + invalidate após cada ação.
 
-### Renderização
-Se `role in ('admin','supervisor')` **e** houver pendências: seção topo "Aguardando minha aprovação" com Cards compactos (nome do template · quem iniciou · data do run) + botão "Ver" (link para `/checklists/$runId`; a rota ainda não existe, então link será desabilitado com `title="Em breve"` — evita quebrar type-safe navigation criando um `<a>` só nesta entrega, ou aparece como texto muted até a Entrega 2). **Decisão:** deixar como `<span>` inerte com badge "abrir na Entrega 2" para não acoplar as duas entregas. (Se preferir usar `<Link>` desde já, avise; requer a rota criada como stub.)
+## Modo leitura
+- Mostra título, orientação (aberta), observação, evidências (mesmo render de aprovação), status `done` e `review_status`. Sem botões de ação.
 
-Lista principal — um Card por template:
-- Linha 1: hora (ex "08:00" ou "—" se null) · nome do template · badge de status à direita.
-- Linha 2: `<Progress value={pct} />` + texto `${done}/${total} itens` (0/0 quando sem run).
-- Linha 3: botão de ação.
+## Finalização
 
-Regras de badge + botão:
-| Situação | Badge | Botão |
-|---|---|---|
-| Sem run · dentro da janela [-30min, +2h] do `scheduled_time` | "Agora" (accent) | Iniciar |
-| Sem run · fora da janela ou sem horário | — | Iniciar |
-| Run `em_andamento` | — | Continuar |
-| Run `aguardando_aprovacao` | "Aguardando aprovação" | Ver |
-| Run `aprovado` | "Finalizado" (verde) | Ver |
-| Run `reprovado` | "Reprovado" (vermelho) | Ver |
+### "Enviar para aprovação" (execução, último item)
+- Habilitado quando `items.every(i => i.done)` **e** todo item com `template_item.evidence_required=true` tem `evidence.length >= 1`.
+- Se desabilitado, tooltip explica o que falta (ex: "3 itens sem marcação" ou "2 itens obrigatórios sem evidência").
+- Confirma via `AlertDialog`. Update `checklist_runs { status:'aguardando_aprovacao', submitted_at: now() }`.
+- Toast + `queryClient.invalidateQueries(['checklists'])` + `navigate({ to: '/checklists' })`.
 
-Janela "Agora": só quando `scheduled_time != null`; comparação em minutos do dia (`now.getHours()*60+minutes`).
+### "Concluir revisão" (aprovação, último item)
+- Habilitado quando `items.every(i => i.review_status !== 'pendente')`.
+- Update `checklist_runs.status = items.some(i => i.review_status === 'reprovado') ? 'reprovado' : 'aprovado'`.
+- Toast + invalidate + navigate.
 
-### Mutation "Iniciar"
-`useMutation` com fluxo:
-1. `insert` em `checklist_runs { template_id, run_date: todayISO, started_by: uid, status: 'em_andamento' }` retornando `id`.
-2. `select` de `checklist_template_items` do template (todos), ordenado por `position`.
-3. `insert` em batch em `checklist_run_items` (`run_id, template_item_id, done:false, review_status:'pendente'`).
-4. Toast sucesso; `queryClient.invalidateQueries(['checklists','today'])`; navega para `/checklists/$runId` **quando a rota existir** — nesta entrega, sem rota destino, o botão "Iniciar" fica desabilitado com tooltip "Wizard chega na próxima entrega". (Ou: cria a rota stub agora — ver seção "Decisão a confirmar" abaixo.)
+## Errors / notFound
+- `errorComponent` com botão "Tentar novamente" chamando `router.invalidate()` + reset.
+- `notFoundComponent` simples.
 
-Toast (sonner) em cada mutation para sucesso/erro. `useProfile()` para pegar role e uid.
+## Toasts
+- Sucesso/erro em cada mutation via sonner.
 
-## Fora de escopo (Entrega 2)
-- Rota `src/routes/_authenticated/checklists.$runId.tsx` (wizard item-a-item, upload de evidência, aprovação, submit).
-- Uma vez pronta, os botões "Continuar/Ver/Iniciar" desta tela passam a navegar normalmente.
-
-## Decisão a confirmar antes de eu implementar
-Nesta entrega os botões de navegação (`Iniciar`, `Continuar`, `Ver`) apontam para `/checklists/$runId` que ainda não existe. Duas opções — me diga qual prefere:
-- **(A) Botões desabilitados** com tooltip "Disponível na Entrega 2". Iniciar não cria run ainda. Mais seguro, evita runs órfãos no banco.
-- **(B) Criar stub mínimo** `checklists.$runId.tsx` que só mostra "Wizard em construção. runId=X" para os botões já funcionarem e a mutation `Iniciar` já criar o run.
-
-Padrão que sigo se você não responder: **(A)**.
+## Fora de escopo
+- Não altera schema, triggers, políticas ou o bucket.
+- Não mexe em contagem/inventário/ranking.
+- CRUD de templates (criar/editar/desativar templates) segue fora — pode virar um Entrega 3 se quiser.
