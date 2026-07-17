@@ -478,7 +478,7 @@ function RunPage() {
       </div>
 
       {/* Footer sticky */}
-      <div className="fixed bottom-16 inset-x-0 border-t border-border bg-surface/95 backdrop-blur px-4 py-3 z-20">
+      <div className="fixed bottom-[4.1rem] inset-x-0 border-t border-border bg-surface/95 backdrop-blur px-4 py-3 z-20">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <Button
             variant="outline"
