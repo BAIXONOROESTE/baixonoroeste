@@ -72,11 +72,12 @@ function ContarPage() {
       const s = debouncedProductSearch.trim();
       if (s.length < 2) return [];
       const { data } = await supabase.from("products")
-        .select("id, code, name, family_name, active")
+        .select("id, code, name, family_name, active, family:families!inner(countable)")
         .or(`name.ilike.%${s}%,code.ilike.%${s}%,barcode.ilike.%${s}%`)
         .eq("active", true)
+        .eq("families.countable", true)
         .limit(20);
-      return data ?? [];
+      return (data ?? []).map(({ family: _family, ...rest }) => rest);
     },
     enabled: (tipo === "personalizado" || tipo === "produto") && debouncedProductSearch.trim().length >= 2,
   });
