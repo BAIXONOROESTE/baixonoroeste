@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/checklists")({
+export const Route = createFileRoute("/_authenticated/checklists/")({
   head: () => ({ meta: [{ title: "Checklists · Baixo Noroeste" }] }),
   component: ChecklistsPage,
   errorComponent: ({ error, reset }) => (
