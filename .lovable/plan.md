@@ -1,49 +1,19 @@
-## Bug
+Corrigir a query de busca de produtos em `src/routes/_authenticated/contar.tsx` para que, nos modos "Por produto" e "Personalizado", produtos vinculados a famílias com `countable = false` não apareçam nos resultados.
 
-Em `src/routes/_authenticated/inventarios.$id.tsx` (linhas 165–168), a condição:
+### Alteração técnica
 
-```ts
-const showValidation = isSupOrAdmin && (
-  [...status de validação...].includes(inv?.status ?? "")
-  || (divergencias > 0 && !closed)   // ← problema
-);
-```
+No `useQuery` com `queryKey: ["prod-search-contar", ...]`, ajustar a consulta ao Supabase:
 
-Faz com que, para supervisor/admin, **basta uma única divergência** para a tela de contagem ser substituída pela tela de validação — mesmo com o inventário ainda em `pendente` / `em_andamento` e produtos por contar. Isso interrompe a contagem no meio, especialmente em inventários "Por família" e "Personalizado" contados pelo próprio supervisor.
+- Manter `.select("id, code, name, family_name, active")` como base.
+- Adicionar o join interno com `families` e filtrar por `families.countable = true`.
+- Garantir que o tipo retornado continue compatível com o uso atual (acessamos apenas `id`, `name`, `code`).
 
-## Correção
+A forma sugerida é usar o embed `family:families!inner(countable)` e `.eq("families.countable", true)`, o que força o Supabase a aplicar o filtro no join. Se o tipo gerado incluir o campo aninhado, faremos um mapeamento simples (`data ?? []`) para não quebrar as referências em `p.name`/`p.code`.
 
-Remover o fallback `divergencias > 0 && !closed` e passar a mostrar a tela de validação **apenas** quando o inventário efetivamente entrou em um status de validação (ou seja, a contagem já foi enviada / o inventário está em fluxo de aprovação).
+### Testes
 
-Nova condição:
-
-```ts
-const validationStatuses = [
-  "pendente_validacao",
-  "aguardando_validacao",
-  "divergencia",
-  "recontagem_enviada",
-  "recontagem_solicitada",
-  "ajuste_solicitado",
-];
-const showValidation = isSupOrAdmin && validationStatuses.includes(inv?.status ?? "");
-```
-
-Assim:
-
-- Supervisor/admin contando um inventário `pendente` ou `em_andamento` continua vendo a tela de contagem até terminar, independentemente de haver itens divergentes durante o processo.
-- Quando ele (ou outro contador) clica em "Enviar para validação" e o inventário muda para `pendente_validacao` / `aguardando_validacao` / `divergencia`, aí sim a tela de validação aparece.
-- Fluxo de recontagem/ajuste solicitado continua acionando a tela para o supervisor, como já acontece hoje.
-- Nada muda para contador comum (`showRecount` permanece igual).
-
-## Escopo
-
-- Editar somente as linhas 165–168 de `src/routes/_authenticated/inventarios.$id.tsx`.
-- Nenhuma alteração de schema, RLS, server function, ou outros componentes.
-
-## Teste manual após aplicar
-
-1. Login como supervisor, criar inventário "Por família".
-2. Contar um item com quantidade divergente do esperado.
-3. Confirmar que a tela **continua** na contagem (não pula para validação) e o restante dos produtos ainda pode ser contado.
-4. Ao clicar "Enviar para validação", a tela de validação aparece normalmente.
+1. Marcar uma família como desativada (countable = false) em Configurações.
+2. Em "Nova contagem" > "Por produto", buscar um produto dessa família: não deve aparecer.
+3. Em "Nova contagem" > "Personalizado", buscar o mesmo produto: não deve aparecer.
+4. Verificar que "Geral" e "Por família" continuam funcionando normalmente (sem regressão).
+5. Executar o typecheck/build para garantir que não houve quebra de tipos.
