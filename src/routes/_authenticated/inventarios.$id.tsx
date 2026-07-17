@@ -19,6 +19,7 @@ import { submitForValidation } from "@/lib/inventory-flow.functions";
 import { useOfflineCountQueue } from "@/hooks/useOfflineCountQueue";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { CloudOff, RefreshCw as SyncIcon } from "lucide-react";
+import { DeleteInventoryButton } from "@/components/DeleteInventoryButton";
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
