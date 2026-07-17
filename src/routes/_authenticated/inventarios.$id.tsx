@@ -19,6 +19,7 @@ import { submitForValidation } from "@/lib/inventory-flow.functions";
 import { useOfflineCountQueue } from "@/hooks/useOfflineCountQueue";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { CloudOff, RefreshCw as SyncIcon } from "lucide-react";
+import { DeleteInventoryButton } from "@/components/DeleteInventoryButton";
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
@@ -215,11 +216,21 @@ function InventoryDetail() {
           Seu progresso já foi salvo
         </div>
       </div>
-      <div>
-        <h1 className="text-xl font-display font-semibold">{inv?.name}</h1>
-        <div className="text-xs text-muted-foreground">
-          {inv?.type === "familia" ? `Família: ${inv?.family?.name ?? "—"}` : inv?.type} · {inv?.status}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-display font-semibold truncate">{inv?.name}</h1>
+          <div className="text-xs text-muted-foreground">
+            {inv?.type === "familia" ? `Família: ${inv?.family?.name ?? "—"}` : inv?.type} · {inv?.status}
+          </div>
         </div>
+        {profile?.role === "admin" && inv && (
+          <DeleteInventoryButton
+            inventoryId={id}
+            inventoryName={inv.name}
+            variant="full"
+            redirectAfter
+          />
+        )}
       </div>
 
 
