@@ -558,37 +558,50 @@ function RunPage() {
             </Button>
           )}
           {isLast && mode === "execucao" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  className="flex-1"
-                  disabled={!canSubmit || submitForApproval.isPending}
-                  title={
-                    canSubmit
-                      ? undefined
-                      : missingDone > 0
-                        ? `${missingDone} itens sem marcação`
-                        : `${missingEvidence} itens obrigatórios sem evidência`
-                  }
-                >
-                  Enviar para aprovação
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Enviar checklist para aprovação?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Depois de enviar você não poderá mais alterar as respostas.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => submitForApproval.mutate()}>
-                    Enviar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <div className="flex-1 flex flex-col gap-1">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className={
+                      canSubmit
+                        ? "w-full"
+                        : "w-full bg-muted text-muted-foreground opacity-60 hover:bg-muted"
+                    }
+                    disabled={!canSubmit || submitForApproval.isPending}
+                  >
+                    Enviar para aprovação
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Enviar checklist para aprovação?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Depois de enviar você não poderá mais alterar as respostas.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => submitForApproval.mutate()}>
+                      Enviar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {!canSubmit && (
+                <p className="text-[11px] leading-tight text-amber-600">
+                  {pendingItems.length === 1 ? "Falta 1 item" : `Faltam ${pendingItems.length} itens`}
+                  : preencha evidência ou justificativa para continuar.
+                  {" "}
+                  <span className="text-muted-foreground">
+                    ({pendingItems
+                      .slice(0, 3)
+                      .map((i) => i.template_item?.title ?? "sem título")
+                      .join(", ")}
+                    {pendingItems.length > 3 ? "…" : ""})
+                  </span>
+                </p>
+              )}
+            </div>
           )}
           {isLast && mode === "aprovacao" && (
             <AlertDialog>
