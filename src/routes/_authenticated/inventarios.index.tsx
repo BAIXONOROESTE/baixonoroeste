@@ -126,31 +126,38 @@ function InventoriesList() {
         const overdue = inv.deadline_at && new Date(inv.deadline_at) < new Date() && !["aprovada", "concluida", "fechado", "reprovada"].includes(inv.status);
         const mine = inv.assigned_counter_id === myId && PENDING_FOR_ME.includes(inv.status);
         return (
-          <Link key={inv.id} to="/inventarios/$id" params={{ id: inv.id }}
-                className={`block rounded-2xl bg-surface border p-4 hover:border-primary/50 ${overdue ? "border-destructive/60" : mine ? "border-primary/60" : "border-border"}`}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium truncate flex items-center gap-2">
-                  {mine && <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/20 text-primary px-2 py-0.5 font-semibold shrink-0">Aguardando você</span>}
-                  {inv.name}
-                  {overdue && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
-                </div>
-                <div className="text-xs text-muted-foreground truncate">{fmtDateTime(inv.started_at)}</div>
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {(inv.counter as { full_name?: string } | null)?.full_name ? `👤 ${(inv.counter as { full_name?: string }).full_name}` : ""}
-                  {(inv.supervisor as { full_name?: string } | null)?.full_name ? ` · sup: ${(inv.supervisor as { full_name?: string }).full_name}` : ""}
-                </div>
-                {inv.deadline_at && (
-                  <div className={`text-[11px] flex items-center gap-1 mt-1 ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
-                    <Clock className="h-3 w-3" /> Prazo: {fmtDateTime(inv.deadline_at)}
+          <div key={inv.id} className="relative">
+            <Link to="/inventarios/$id" params={{ id: inv.id }}
+                  className={`block rounded-2xl bg-surface border p-4 hover:border-primary/50 ${overdue ? "border-destructive/60" : mine ? "border-primary/60" : "border-border"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate flex items-center gap-2">
+                    {mine && <span className="text-[10px] uppercase tracking-wide rounded-full bg-primary/20 text-primary px-2 py-0.5 font-semibold shrink-0">Aguardando você</span>}
+                    {inv.name}
+                    {overdue && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
                   </div>
-                )}
+                  <div className="text-xs text-muted-foreground truncate">{fmtDateTime(inv.started_at)}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {(inv.counter as { full_name?: string } | null)?.full_name ? `👤 ${(inv.counter as { full_name?: string }).full_name}` : ""}
+                    {(inv.supervisor as { full_name?: string } | null)?.full_name ? ` · sup: ${(inv.supervisor as { full_name?: string }).full_name}` : ""}
+                  </div>
+                  {inv.deadline_at && (
+                    <div className={`text-[11px] flex items-center gap-1 mt-1 ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                      <Clock className="h-3 w-3" /> Prazo: {fmtDateTime(inv.deadline_at)}
+                    </div>
+                  )}
+                </div>
+                <span className={`text-[11px] rounded-full px-2 py-1 shrink-0 ${statusPill(inv.status)}`}>
+                  {STATUS_LABEL[inv.status] ?? inv.status}
+                </span>
               </div>
-              <span className={`text-[11px] rounded-full px-2 py-1 shrink-0 ${statusPill(inv.status)}`}>
-                {STATUS_LABEL[inv.status] ?? inv.status}
-              </span>
-            </div>
-          </Link>
+            </Link>
+            {profile?.role === "admin" && (
+              <div className="absolute top-2 right-2">
+                <DeleteInventoryButton inventoryId={inv.id} inventoryName={inv.name} />
+              </div>
+            )}
+          </div>
         );
       })}
       {!filtered.length && <p className="text-sm text-muted-foreground text-center py-8">Nenhum inventário encontrado.</p>}
