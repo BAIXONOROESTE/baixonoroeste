@@ -18,6 +18,7 @@ const drawerLinks = [
   { to: "/inicio", label: "Início", icon: Home, roles: ["admin","supervisor","contador"] },
   { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor"] },
   { to: "/inventarios", label: "Inventários", icon: Package, roles: ["admin","supervisor","contador"] },
+  { to: "/checklists", label: "Checklists", icon: CheckSquare, roles: ["admin","supervisor","contador"] },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] },
   { to: "/perdas", label: "Perdas & Quebras", icon: AlertTriangle, roles: ["admin","supervisor","contador"] },
