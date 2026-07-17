@@ -52,6 +52,7 @@ type RunItem = {
   done_by: string | null;
   done_at: string | null;
   observacao: string | null;
+  justificativa: string | null;
   review_status: "pendente" | "aprovado" | "reprovado";
   template_item: {
     title: string;
