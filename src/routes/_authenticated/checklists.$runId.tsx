@@ -398,6 +398,31 @@ function RunPage() {
                 />
               </div>
 
+              {!item.done && item.done_at && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">
+                    Por que não foi possível fazer este item?
+                  </label>
+                  <Textarea
+                    key={`just-${item.id}`}
+                    defaultValue={item.justificativa ?? ""}
+                    rows={2}
+                    placeholder="Descreva o motivo…"
+                    onBlur={(e) => {
+                      const value = e.target.value;
+                      if (value !== (item.justificativa ?? "")) {
+                        saveJustificativa.mutate({ itemId: item.id, value });
+                      }
+                    }}
+                  />
+                  {!(item.justificativa && item.justificativa.trim()) && (
+                    <p className="text-xs text-amber-600">
+                      Preencha o motivo para poder enviar este item.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="text-sm font-medium">Observação</label>
                 <Textarea
