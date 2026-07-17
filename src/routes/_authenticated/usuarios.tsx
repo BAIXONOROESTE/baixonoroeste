@@ -26,11 +26,34 @@ function UsuariosPage() {
   const { data: profiles } = useQuery({
     queryKey: ["all-profiles"],
     queryFn: async () => {
-      const [{ data: p }, { data: r }] = await Promise.all([
+      const [{ data: p }, { data: r }, { data: tm }] = await Promise.all([
         supabase.from("profiles").select("*").order("full_name"),
         supabase.from("user_roles").select("*"),
+        supabase.from("team_members").select("user_id, team_id"),
       ]);
-      return (p ?? []).map((prof) => ({ ...prof, roles: (r ?? []).filter((x) => x.user_id === prof.id).map((x) => x.role) }));
+      return (p ?? []).map((prof) => ({
+        ...prof,
+        roles: (r ?? []).filter((x) => x.user_id === prof.id).map((x) => x.role),
+        team_id: (tm ?? []).find((x) => x.user_id === prof.id)?.team_id ?? null,
+      }));
+    },
+  });
+
+  const { data: teams } = useQuery({
+    queryKey: ["teams-all"],
+    queryFn: async () => {
+      const { data } = await supabase.from("teams").select("*").order("name");
+      return data ?? [];
+    },
+  });
+
+  const { data: teamMembers } = useQuery({
+    queryKey: ["team-members-all"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("team_members")
+        .select("team_id, user_id, profiles:profiles!team_members_user_id_fkey(id, full_name)");
+      return data ?? [];
     },
   });
 
