@@ -59,6 +59,41 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_run_item_evidence: {
+        Row: {
+          created_at: string
+          created_by: string
+          evidence_path: string
+          evidence_type: string
+          id: string
+          run_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          evidence_path: string
+          evidence_type: string
+          id?: string
+          run_item_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          evidence_path?: string
+          evidence_type?: string
+          id?: string
+          run_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_run_item_evidence_run_item_id_fkey"
+            columns: ["run_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_run_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_run_item_reviews: {
         Row: {
           action: string
@@ -110,8 +145,6 @@ export type Database = {
           done: boolean
           done_at: string | null
           done_by: string | null
-          evidence_path: string | null
-          evidence_type: string | null
           id: string
           observacao: string | null
           review_status: string
@@ -124,8 +157,6 @@ export type Database = {
           done?: boolean
           done_at?: string | null
           done_by?: string | null
-          evidence_path?: string | null
-          evidence_type?: string | null
           id?: string
           observacao?: string | null
           review_status?: string
@@ -138,8 +169,6 @@ export type Database = {
           done?: boolean
           done_at?: string | null
           done_by?: string | null
-          evidence_path?: string | null
-          evidence_type?: string | null
           id?: string
           observacao?: string | null
           review_status?: string
@@ -252,6 +281,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          scheduled_time: string | null
           updated_at: string
         }
         Insert: {
@@ -259,6 +289,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          scheduled_time?: string | null
           updated_at?: string
         }
         Update: {
@@ -266,6 +297,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          scheduled_time?: string | null
           updated_at?: string
         }
         Relationships: []
