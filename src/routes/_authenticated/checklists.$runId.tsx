@@ -442,6 +442,14 @@ function RunPage() {
 
           {mode === "aprovacao" && (
             <>
+              {item.justificativa && (
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Justificativa do colaborador (item não feito)
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{item.justificativa}</p>
+                </div>
+              )}
               {item.observacao && (
                 <div>
                   <div className="text-xs font-medium text-muted-foreground">Observação do colaborador</div>
