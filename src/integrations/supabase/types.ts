@@ -427,6 +427,7 @@ export type Database = {
           closed_at: string | null
           created_at: string
           deadline_at: string | null
+          due_at: string | null
           family_id: string | null
           id: string
           name: string
@@ -445,6 +446,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           deadline_at?: string | null
+          due_at?: string | null
           family_id?: string | null
           id?: string
           name: string
@@ -463,6 +465,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           deadline_at?: string | null
+          due_at?: string | null
           family_id?: string | null
           id?: string
           name?: string
@@ -490,6 +493,20 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
           {
+            foreignKeyName: "inventories_assigned_admin_id_fkey"
+            columns: ["assigned_admin_id"]
+            isOneToOne: false
+            referencedRelation: "scoring_monthly"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_admin_id_fkey"
+            columns: ["assigned_admin_id"]
+            isOneToOne: false
+            referencedRelation: "scoring_weekly"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "inventories_assigned_counter_id_fkey"
             columns: ["assigned_counter_id"]
             isOneToOne: false
@@ -504,6 +521,20 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
           {
+            foreignKeyName: "inventories_assigned_counter_id_fkey"
+            columns: ["assigned_counter_id"]
+            isOneToOne: false
+            referencedRelation: "scoring_monthly"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_counter_id_fkey"
+            columns: ["assigned_counter_id"]
+            isOneToOne: false
+            referencedRelation: "scoring_weekly"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "inventories_assigned_supervisor_id_fkey"
             columns: ["assigned_supervisor_id"]
             isOneToOne: false
@@ -515,6 +546,20 @@ export type Database = {
             columns: ["assigned_supervisor_id"]
             isOneToOne: false
             referencedRelation: "ranking_view"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_supervisor_id_fkey"
+            columns: ["assigned_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "scoring_monthly"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "inventories_assigned_supervisor_id_fkey"
+            columns: ["assigned_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "scoring_weekly"
             referencedColumns: ["user_id"]
           },
           {
@@ -1010,6 +1055,59 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          created_at: string
+          id: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1041,6 +1139,68 @@ export type Database = {
           user_id: string | null
         }
         Relationships: []
+      }
+      scoring_monthly: {
+        Row: {
+          accuracy_pct: number | null
+          full_name: string | null
+          individual_score: number | null
+          month: string | null
+          ontime_pct: number | null
+          team_id: string | null
+          team_name: string | null
+          total_conferidos: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scoring_weekly: {
+        Row: {
+          accuracy_pct: number | null
+          full_name: string | null
+          individual_score: number | null
+          ontime_pct: number | null
+          team_id: string | null
+          team_name: string | null
+          total_conferidos: number | null
+          user_id: string | null
+          week: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_scoring_monthly: {
+        Row: {
+          members_count: number | null
+          month: string | null
+          team_id: string | null
+          team_name: string | null
+          team_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
