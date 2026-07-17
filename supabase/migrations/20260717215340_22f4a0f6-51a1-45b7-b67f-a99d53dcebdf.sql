@@ -1,0 +1,1 @@
+ALTER TABLE public.checklist_run_items ADD COLUMN IF NOT EXISTS justificativa TEXT;

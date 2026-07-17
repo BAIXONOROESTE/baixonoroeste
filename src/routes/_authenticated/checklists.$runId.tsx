@@ -52,6 +52,7 @@ type RunItem = {
   done_by: string | null;
   done_at: string | null;
   observacao: string | null;
+  justificativa: string | null;
   review_status: "pendente" | "aprovado" | "reprovado";
   template_item: {
     title: string;
@@ -95,7 +96,7 @@ function RunPage() {
           `id, status, started_by, submitted_at, template_id,
            template:checklist_templates(name, scheduled_time),
            items:checklist_run_items(
-             id, done, done_by, done_at, observacao, review_status,
+             id, done, done_by, done_at, observacao, justificativa, review_status,
              template_item:checklist_template_items(title, orientacao, evidence_required, position),
              evidence:checklist_run_item_evidence(id, evidence_path, evidence_type, created_by, created_at)
            )`,
@@ -154,6 +155,18 @@ function RunPage() {
       if (error) throw error;
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar observação."),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
+  });
+
+  const saveJustificativa = useMutation({
+    mutationFn: async ({ itemId, value }: { itemId: string; value: string }) => {
+      const { error } = await supabase
+        .from("checklist_run_items")
+        .update({ justificativa: value || null })
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar justificativa."),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
   });
 
@@ -259,9 +272,14 @@ function RunPage() {
   if (runQuery.isError) return <div className="p-6 text-sm text-destructive">Erro: {(runQuery.error as Error).message}</div>;
   if (!run || !item) return <div className="p-6">Checklist vazio.</div>;
 
-  const missingDone = items.filter((i) => !i.done).length;
-  const missingEvidence = items.filter((i) => i.template_item?.evidence_required && (i.evidence?.length ?? 0) === 0).length;
-  const canSubmit = missingDone === 0 && missingEvidence === 0;
+  const isItemResolved = (i: RunItem) => {
+    if (i.done) {
+      return !i.template_item?.evidence_required || (i.evidence?.length ?? 0) > 0;
+    }
+    return !!(i.justificativa && i.justificativa.trim().length > 0);
+  };
+  const pendingItems = items.filter((i) => !isItemResolved(i));
+  const canSubmit = pendingItems.length === 0;
   const canFinishReview = items.every((i) => i.review_status !== "pendente");
 
   return (
@@ -380,6 +398,31 @@ function RunPage() {
                 />
               </div>
 
+              {!item.done && item.done_at && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">
+                    Por que não foi possível fazer este item?
+                  </label>
+                  <Textarea
+                    key={`just-${item.id}`}
+                    defaultValue={item.justificativa ?? ""}
+                    rows={2}
+                    placeholder="Descreva o motivo…"
+                    onBlur={(e) => {
+                      const value = e.target.value;
+                      if (value !== (item.justificativa ?? "")) {
+                        saveJustificativa.mutate({ itemId: item.id, value });
+                      }
+                    }}
+                  />
+                  {!(item.justificativa && item.justificativa.trim()) && (
+                    <p className="text-xs text-amber-600">
+                      Preencha o motivo para poder enviar este item.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="text-sm font-medium">Observação</label>
                 <Textarea
@@ -399,6 +442,14 @@ function RunPage() {
 
           {mode === "aprovacao" && (
             <>
+              {item.justificativa && (
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Justificativa do colaborador (item não feito)
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{item.justificativa}</p>
+                </div>
+              )}
               {item.observacao && (
                 <div>
                   <div className="text-xs font-medium text-muted-foreground">Observação do colaborador</div>
@@ -507,37 +558,50 @@ function RunPage() {
             </Button>
           )}
           {isLast && mode === "execucao" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  className="flex-1"
-                  disabled={!canSubmit || submitForApproval.isPending}
-                  title={
-                    canSubmit
-                      ? undefined
-                      : missingDone > 0
-                        ? `${missingDone} itens sem marcação`
-                        : `${missingEvidence} itens obrigatórios sem evidência`
-                  }
-                >
-                  Enviar para aprovação
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Enviar checklist para aprovação?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Depois de enviar você não poderá mais alterar as respostas.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => submitForApproval.mutate()}>
-                    Enviar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <div className="flex-1 flex flex-col gap-1">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className={
+                      canSubmit
+                        ? "w-full"
+                        : "w-full bg-muted text-muted-foreground opacity-60 hover:bg-muted"
+                    }
+                    disabled={!canSubmit || submitForApproval.isPending}
+                  >
+                    Enviar para aprovação
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Enviar checklist para aprovação?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Depois de enviar você não poderá mais alterar as respostas.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => submitForApproval.mutate()}>
+                      Enviar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {!canSubmit && (
+                <p className="text-[11px] leading-tight text-amber-600">
+                  {pendingItems.length === 1 ? "Falta 1 item" : `Faltam ${pendingItems.length} itens`}
+                  : preencha evidência ou justificativa para continuar.
+                  {" "}
+                  <span className="text-muted-foreground">
+                    ({pendingItems
+                      .slice(0, 3)
+                      .map((i) => i.template_item?.title ?? "sem título")
+                      .join(", ")}
+                    {pendingItems.length > 3 ? "…" : ""})
+                  </span>
+                </p>
+              )}
+            </div>
           )}
           {isLast && mode === "aprovacao" && (
             <AlertDialog>

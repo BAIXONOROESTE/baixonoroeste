@@ -146,6 +146,7 @@ export type Database = {
           done_at: string | null
           done_by: string | null
           id: string
+          justificativa: string | null
           observacao: string | null
           review_status: string
           run_id: string
@@ -158,6 +159,7 @@ export type Database = {
           done_at?: string | null
           done_by?: string | null
           id?: string
+          justificativa?: string | null
           observacao?: string | null
           review_status?: string
           run_id: string
@@ -170,6 +172,7 @@ export type Database = {
           done_at?: string | null
           done_by?: string | null
           id?: string
+          justificativa?: string | null
           observacao?: string | null
           review_status?: string
           run_id?: string
