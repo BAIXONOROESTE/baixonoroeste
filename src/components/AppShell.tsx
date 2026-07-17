@@ -60,9 +60,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface/90 px-4 backdrop-blur">
-        <button onClick={() => setOpen(true)} className="rounded-md p-2 hover:bg-muted" aria-label="Menu">
-          <Menu className="h-5 w-5" />
-        </button>
+        {isMainTab ? (
+          <button onClick={() => setOpen(true)} className="rounded-md p-2 hover:bg-muted" aria-label="Menu">
+            <Menu className="h-5 w-5" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-1">
+            <button onClick={handleBack} className="rounded-md p-2 hover:bg-muted" aria-label="Voltar">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button onClick={() => setOpen(true)} className="rounded-md p-2 hover:bg-muted" aria-label="Menu">
+              <Menu className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <span className="text-lg font-display font-semibold text-primary">📦 Baixo Noroeste</span>
           <span className="hidden sm:inline text-sm font-display text-muted-foreground">Inventário</span>
