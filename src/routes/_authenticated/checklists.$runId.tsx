@@ -158,6 +158,18 @@ function RunPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
   });
 
+  const saveJustificativa = useMutation({
+    mutationFn: async ({ itemId, value }: { itemId: string; value: string }) => {
+      const { error } = await supabase
+        .from("checklist_run_items")
+        .update({ justificativa: value || null })
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar justificativa."),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
+  });
+
   const uploadEvidence = useMutation({
     mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
       if (!uid) throw new Error("Sem usuário autenticado.");
