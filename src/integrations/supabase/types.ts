@@ -59,6 +59,217 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_run_item_reviews: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          reason: string | null
+          reviewer_id: string
+          run_id: string
+          run_item_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reviewer_id: string
+          run_id: string
+          run_item_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          reviewer_id?: string
+          run_id?: string
+          run_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_run_item_reviews_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_run_item_reviews_run_item_id_fkey"
+            columns: ["run_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_run_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_run_items: {
+        Row: {
+          created_at: string
+          done: boolean
+          done_at: string | null
+          done_by: string | null
+          evidence_path: string | null
+          evidence_type: string | null
+          id: string
+          observacao: string | null
+          review_status: string
+          run_id: string
+          template_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          evidence_path?: string | null
+          evidence_type?: string | null
+          id?: string
+          observacao?: string | null
+          review_status?: string
+          run_id: string
+          template_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
+          evidence_path?: string | null
+          evidence_type?: string | null
+          id?: string
+          observacao?: string | null
+          review_status?: string
+          run_id?: string
+          template_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_run_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_run_items_template_item_id_fkey"
+            columns: ["template_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_runs: {
+        Row: {
+          created_at: string
+          id: string
+          run_date: string
+          started_by: string
+          status: string
+          submitted_at: string | null
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          run_date?: string
+          started_by: string
+          status?: string
+          submitted_at?: string | null
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          run_date?: string
+          started_by?: string
+          status?: string
+          submitted_at?: string | null
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_runs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_template_items: {
+        Row: {
+          created_at: string
+          evidence_required: boolean
+          id: string
+          orientacao: string | null
+          position: number
+          template_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          evidence_required?: boolean
+          id?: string
+          orientacao?: string | null
+          position: number
+          template_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          evidence_required?: boolean
+          id?: string
+          orientacao?: string | null
+          position?: number
+          template_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       close_requests: {
         Row: {
           approval_token: string
