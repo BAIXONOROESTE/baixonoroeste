@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock, ArrowRight } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
+import { DeleteInventoryButton } from "@/components/DeleteInventoryButton";
 
 export const Route = createFileRoute("/_authenticated/inventarios/")({ component: InventoriesList });
 
