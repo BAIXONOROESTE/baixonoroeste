@@ -272,9 +272,14 @@ function RunPage() {
   if (runQuery.isError) return <div className="p-6 text-sm text-destructive">Erro: {(runQuery.error as Error).message}</div>;
   if (!run || !item) return <div className="p-6">Checklist vazio.</div>;
 
-  const missingDone = items.filter((i) => !i.done).length;
-  const missingEvidence = items.filter((i) => i.template_item?.evidence_required && (i.evidence?.length ?? 0) === 0).length;
-  const canSubmit = missingDone === 0 && missingEvidence === 0;
+  const isItemResolved = (i: RunItem) => {
+    if (i.done) {
+      return !i.template_item?.evidence_required || (i.evidence?.length ?? 0) > 0;
+    }
+    return !!(i.justificativa && i.justificativa.trim().length > 0);
+  };
+  const pendingItems = items.filter((i) => !isItemResolved(i));
+  const canSubmit = pendingItems.length === 0;
   const canFinishReview = items.every((i) => i.review_status !== "pendente");
 
   return (
