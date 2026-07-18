@@ -393,7 +393,7 @@ function RunPage() {
                   evidence={item.evidence}
                   canDelete={(ev) => ev.created_by === uid || canReview}
                   onDelete={(ev) => deleteEvidence.mutate(ev)}
-                  renderMedia={false}
+                  renderMedia={true}
                 />
               </div>
 
