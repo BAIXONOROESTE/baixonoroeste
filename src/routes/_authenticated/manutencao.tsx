@@ -11,8 +11,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Wrench, Plus } from "lucide-react";
 import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
-import { useProfile as _keepProfileImport } from "@/hooks/useProfile";
-void _keepProfileImport;
 
 type Status = "aberto" | "em_andamento" | "resolvido";
 type EvidenceRow = { id: string; evidence_path: string; evidence_type: "foto" | "video" };
