@@ -22,6 +22,8 @@ const drawerLinks = [
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] },
   { to: "/perdas", label: "Perdas & Quebras", icon: AlertTriangle, roles: ["admin","supervisor","contador"] },
+  { to: "/manutencao", label: "Manutenção", icon: Wrench, roles: ["admin","supervisor"] },
+
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin","supervisor"] },
   { to: "/logs", label: "Logs", icon: ScrollText, roles: ["admin","supervisor"] },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["admin"] },
