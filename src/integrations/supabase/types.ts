@@ -1033,6 +1033,94 @@ export type Database = {
           },
         ]
       }
+      maintenance_ticket_evidence: {
+        Row: {
+          created_at: string
+          created_by: string
+          evidence_path: string
+          evidence_type: string
+          id: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          evidence_path: string
+          evidence_type: string
+          id?: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          evidence_path?: string
+          evidence_type?: string
+          id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_ticket_evidence_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_tickets: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          id: string
+          related_run_item_id: string | null
+          reported_by: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          related_run_item_id?: string | null
+          reported_by: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          related_run_item_id?: string | null
+          reported_by?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_tickets_related_run_item_id_fkey"
+            columns: ["related_run_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_run_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_outbox: {
         Row: {
           attempts: number
