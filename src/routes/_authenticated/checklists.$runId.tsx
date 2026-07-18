@@ -22,8 +22,7 @@ import {
 import { Image as ImageIcon, Video as VideoIcon, Camera, X, ChevronDown, ChevronUp, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
 
 
 export const Route = createFileRoute("/_authenticated/checklists/$runId")({
@@ -91,12 +90,6 @@ function RunPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
-  const [ticketTitle, setTicketTitle] = useState("");
-  const [ticketDesc, setTicketDesc] = useState("");
-  const [ticketEvidence, setTicketEvidence] = useState<
-    { blob: Blob; ext: "jpg" | "webm" | "mp4"; type: "foto" | "video" } | null
-  >(null);
-  const [ticketCameraOpen, setTicketCameraOpen] = useState(false);
 
 
 
@@ -218,52 +211,8 @@ function RunPage() {
     onError: (e: any) => toast.error(e?.message ?? "Erro ao anexar evidência."),
   });
 
-  const createTicket = useMutation({
-    mutationFn: async () => {
-      if (!uid) throw new Error("Sem usuário autenticado.");
-      if (!ticketTitle.trim()) throw new Error("Informe um título.");
-      const { data: t, error } = await supabase
-        .from("maintenance_tickets")
-        .insert({
-          title: ticketTitle.trim(),
-          description: ticketDesc.trim() || null,
-          reported_by: uid,
-          related_run_item_id: item?.id ?? null,
-          status: "aberto",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      if (ticketEvidence) {
-        const contentType =
-          ticketEvidence.type === "video"
-            ? ticketEvidence.ext === "mp4"
-              ? "video/mp4"
-              : "video/webm"
-            : "image/jpeg";
-        const path = `${uid}/${t.id}/${Date.now()}.${ticketEvidence.ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("maintenance-evidence")
-          .upload(path, ticketEvidence.blob, { contentType });
-        if (upErr) throw upErr;
-        const { error: insErr } = await supabase.from("maintenance_ticket_evidence").insert({
-          ticket_id: t.id,
-          evidence_path: path,
-          evidence_type: ticketEvidence.type,
-          created_by: uid,
-        });
-        if (insErr) throw insErr;
-      }
-    },
-    onSuccess: () => {
-      toast.success("Problema reportado! O time de manutenção foi avisado.");
-      setTicketOpen(false);
-      setTicketTitle("");
-      setTicketDesc("");
-      setTicketEvidence(null);
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Erro ao reportar problema."),
-  });
+  // Ticket creation is handled by <MaintenanceTicketDialog />.
+
 
   const deleteEvidence = useMutation({
     mutationFn: async (ev: Evidence) => {
@@ -413,12 +362,7 @@ function RunPage() {
               variant="ghost"
               size="sm"
               className="text-muted-foreground hover:text-foreground -ml-2"
-              onClick={() => {
-                setTicketTitle(item.template_item?.title ?? "");
-                setTicketDesc("");
-                setTicketEvidence(null);
-                setTicketOpen(true);
-              }}
+              onClick={() => setTicketOpen(true)}
             >
               <Wrench className="h-4 w-4 mr-1.5" /> Reportar problema de manutenção
             </Button>
@@ -721,83 +665,16 @@ function RunPage() {
         }}
       />
 
-      <Dialog open={ticketOpen} onOpenChange={(v) => !v && setTicketOpen(false)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wrench className="h-4 w-4" /> Reportar problema de manutenção
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Título</label>
-              <Input
-                value={ticketTitle}
-                onChange={(e) => setTicketTitle(e.target.value)}
-                placeholder="Ex: Freezer com barulho estranho"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                rows={3}
-                value={ticketDesc}
-                onChange={(e) => setTicketDesc(e.target.value)}
-                placeholder="Descreva o problema…"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Evidência (opcional)</label>
-              {ticketEvidence ? (
-                <div className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
-                  <span className="truncate">
-                    {ticketEvidence.type === "foto" ? "📷 Foto" : "🎥 Vídeo"} anexada
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setTicketEvidence(null)}
-                  >
-                    Remover
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTicketCameraOpen(true)}
-                >
-                  <Camera className="h-4 w-4 mr-1.5" /> Adicionar foto/vídeo
-                </Button>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTicketOpen(false)} disabled={createTicket.isPending}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => createTicket.mutate()}
-              disabled={!ticketTitle.trim() || createTicket.isPending}
-            >
-              {createTicket.isPending ? "Enviando…" : "Reportar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <CameraCaptureModal
-        open={ticketCameraOpen}
-        onClose={() => setTicketCameraOpen(false)}
-        onCapture={(blob, ext, type) => {
-          setTicketEvidence({ blob, ext, type });
-        }}
+      <MaintenanceTicketDialog
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+        relatedRunItemId={item?.id ?? null}
       />
     </div>
 
   );
 }
+
 
 function EvidenceList({
   evidence,

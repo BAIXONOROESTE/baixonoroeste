@@ -503,10 +503,16 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
         return;
       }
       if (r.ok) {
-        const { data: ci } = await supabase.from("count_items").select("id").eq("inventory_id", inventoryId).eq("product_id", product.id).maybeSingle();
+        const { data: ci, error: ciErr } = await supabase.from("count_items").select("id").eq("inventory_id", inventoryId).eq("product_id", product.id).maybeSingle();
         if (ci?.id) {
           realId = ci.id;
           await supabase.from("logs").insert({ user_id: u.user!.id, action: "contagem_salva", entity: "count_item", details: { id: ci.id, produto: product.name, qtd: q, status } });
+        } else {
+          console.error("[inventarios.save] count_item não encontrado após flush", {
+            inventoryId,
+            productId: product.id,
+            error: ciErr,
+          });
         }
       }
     }

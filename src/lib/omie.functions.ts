@@ -149,12 +149,25 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
 
-    const { data: item, error } = await supabase
-      .from("count_items")
-      .select("*, product:products(omie_id, name, code, unit), inventory:inventories(status, name), counter:profiles!count_items_counted_by_fkey(full_name)")
-      .eq("id", data.count_item_id)
-      .single();
-    if (error || !item) throw new Error("Contagem não encontrada.");
+    async function fetchItemWithRetry() {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const { data: item, error } = await supabase
+          .from("count_items")
+          .select("*, product:products(omie_id, name, code, unit), inventory:inventories(status, name), counter:profiles!count_items_counted_by_fkey(full_name)")
+          .eq("id", data.count_item_id)
+          .single();
+        if (item) return item;
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 500));
+        } else {
+          throw new Error(
+            `Contagem não encontrada. Detalhes: count_item_id=${data.count_item_id}, erro=${error?.message ?? "sem erro, item nulo"}, code=${(error as { code?: string } | null)?.code ?? "N/A"}`,
+          );
+        }
+      }
+      throw new Error(`Contagem não encontrada. Detalhes: count_item_id=${data.count_item_id}`);
+    }
+    const item = await fetchItemWithRetry();
 
     // Autorização: o próprio autor da contagem pode empurrar seu item enquanto
     // o inventário está aberto. Supervisor/admin podem empurrar qualquer item.
