@@ -149,14 +149,27 @@ function MaintenancePage() {
 
   return (
     <div className="max-w-2xl w-full mx-auto p-4 space-y-4">
-      <div>
-        <h1 className="text-lg font-semibold flex items-center gap-2">
-          <Wrench className="h-5 w-5" /> Manutenção
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Chamados reportados pelos colaboradores.
-        </p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-lg font-semibold flex items-center gap-2">
+            <Wrench className="h-5 w-5" /> Manutenção
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Chamados reportados pelos colaboradores.
+          </p>
+        </div>
+        {canCreate && (
+          <Button size="sm" onClick={() => setNewTicketOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" /> Novo chamado
+          </Button>
+        )}
       </div>
+
+      <MaintenanceTicketDialog
+        open={newTicketOpen}
+        onOpenChange={setNewTicketOpen}
+        relatedRunItemId={null}
+      />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Status)}>
         <TabsList className="grid grid-cols-3 w-full">
