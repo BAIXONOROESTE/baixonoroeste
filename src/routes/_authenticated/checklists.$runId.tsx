@@ -22,8 +22,7 @@ import {
 import { Image as ImageIcon, Video as VideoIcon, Camera, X, ChevronDown, ChevronUp, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
 
 
 export const Route = createFileRoute("/_authenticated/checklists/$runId")({
