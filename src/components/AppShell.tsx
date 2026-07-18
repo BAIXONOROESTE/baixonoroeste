@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
-import { Home, ClipboardList, BarChart3, Menu, LogOut, X, Package, Trophy, FileText, ScrollText, Users, Settings, AlertTriangle, ChevronLeft, CheckSquare } from "lucide-react";
+import { Home, ClipboardList, BarChart3, Menu, LogOut, X, Package, Trophy, FileText, ScrollText, Users, Settings, AlertTriangle, ChevronLeft, CheckSquare, Wrench } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
