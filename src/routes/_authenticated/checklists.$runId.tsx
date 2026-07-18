@@ -265,8 +265,9 @@ function RunPage() {
     onError: (e: any) => toast.error(e?.message ?? "Erro ao reportar problema."),
   });
 
-
+  const deleteEvidence = useMutation({
     mutationFn: async (ev: Evidence) => {
+
       const { error: dbErr } = await supabase.from("checklist_run_item_evidence").delete().eq("id", ev.id);
       if (dbErr) throw dbErr;
       await supabase.storage.from("checklist-evidence").remove([ev.evidence_path]);
