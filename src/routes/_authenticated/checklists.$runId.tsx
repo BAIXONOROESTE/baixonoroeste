@@ -380,25 +380,13 @@ function RunPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Evidências</span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,video/*"
-                    capture="environment"
-                    hidden
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadEvidence.mutate({ itemId: item.id, file });
-                      e.target.value = "";
-                    }}
-                  />
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => setCameraOpen(true)}
                     disabled={uploadEvidence.isPending}
                   >
-                    <Plus className="h-4 w-4 mr-1" /> Adicionar
+                    <Camera className="h-4 w-4 mr-1" /> Adicionar
                   </Button>
                 </div>
                 <EvidenceList
