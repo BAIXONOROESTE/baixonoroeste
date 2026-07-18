@@ -44,7 +44,7 @@ export function useOfflineCountQueue(inventoryId?: string) {
   const [pending, setPending] = useState<QueuedCount[]>([]);
   const [flushing, setFlushing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
-  const flushingRef = useRef(false);
+  const inflightRef = useRef<Promise<{ ok: boolean; synced: number; reason?: string }> | null>(null);
 
   const refresh = useCallback(async () => {
     const all = await readAll();
@@ -56,68 +56,80 @@ export function useOfflineCountQueue(inventoryId?: string) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const flush = useCallback(async () => {
-    if (flushingRef.current) return { ok: true, synced: 0 };
+  const flush = useCallback(async (): Promise<{ ok: boolean; synced: number; reason?: string }> => {
+    // Single-flight: if a sync is already running, wait for it instead of
+    // returning a fake success. Concurrent callers await the same promise.
+    if (inflightRef.current) return inflightRef.current;
     if (!navigator.onLine) return { ok: false, synced: 0, reason: "offline" };
-    const all = await readAll();
-    const todo = all.filter((q) => !q.synced_at);
-    if (!todo.length) return { ok: true, synced: 0 };
 
-    flushingRef.current = true;
-    setFlushing(true);
-    let synced = 0;
-    try {
-      // Upsert in batches; unique index on client_mutation_id dedupes retries.
-      for (let i = 0; i < todo.length; i += 25) {
-        const batch = todo.slice(i, i + 25);
-        const rows = batch.map((q) => ({
-          client_mutation_id: q.client_mutation_id,
-          inventory_id: q.inventory_id,
-          product_id: q.product_id,
-          counted_by: q.counted_by,
-          quantity_before: q.quantity_before,
-          quantity_counted: q.quantity_counted,
-          unit_cost: q.unit_cost,
-          status: q.status,
-        }));
-        const { error } = await supabase
-          .from("count_items")
-          .upsert(rows, { onConflict: "inventory_id,product_id" });
-        if (error) {
-          // mark failure locally, keep in queue
-          for (const q of batch) {
-            await set(makeKey(q.client_mutation_id), { ...q, error: error.message });
+    const run = async (): Promise<{ ok: boolean; synced: number; reason?: string }> => {
+      const all = await readAll();
+      const todo = all.filter((q) => !q.synced_at);
+      if (!todo.length) return { ok: true, synced: 0 };
+
+      setFlushing(true);
+      let synced = 0;
+      try {
+        // Upsert in batches; unique index on client_mutation_id dedupes retries.
+        for (let i = 0; i < todo.length; i += 25) {
+          const batch = todo.slice(i, i + 25);
+          const rows = batch.map((q) => ({
+            client_mutation_id: q.client_mutation_id,
+            inventory_id: q.inventory_id,
+            product_id: q.product_id,
+            counted_by: q.counted_by,
+            quantity_before: q.quantity_before,
+            quantity_counted: q.quantity_counted,
+            unit_cost: q.unit_cost,
+            status: q.status,
+          }));
+          const { error } = await supabase
+            .from("count_items")
+            .upsert(rows, { onConflict: "inventory_id,product_id" });
+          if (error) {
+            // mark failure locally, keep in queue
+            for (const q of batch) {
+              await set(makeKey(q.client_mutation_id), { ...q, error: error.message });
+            }
+            throw error;
           }
-          throw error;
+          for (const q of batch) {
+            await set(makeKey(q.client_mutation_id), { ...q, synced_at: new Date().toISOString(), error: undefined });
+            synced++;
+          }
         }
-        for (const q of batch) {
-          await set(makeKey(q.client_mutation_id), { ...q, synced_at: new Date().toISOString(), error: undefined });
-          synced++;
-        }
-      }
-      const now = new Date().toISOString();
-      await set(LAST_SYNC_KEY, now);
-      setLastSync(now);
+        const now = new Date().toISOString();
+        await set(LAST_SYNC_KEY, now);
+        setLastSync(now);
 
-      // Cleanup synced entries older than 60s
-      const remaining = await readAll();
-      const cutoff = Date.now() - 60_000;
-      for (const q of remaining) {
-        if (q.synced_at && new Date(q.synced_at).getTime() < cutoff) {
-          await del(makeKey(q.client_mutation_id));
+        // Cleanup synced entries older than 60s
+        const remaining = await readAll();
+        const cutoff = Date.now() - 60_000;
+        for (const q of remaining) {
+          if (q.synced_at && new Date(q.synced_at).getTime() < cutoff) {
+            await del(makeKey(q.client_mutation_id));
+          }
         }
+        await refresh();
+        qc.invalidateQueries({ queryKey: ["count-items"] });
+        return { ok: true, synced };
+      } catch (e) {
+        await refresh();
+        return { ok: false, synced, reason: e instanceof Error ? e.message : String(e) };
+      } finally {
+        setFlushing(false);
       }
-      await refresh();
-      qc.invalidateQueries({ queryKey: ["count-items"] });
-      return { ok: true, synced };
-    } catch (e) {
-      await refresh();
-      return { ok: false, synced, reason: e instanceof Error ? e.message : String(e) };
+    };
+
+    const p = run();
+    inflightRef.current = p;
+    try {
+      return await p;
     } finally {
-      flushingRef.current = false;
-      setFlushing(false);
+      inflightRef.current = null;
     }
   }, [qc, refresh]);
+
 
   // Auto-flush when we come online, and periodically while online with pending items.
   useEffect(() => {
