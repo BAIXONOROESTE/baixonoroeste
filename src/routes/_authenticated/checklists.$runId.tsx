@@ -90,12 +90,6 @@ function RunPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
-  const [ticketTitle, setTicketTitle] = useState("");
-  const [ticketDesc, setTicketDesc] = useState("");
-  const [ticketEvidence, setTicketEvidence] = useState<
-    { blob: Blob; ext: "jpg" | "webm" | "mp4"; type: "foto" | "video" } | null
-  >(null);
-  const [ticketCameraOpen, setTicketCameraOpen] = useState(false);
 
 
 
