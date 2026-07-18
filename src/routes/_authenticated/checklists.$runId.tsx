@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Image as ImageIcon, Video as VideoIcon, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Image as ImageIcon, Video as VideoIcon, Camera, X, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 
 export const Route = createFileRoute("/_authenticated/checklists/$runId")({
   head: () => ({ meta: [{ title: "Checklist · Baixo Noroeste" }] }),
