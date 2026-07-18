@@ -634,6 +634,14 @@ function RunPage() {
           )}
         </div>
       </div>
+
+      <CameraCaptureModal
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={async (blob, ext, type) => {
+          await uploadEvidence.mutateAsync({ itemId: item.id, blob, ext, type });
+        }}
+      />
     </div>
   );
 }
