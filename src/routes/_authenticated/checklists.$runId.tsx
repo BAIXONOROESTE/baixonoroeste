@@ -86,7 +86,7 @@ function RunPage() {
   const [expanded, setExpanded] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const runQuery = useQuery({
     queryKey: ["checklists", "run", runId],
