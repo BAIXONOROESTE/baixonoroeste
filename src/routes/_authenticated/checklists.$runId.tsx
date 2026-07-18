@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Image as ImageIcon, Video as VideoIcon, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Image as ImageIcon, Video as VideoIcon, Camera, X, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 
 export const Route = createFileRoute("/_authenticated/checklists/$runId")({
   head: () => ({ meta: [{ title: "Checklist · Baixo Noroeste" }] }),
@@ -85,7 +86,7 @@ function RunPage() {
   const [expanded, setExpanded] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const runQuery = useQuery({
     queryKey: ["checklists", "run", runId],
@@ -171,14 +172,24 @@ function RunPage() {
   });
 
   const uploadEvidence = useMutation({
-    mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
+    mutationFn: async ({
+      itemId,
+      blob,
+      ext,
+      type,
+    }: {
+      itemId: string;
+      blob: Blob;
+      ext: "jpg" | "webm" | "mp4";
+      type: "foto" | "video";
+    }) => {
       if (!uid) throw new Error("Sem usuário autenticado.");
-      const type: "foto" | "video" = file.type.startsWith("video") ? "video" : "foto";
-      const ext = (file.name.split(".").pop() || (type === "video" ? "mp4" : "jpg")).toLowerCase();
+      const contentType =
+        type === "video" ? (ext === "mp4" ? "video/mp4" : "video/webm") : "image/jpeg";
       const path = `${uid}/${itemId}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("checklist-evidence")
-        .upload(path, file, { contentType: file.type });
+        .upload(path, blob, { contentType });
       if (upErr) throw upErr;
       const { error: insErr } = await supabase.from("checklist_run_item_evidence").insert({
         run_item_id: itemId,
@@ -369,25 +380,13 @@ function RunPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Evidências</span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,video/*"
-                    capture="environment"
-                    hidden
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadEvidence.mutate({ itemId: item.id, file });
-                      e.target.value = "";
-                    }}
-                  />
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => setCameraOpen(true)}
                     disabled={uploadEvidence.isPending}
                   >
-                    <Plus className="h-4 w-4 mr-1" /> Adicionar
+                    <Camera className="h-4 w-4 mr-1" /> Adicionar
                   </Button>
                 </div>
                 <EvidenceList
@@ -635,6 +634,14 @@ function RunPage() {
           )}
         </div>
       </div>
+
+      <CameraCaptureModal
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={async (blob, ext, type) => {
+          await uploadEvidence.mutateAsync({ itemId: item.id, blob, ext, type });
+        }}
+      />
     </div>
   );
 }
