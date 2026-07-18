@@ -362,12 +362,7 @@ function RunPage() {
               variant="ghost"
               size="sm"
               className="text-muted-foreground hover:text-foreground -ml-2"
-              onClick={() => {
-                setTicketTitle(item.template_item?.title ?? "");
-                setTicketDesc("");
-                setTicketEvidence(null);
-                setTicketOpen(true);
-              }}
+              onClick={() => setTicketOpen(true)}
             >
               <Wrench className="h-4 w-4 mr-1.5" /> Reportar problema de manutenção
             </Button>
