@@ -172,14 +172,24 @@ function RunPage() {
   });
 
   const uploadEvidence = useMutation({
-    mutationFn: async ({ itemId, file }: { itemId: string; file: File }) => {
+    mutationFn: async ({
+      itemId,
+      blob,
+      ext,
+      type,
+    }: {
+      itemId: string;
+      blob: Blob;
+      ext: "jpg" | "webm" | "mp4";
+      type: "foto" | "video";
+    }) => {
       if (!uid) throw new Error("Sem usuário autenticado.");
-      const type: "foto" | "video" = file.type.startsWith("video") ? "video" : "foto";
-      const ext = (file.name.split(".").pop() || (type === "video" ? "mp4" : "jpg")).toLowerCase();
+      const contentType =
+        type === "video" ? (ext === "mp4" ? "video/mp4" : "video/webm") : "image/jpeg";
       const path = `${uid}/${itemId}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("checklist-evidence")
-        .upload(path, file, { contentType: file.type });
+        .upload(path, blob, { contentType });
       if (upErr) throw upErr;
       const { error: insErr } = await supabase.from("checklist_run_item_evidence").insert({
         run_item_id: itemId,
