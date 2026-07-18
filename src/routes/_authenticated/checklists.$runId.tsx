@@ -665,83 +665,16 @@ function RunPage() {
         }}
       />
 
-      <Dialog open={ticketOpen} onOpenChange={(v) => !v && setTicketOpen(false)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wrench className="h-4 w-4" /> Reportar problema de manutenção
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Título</label>
-              <Input
-                value={ticketTitle}
-                onChange={(e) => setTicketTitle(e.target.value)}
-                placeholder="Ex: Freezer com barulho estranho"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                rows={3}
-                value={ticketDesc}
-                onChange={(e) => setTicketDesc(e.target.value)}
-                placeholder="Descreva o problema…"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Evidência (opcional)</label>
-              {ticketEvidence ? (
-                <div className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
-                  <span className="truncate">
-                    {ticketEvidence.type === "foto" ? "📷 Foto" : "🎥 Vídeo"} anexada
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setTicketEvidence(null)}
-                  >
-                    Remover
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTicketCameraOpen(true)}
-                >
-                  <Camera className="h-4 w-4 mr-1.5" /> Adicionar foto/vídeo
-                </Button>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTicketOpen(false)} disabled={createTicket.isPending}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => createTicket.mutate()}
-              disabled={!ticketTitle.trim() || createTicket.isPending}
-            >
-              {createTicket.isPending ? "Enviando…" : "Reportar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <CameraCaptureModal
-        open={ticketCameraOpen}
-        onClose={() => setTicketCameraOpen(false)}
-        onCapture={(blob, ext, type) => {
-          setTicketEvidence({ blob, ext, type });
-        }}
+      <MaintenanceTicketDialog
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+        relatedRunItemId={item?.id ?? null}
       />
     </div>
 
   );
 }
+
 
 function EvidenceList({
   evidence,
