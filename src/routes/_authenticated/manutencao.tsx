@@ -55,6 +55,8 @@ function MaintenancePage() {
   const { data: profile } = useProfile();
   const uid = profile?.id ?? null;
   const [tab, setTab] = useState<Status>("aberto");
+  const [newTicketOpen, setNewTicketOpen] = useState(false);
+  const canCreate = profile?.role === "admin" || profile?.role === "supervisor";
 
   const ticketsQuery = useQuery({
     queryKey: ["maintenance-tickets"],
