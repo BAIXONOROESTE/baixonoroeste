@@ -218,7 +218,54 @@ function RunPage() {
     onError: (e: any) => toast.error(e?.message ?? "Erro ao anexar evidência."),
   });
 
-  const deleteEvidence = useMutation({
+  const createTicket = useMutation({
+    mutationFn: async () => {
+      if (!uid) throw new Error("Sem usuário autenticado.");
+      if (!ticketTitle.trim()) throw new Error("Informe um título.");
+      const { data: t, error } = await supabase
+        .from("maintenance_tickets")
+        .insert({
+          title: ticketTitle.trim(),
+          description: ticketDesc.trim() || null,
+          reported_by: uid,
+          related_run_item_id: item?.id ?? null,
+          status: "aberto",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      if (ticketEvidence) {
+        const contentType =
+          ticketEvidence.type === "video"
+            ? ticketEvidence.ext === "mp4"
+              ? "video/mp4"
+              : "video/webm"
+            : "image/jpeg";
+        const path = `${uid}/${t.id}/${Date.now()}.${ticketEvidence.ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("maintenance-evidence")
+          .upload(path, ticketEvidence.blob, { contentType });
+        if (upErr) throw upErr;
+        const { error: insErr } = await supabase.from("maintenance_ticket_evidence").insert({
+          ticket_id: t.id,
+          evidence_path: path,
+          evidence_type: ticketEvidence.type,
+          created_by: uid,
+        });
+        if (insErr) throw insErr;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Problema reportado! O time de manutenção foi avisado.");
+      setTicketOpen(false);
+      setTicketTitle("");
+      setTicketDesc("");
+      setTicketEvidence(null);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao reportar problema."),
+  });
+
+
     mutationFn: async (ev: Evidence) => {
       const { error: dbErr } = await supabase.from("checklist_run_item_evidence").delete().eq("id", ev.id);
       if (dbErr) throw dbErr;
