@@ -216,20 +216,16 @@ function ProfileRowItem({
     }
   }
 
-  async function changeTeam(next: string) {
+  async function toggleTeam(teamId: string, checked: boolean) {
     setSavingTeam(true);
     try {
-      if (!next) {
-        const { error } = await supabase.from("team_members").delete().eq("user_id", profile.id);
-        if (error) throw error;
-      } else if (!profile.team_id) {
-        const { error } = await supabase.from("team_members").insert({ user_id: profile.id, team_id: next });
+      if (checked) {
+        const { error } = await supabase.from("team_members").insert({ user_id: profile.id, team_id: teamId });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("team_members").update({ team_id: next }).eq("user_id", profile.id);
+        const { error } = await supabase.from("team_members").delete().eq("user_id", profile.id).eq("team_id", teamId);
         if (error) throw error;
       }
-      toast.success("Equipe atualizada.");
       onChanged();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao atualizar equipe.");
@@ -262,19 +258,29 @@ function ProfileRowItem({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground shrink-0">Equipe:</span>
-        <select
-          className="flex-1 h-9 rounded-md bg-input border border-border px-2 text-sm disabled:opacity-60"
-          value={profile.team_id ?? ""}
-          disabled={savingTeam}
-          onChange={(e) => changeTeam(e.target.value)}
-        >
-          <option value="">— Sem equipe —</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
+      <div className="space-y-1">
+        <div className="text-xs text-muted-foreground">Equipes:</div>
+        {teams.length === 0 ? (
+          <div className="text-xs text-muted-foreground">Nenhuma equipe cadastrada.</div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {teams.map((t) => {
+              const checked = profile.team_ids.includes(t.id);
+              return (
+                <label key={t.id} className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs cursor-pointer select-none ${checked ? "bg-primary/10 border-primary/40" : "bg-background/50 border-border"} ${savingTeam ? "opacity-60 pointer-events-none" : ""}`}>
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5"
+                    checked={checked}
+                    disabled={savingTeam}
+                    onChange={(e) => toggleTeam(t.id, e.target.checked)}
+                  />
+                  {t.name}
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {editing && isAdmin && (
