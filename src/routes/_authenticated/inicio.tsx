@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell } from "lucide-react";
+import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -89,6 +89,39 @@ function HomePage() {
       const byId = new Map((profs ?? []).filter((p) => ids.includes(p.id)).map((p) => [p.id, p.full_name] as const));
 
       return rows.map((r) => ({ ...r, requester_name: byId.get(r.requested_by) ?? "—" }));
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: pendingMaintenanceTickets } = useQuery({
+    queryKey: ["pending-maintenance-tickets"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("maintenance_tickets")
+        .select("id, title, status, assigned_to, reported_by, created_at")
+        .in("status", ["aberto", "em_andamento"])
+        .order("created_at", { ascending: false });
+      const rows = data ?? [];
+      const ids = Array.from(
+        new Set(
+          rows.flatMap((r) => [r.assigned_to, r.reported_by]).filter(Boolean) as string[],
+        ),
+      );
+      const names: Record<string, string> = {};
+      if (ids.length) {
+        const profs = await listLoginProfiles();
+        (profs ?? [])
+          .filter((p) => ids.includes(p.id))
+          .forEach((p) => {
+            names[p.id] = p.full_name;
+          });
+      }
+      return rows.map((r) => ({
+        ...r,
+        assigned_name: r.assigned_to ? names[r.assigned_to] ?? null : null,
+        reporter_name: names[r.reported_by] ?? null,
+      }));
     },
     refetchOnWindowFocus: true,
   });
@@ -223,6 +256,56 @@ function HomePage() {
           </ul>
         </div>
       )}
+
+      {isSup && pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
+        <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-warning" />
+              <div className="text-sm font-medium">
+                Manutenção pendente ({pendingMaintenanceTickets.length})
+              </div>
+            </div>
+            {pendingMaintenanceTickets.length > 5 && (
+              <Link to="/manutencao" className="text-xs text-primary hover:underline">
+                Ver todos
+              </Link>
+            )}
+          </div>
+          <ul className="space-y-2">
+            {pendingMaintenanceTickets.slice(0, 5).map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm truncate">{t.title}</div>
+                  <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                    <span
+                      className={`text-[10px] uppercase tracking-wide rounded-full px-1.5 py-0.5 font-semibold ${
+                        t.status === "aberto"
+                          ? "bg-amber-500/15 text-amber-600"
+                          : "bg-blue-500/15 text-blue-600"
+                      }`}
+                    >
+                      {t.status === "aberto" ? "Aberto" : "Em andamento"}
+                    </span>
+                    <span className="truncate">
+                      {t.assigned_name ?? "Sem responsável"}
+                    </span>
+                  </div>
+                </div>
+                <Link to="/manutencao">
+                  <Button size="sm" variant="outline">Abrir</Button>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+
+
 
 
       <section className="space-y-2">

@@ -20,6 +20,7 @@ import { Wrench, Plus } from "lucide-react";
 import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
+import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 type Status = "aberto" | "em_andamento" | "resolvido";
 type EvidenceRow = { id: string; evidence_path: string; evidence_type: "foto" | "video" };
@@ -67,18 +68,16 @@ function MaintenancePage() {
   const [newTicketOpen, setNewTicketOpen] = useState(false);
   const canManage = profile?.role === "admin" || profile?.role === "supervisor";
   const notifyAssigned = useServerFn(notifyMaintenanceTicketAssigned);
+  const listLoginProfilesFn = useServerFn(listLoginProfiles);
 
   const assignable = useQuery({
-    queryKey: ["assignable-profiles"],
+    queryKey: ["login-profiles-active"],
     enabled: canManage,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("list_assignable_profiles");
-      if (error) throw error;
-      return (data ?? []).filter(
-        (p: any) =>
-          Array.isArray(p.roles) &&
-          (p.roles.includes("admin") || p.roles.includes("supervisor")),
-      ) as { id: string; full_name: string; roles: string[] }[];
+      const rows = await listLoginProfilesFn();
+      return (rows ?? [])
+        .filter((p) => p.active)
+        .map((p) => ({ id: p.id, full_name: p.full_name, roles: [] as string[] }));
     },
   });
 
