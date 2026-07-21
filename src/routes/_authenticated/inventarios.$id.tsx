@@ -47,10 +47,17 @@ function InventoryDetail() {
   const navigate = useNavigate();
   const closeFn = useServerFn(closeInventory);
   const requestCloseFn = useServerFn(requestCloseInventory);
+  const respondCloseFn = useServerFn(respondCloseRequest);
+  const reopenFn = useServerFn(reopenInventory);
   const pushFn = useServerFn(pushCountToOmie);
   const notifyDivFn = useServerFn(notifyDivergence);
   const syncFn = useServerFn(syncFamiliesAndProducts);
   const { data: profile, isLoading: profileLoading, error: profileError } = useProfile();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [respondBusy, setRespondBusy] = useState(false);
+  const [reopenBusy, setReopenBusy] = useState(false);
+
 
 
   const { data: inv, isLoading: invLoading, error: invError } = useQuery({
