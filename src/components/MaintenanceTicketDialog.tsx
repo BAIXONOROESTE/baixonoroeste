@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,26 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Camera, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
+import { useServerFn } from "@tanstack/react-start";
+import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
 
 type CapturedEvidence = {
   blob: Blob;
   ext: "jpg" | "webm" | "mp4";
   type: "foto" | "video";
 };
+
+const NONE = "__none__";
 
 export function MaintenanceTicketDialog({
   open,
@@ -36,22 +47,43 @@ export function MaintenanceTicketDialog({
   const { data: profile } = useProfile();
   const uid = profile?.id ?? null;
   const qc = useQueryClient();
+  const notifyAssigned = useServerFn(notifyMaintenanceTicketAssigned);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [evidence, setEvidence] = useState<CapturedEvidence | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [assignedTo, setAssignedTo] = useState<string>(NONE);
+
+  // Reaproveita a RPC `list_assignable_profiles` (mesma usada em outras
+  // telas) para listar apenas admin/supervisor — sem depender de SELECT
+  // direto em `profiles`, que é restrito por RLS a self/admin.
+  const { data: assignable } = useQuery({
+    queryKey: ["assignable-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("list_assignable_profiles");
+      if (error) throw error;
+      return (data ?? []).filter(
+        (p: any) =>
+          Array.isArray(p.roles) &&
+          (p.roles.includes("admin") || p.roles.includes("supervisor")),
+      ) as { id: string; full_name: string; roles: string[] }[];
+    },
+    enabled: open,
+  });
 
   const reset = () => {
     setTitle("");
     setDesc("");
     setEvidence(null);
+    setAssignedTo(NONE);
   };
 
   const createTicket = useMutation({
     mutationFn: async () => {
       if (!uid) throw new Error("Sem usuário autenticado.");
       if (!title.trim()) throw new Error("Informe um título.");
+      const assignee = assignedTo !== NONE ? assignedTo : null;
       const { data: t, error } = await supabase
         .from("maintenance_tickets")
         .insert({
@@ -59,7 +91,8 @@ export function MaintenanceTicketDialog({
           description: desc.trim() || null,
           reported_by: uid,
           related_run_item_id: relatedRunItemId,
-          status: "aberto",
+          assigned_to: assignee,
+          status: assignee ? "em_andamento" : "aberto",
         })
         .select("id")
         .single();
@@ -85,6 +118,12 @@ export function MaintenanceTicketDialog({
             created_by: uid,
           });
         if (insErr) throw insErr;
+      }
+      // Envio de e-mail não-bloqueante para o responsável designado.
+      if (assignee) {
+        notifyAssigned({ data: { ticket_id: t.id } }).catch((err) =>
+          console.error("[MaintenanceTicketDialog] notify falhou", err),
+        );
       }
     },
     onSuccess: () => {
@@ -129,6 +168,25 @@ export function MaintenanceTicketDialog({
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Descreva o problema…"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Responsável (opcional)</label>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Sem responsável</SelectItem>
+                  {(assignable ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Se escolher alguém, o chamado já entra em atendimento e um e-mail é enviado.
+              </p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Evidência (opcional)</label>
