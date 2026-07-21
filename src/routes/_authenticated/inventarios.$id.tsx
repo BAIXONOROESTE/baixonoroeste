@@ -108,6 +108,7 @@ function InventoryDetail() {
         query = query.not("family_id", "in", `(${nonCountableFamilyIds!.join(",")})`);
       }
       if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`);
+      query = query.eq("active", true);
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       const { data, error, count } = await query
