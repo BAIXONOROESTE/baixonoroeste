@@ -20,6 +20,7 @@ import { Wrench, Plus } from "lucide-react";
 import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
+import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 type Status = "aberto" | "em_andamento" | "resolvido";
 type EvidenceRow = { id: string; evidence_path: string; evidence_type: "foto" | "video" };
