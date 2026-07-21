@@ -78,17 +78,22 @@ function InventoryDetail() {
   const { data: pendingCloseRequest } = useQuery({
     queryKey: ["close-request-pending", id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: r } = await supabase
         .from("close_requests")
-        .select("id, approval_token, requested_at, requested_by, push_to_omie, requester:profiles!close_requests_requested_by_fkey(full_name)")
+        .select("id, approval_token, requested_at, requested_by, push_to_omie")
         .eq("inventory_id", id)
         .eq("status", "pendente")
         .order("requested_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
-      return data;
+      if (!r) return null;
+      const { data: prof } = await supabase
+        .from("profiles").select("full_name").eq("id", r.requested_by).maybeSingle();
+      return { ...r, requester_name: prof?.full_name ?? "—" };
     },
     enabled: !!profile && isSupOrAdminRole,
   });
+
 
 
   const { data: scope } = useQuery({
