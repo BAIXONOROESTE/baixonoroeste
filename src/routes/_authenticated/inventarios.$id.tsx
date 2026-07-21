@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw, ArrowLeft, Save } from "lucide-react";
+import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, Unlock, RefreshCw, ArrowLeft, Save, Check } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import { closeInventory, pushCountToOmie, syncFamiliesAndProducts } from "@/lib/omie.functions";
-import { requestCloseInventory } from "@/lib/close-requests.functions";
+import { closeInventory, pushCountToOmie, reopenInventory, syncFamiliesAndProducts } from "@/lib/omie.functions";
+import { requestCloseInventory, respondCloseRequest } from "@/lib/close-requests.functions";
 import { notifyDivergence } from "@/lib/notify.functions";
 import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
@@ -20,6 +20,17 @@ import { useOfflineCountQueue } from "@/hooks/useOfflineCountQueue";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { CloudOff, RefreshCw as SyncIcon } from "lucide-react";
 import { DeleteInventoryButton } from "@/components/DeleteInventoryButton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
