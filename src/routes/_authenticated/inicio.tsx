@@ -257,6 +257,56 @@ function HomePage() {
         </div>
       )}
 
+      {isSup && pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
+        <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-warning" />
+              <div className="text-sm font-medium">
+                Manutenção pendente ({pendingMaintenanceTickets.length})
+              </div>
+            </div>
+            {pendingMaintenanceTickets.length > 5 && (
+              <Link to="/manutencao" className="text-xs text-primary hover:underline">
+                Ver todos
+              </Link>
+            )}
+          </div>
+          <ul className="space-y-2">
+            {pendingMaintenanceTickets.slice(0, 5).map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm truncate">{t.title}</div>
+                  <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                    <span
+                      className={`text-[10px] uppercase tracking-wide rounded-full px-1.5 py-0.5 font-semibold ${
+                        t.status === "aberto"
+                          ? "bg-amber-500/15 text-amber-600"
+                          : "bg-blue-500/15 text-blue-600"
+                      }`}
+                    >
+                      {t.status === "aberto" ? "Aberto" : "Em andamento"}
+                    </span>
+                    <span className="truncate">
+                      {t.assigned_name ?? "Sem responsável"}
+                    </span>
+                  </div>
+                </div>
+                <Link to="/manutencao">
+                  <Button size="sm" variant="outline">Abrir</Button>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+
+
+
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Navegação</h2>
