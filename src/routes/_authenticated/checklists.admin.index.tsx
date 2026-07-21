@@ -18,7 +18,7 @@ import {
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/checklists/admin")({
+export const Route = createFileRoute("/_authenticated/checklists/admin/")({
   head: () => ({ meta: [{ title: "Gerenciar checklists · Baixo Noroeste" }] }),
   component: ChecklistAdminPage,
   errorComponent: ({ error, reset }) => (

@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 /**
  * Notifica por e-mail a pessoa designada (assigned_to) de um chamado de manutenção.
  * Não-bloqueante: falhas de envio não devem quebrar a criação do chamado.
+ * Retorna um resultado detalhado para o cliente exibir aviso quando aplicável.
  */
 export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -20,15 +21,51 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
         .eq("id", data.ticket_id)
         .maybeSingle();
 
-      if (!ticket || !ticket.assigned_to) return { ok: true, sent: 0, targets: 0 };
+      if (!ticket || !ticket.assigned_to) {
+        return { ok: true, sent: 0, targets: 0, reason: "no_assignee" as const };
+      }
 
       const [{ data: assignee }, { data: reporter }] = await Promise.all([
         supabaseAdmin.from("profiles").select("email, full_name").eq("id", ticket.assigned_to).maybeSingle(),
         supabaseAdmin.from("profiles").select("full_name").eq("id", ticket.reported_by).maybeSingle(),
       ]);
 
-      const email = (assignee?.email ?? "").trim().toLowerCase();
-      if (!email) return { ok: true, sent: 0, targets: 0 };
+      if (!assignee) {
+        await supabaseAdmin.from("logs").insert({
+          user_id: userId,
+          action: "maintenance_ticket_notify_resultado",
+          entity: "maintenance_ticket",
+          details: { ticket_id: ticket.id, reason: "assignee_profile_not_found" },
+        });
+        return { ok: false, sent: 0, targets: 0, reason: "assignee_profile_not_found" as const };
+      }
+
+      const email = (assignee.email ?? "").trim().toLowerCase();
+      if (!email) {
+        await supabaseAdmin.from("logs").insert({
+          user_id: userId,
+          action: "maintenance_ticket_notify_resultado",
+          entity: "maintenance_ticket",
+          details: { ticket_id: ticket.id, reason: "assignee_without_email" },
+        });
+        return { ok: false, sent: 0, targets: 0, reason: "assignee_without_email" as const };
+      }
+
+      // Verificação explícita de supressão antes de enfileirar.
+      const { data: suppressed } = await supabaseAdmin
+        .from("suppressed_emails")
+        .select("email")
+        .eq("email", email)
+        .maybeSingle();
+      if (suppressed) {
+        await supabaseAdmin.from("logs").insert({
+          user_id: userId,
+          action: "maintenance_ticket_email_suprimido",
+          entity: "maintenance_ticket",
+          details: { ticket_id: ticket.id, email },
+        });
+        return { ok: false, sent: 0, targets: 1, reason: "suppressed" as const, email };
+      }
 
       const origin = process.env.PUBLIC_SITE_URL || "https://baixonoroeste.lovable.app";
       const actionUrl = `${origin.replace(/\/$/, "")}/manutencao`;
@@ -46,7 +83,29 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
         },
       });
 
-      return { ok: true, sent: res.enqueued, targets: 1 };
+      await supabaseAdmin.from("logs").insert({
+        user_id: userId,
+        action: "maintenance_ticket_notify_resultado",
+        entity: "maintenance_ticket",
+        details: {
+          ticket_id: ticket.id,
+          email,
+          enqueued: res.enqueued,
+          skipped: res.skipped,
+          assignee_found: true,
+        },
+      });
+
+      return {
+        ok: true,
+        sent: res.enqueued,
+        targets: 1,
+        skipped: res.skipped,
+        email,
+        reason: (res.enqueued > 0 ? "enqueued" : "not_enqueued") as
+          | "enqueued"
+          | "not_enqueued",
+      };
     } catch (e) {
       console.error("[notifyMaintenanceTicketAssigned] falhou", e);
       try {
@@ -59,6 +118,6 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
       } catch {
         /* ignore */
       }
-      return { ok: false, sent: 0, targets: 0 };
+      return { ok: false, sent: 0, targets: 0, reason: "error" as const };
     }
   });

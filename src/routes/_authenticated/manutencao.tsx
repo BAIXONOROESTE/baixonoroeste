@@ -8,9 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Wrench, Plus } from "lucide-react";
 import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
+import { useServerFn } from "@tanstack/react-start";
+import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
 
 type Status = "aberto" | "em_andamento" | "resolvido";
 type EvidenceRow = { id: string; evidence_path: string; evidence_type: "foto" | "video" };
@@ -56,7 +65,22 @@ function MaintenancePage() {
   const uid = profile?.id ?? null;
   const [tab, setTab] = useState<Status>("aberto");
   const [newTicketOpen, setNewTicketOpen] = useState(false);
-  const canCreate = profile?.role === "admin" || profile?.role === "supervisor";
+  const canManage = profile?.role === "admin" || profile?.role === "supervisor";
+  const notifyAssigned = useServerFn(notifyMaintenanceTicketAssigned);
+
+  const assignable = useQuery({
+    queryKey: ["assignable-profiles"],
+    enabled: canManage,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("list_assignable_profiles");
+      if (error) throw error;
+      return (data ?? []).filter(
+        (p: any) =>
+          Array.isArray(p.roles) &&
+          (p.roles.includes("admin") || p.roles.includes("supervisor")),
+      ) as { id: string; full_name: string; roles: string[] }[];
+    },
+  });
 
   const ticketsQuery = useQuery({
     queryKey: ["maintenance-tickets"],
@@ -136,6 +160,34 @@ function MaintenancePage() {
     onError: (e: any) => toast.error(e?.message ?? "Erro ao resolver."),
   });
 
+  const reassign = useMutation({
+    mutationFn: async ({ ticket, newAssignee }: { ticket: Ticket; newAssignee: string }) => {
+      const updates: { assigned_to: string; status?: Status } = { assigned_to: newAssignee };
+      if (ticket.status === "aberto") updates.status = "em_andamento";
+      const { error } = await supabase
+        .from("maintenance_tickets")
+        .update(updates)
+        .eq("id", ticket.id);
+      if (error) throw error;
+      const r = await notifyAssigned({ data: { ticket_id: ticket.id } });
+      return r;
+    },
+    onSuccess: (r) => {
+      toast.success("Chamado reatribuído");
+      if (!r?.ok || (r.sent ?? 0) === 0) {
+        const suffix =
+          r?.reason === "suppressed"
+            ? " (e-mail em lista de supressão)"
+            : r?.reason === "assignee_without_email"
+              ? " (novo responsável sem e-mail cadastrado)"
+              : "";
+        toast.warning(`Não foi possível notificar por e-mail${suffix}.`);
+      }
+      qc.invalidateQueries({ queryKey: ["maintenance-tickets"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao reatribuir."),
+  });
+
   const tickets = ticketsQuery.data ?? [];
   const counts = useMemo(
     () => ({
@@ -158,7 +210,7 @@ function MaintenancePage() {
             Chamados reportados pelos colaboradores.
           </p>
         </div>
-        {canCreate && (
+        {canManage && (
           <Button size="sm" onClick={() => setNewTicketOpen(true)}>
             <Plus className="h-4 w-4 mr-1.5" /> Novo chamado
           </Button>
@@ -191,6 +243,10 @@ function MaintenancePage() {
                 onResolve={(note) => resolveTicket.mutate({ id: t.id, note })}
                 starting={startAtt.isPending}
                 resolving={resolveTicket.isPending}
+                canManage={canManage}
+                assignable={assignable.data ?? []}
+                onReassign={(newAssignee) => reassign.mutate({ ticket: t, newAssignee })}
+                reassigning={reassign.isPending}
               />
             ))
           )}
@@ -206,12 +262,20 @@ function TicketCard({
   onResolve,
   starting,
   resolving,
+  canManage = false,
+  assignable = [],
+  onReassign,
+  reassigning = false,
 }: {
   ticket: Ticket;
   onStart: () => void;
   onResolve: (note: string) => void;
   starting: boolean;
   resolving: boolean;
+  canManage?: boolean;
+  assignable?: { id: string; full_name: string; roles: string[] }[];
+  onReassign?: (newAssignee: string) => void;
+  reassigning?: boolean;
 }) {
   const [note, setNote] = useState("");
   const [resolvingOpen, setResolvingOpen] = useState(false);
@@ -263,6 +327,30 @@ function TicketCard({
           {ticket.evidence.map((e) => (
             <MaintEvidence key={e.id} ev={e} />
           ))}
+        </div>
+      )}
+
+      {canManage && (ticket.status === "aberto" || ticket.status === "em_andamento") && onReassign && (
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Reatribuir para</label>
+          <Select
+            value={ticket.assigned_to ?? ""}
+            onValueChange={(v) => {
+              if (v && v !== ticket.assigned_to) onReassign(v);
+            }}
+            disabled={reassigning}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Escolher responsável" />
+            </SelectTrigger>
+            <SelectContent>
+              {assignable.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.full_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

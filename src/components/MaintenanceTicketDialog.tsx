@@ -121,9 +121,24 @@ export function MaintenanceTicketDialog({
       }
       // Envio de e-mail não-bloqueante para o responsável designado.
       if (assignee) {
-        notifyAssigned({ data: { ticket_id: t.id } }).catch((err) =>
-          console.error("[MaintenanceTicketDialog] notify falhou", err),
-        );
+        notifyAssigned({ data: { ticket_id: t.id } })
+          .then((r) => {
+            if (!r?.ok || (r.sent ?? 0) === 0) {
+              const suffix =
+                r?.reason === "suppressed"
+                  ? " (e-mail em lista de supressão)"
+                  : r?.reason === "assignee_without_email"
+                    ? " (responsável sem e-mail cadastrado)"
+                    : "";
+              toast.warning(
+                `Chamado criado, mas não foi possível notificar por e-mail${suffix}.`,
+              );
+            }
+          })
+          .catch((err) => {
+            console.error("[MaintenanceTicketDialog] notify falhou", err);
+            toast.warning("Chamado criado, mas não foi possível notificar por e-mail.");
+          });
       }
     },
     onSuccess: () => {
