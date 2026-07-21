@@ -534,10 +534,23 @@ function InventoryDetail() {
       )}
 
       {closed && (
-        <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground flex items-center gap-2">
-          <Lock className="h-4 w-4" /> Inventário fechado. Somente leitura.
+        <div className="space-y-2">
+          <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground flex items-center gap-2">
+            <Lock className="h-4 w-4" /> Inventário fechado. Somente leitura.
+          </div>
+          {profile?.role === "admin" && (
+            <Button
+              variant="outline"
+              className="w-full border-destructive/40 text-destructive hover:bg-destructive/10"
+              onClick={() => setReopenOpen(true)}
+              disabled={reopenBusy}
+            >
+              <Unlock className="h-4 w-4 mr-2" /> Reabrir inventário
+            </Button>
+          )}
         </div>
       )}
+
 
       {selectedProduct && selected && canEditCounts && (
         <CountForm
