@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Settings } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/checklists/")({
@@ -177,9 +178,18 @@ function ChecklistsPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold capitalize">{formatTodayHeader()}</h1>
-        <p className="text-sm text-muted-foreground">Checklists de rotina do dia.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold capitalize">{formatTodayHeader()}</h1>
+          <p className="text-sm text-muted-foreground">Checklists de rotina do dia.</p>
+        </div>
+        {canReview && (
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link to="/checklists/admin">
+              <Settings className="h-4 w-4 mr-1.5" /> Gerenciar checklists
+            </Link>
+          </Button>
+        )}
       </div>
 
       {canReview && (pendingQuery.data?.length ?? 0) > 0 && (
