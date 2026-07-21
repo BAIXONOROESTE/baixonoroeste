@@ -21,7 +21,7 @@ interface Props {
   family_name?: string
   finished_at?: string
   items?: Item[]
-  mode?: 'individual' | 'closure'
+  mode?: 'individual' | 'closure' | 'family'
   total_diff_value?: number
 }
 
@@ -34,7 +34,12 @@ const CountCompleted = ({
   mode = 'individual',
   total_diff_value,
 }: Props) => {
-  const title = mode === 'closure' ? 'Inventário fechado' : 'Contagem concluída'
+  const title =
+    mode === 'closure'
+      ? 'Inventário fechado'
+      : mode === 'family'
+        ? `Família ${family_name ?? ''} totalmente contada`.trim()
+        : 'Contagem concluída'
   return (
     <Html lang="pt-BR" dir="ltr">
       <Head />

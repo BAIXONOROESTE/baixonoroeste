@@ -33,10 +33,10 @@ import { Route as AuthenticatedInventariosIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedInventariosIdRouteImport } from './routes/_authenticated/inventarios.$id'
-import { Route as AuthenticatedChecklistsAdminRouteImport } from './routes/_authenticated/checklists.admin'
 import { Route as AuthenticatedChecklistsRunIdRouteImport } from './routes/_authenticated/checklists.$runId'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as AuthenticatedChecklistsAdminIndexRouteImport } from './routes/_authenticated/checklists.admin.index'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -170,12 +170,6 @@ const AuthenticatedInventariosIdRoute =
     path: '/inventarios/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedChecklistsAdminRoute =
-  AuthenticatedChecklistsAdminRouteImport.update({
-    id: '/checklists/admin',
-    path: '/checklists/admin',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedChecklistsRunIdRoute =
   AuthenticatedChecklistsRunIdRouteImport.update({
     id: '/checklists/$runId',
@@ -193,6 +187,12 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedChecklistsAdminIndexRoute =
+  AuthenticatedChecklistsAdminIndexRouteImport.update({
+    id: '/checklists/admin/',
+    path: '/checklists/admin/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -229,9 +229,9 @@ const ApiPublicReportsLossesDailyRoute =
   } as any)
 const AuthenticatedChecklistsAdminTemplateIdRoute =
   AuthenticatedChecklistsAdminTemplateIdRouteImport.update({
-    id: '/$templateId',
-    path: '/$templateId',
-    getParentRoute: () => AuthenticatedChecklistsAdminRoute,
+    id: '/checklists/admin/$templateId',
+    path: '/checklists/admin/$templateId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -257,7 +257,6 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/checklists/$runId': typeof AuthenticatedChecklistsRunIdRoute
-  '/checklists/admin': typeof AuthenticatedChecklistsAdminRouteWithChildren
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
@@ -269,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/checklists/admin/': typeof AuthenticatedChecklistsAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -293,7 +293,6 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/checklists/$runId': typeof AuthenticatedChecklistsRunIdRoute
-  '/checklists/admin': typeof AuthenticatedChecklistsAdminRouteWithChildren
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
@@ -305,6 +304,7 @@ export interface FileRoutesByTo {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/checklists/admin': typeof AuthenticatedChecklistsAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -331,7 +331,6 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/checklists/$runId': typeof AuthenticatedChecklistsRunIdRoute
-  '/_authenticated/checklists/admin': typeof AuthenticatedChecklistsAdminRouteWithChildren
   '/_authenticated/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
@@ -343,6 +342,7 @@ export interface FileRoutesById {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/_authenticated/checklists/admin/': typeof AuthenticatedChecklistsAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -369,7 +369,6 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/checklists/$runId'
-    | '/checklists/admin'
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/checklists/'
@@ -381,6 +380,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/checklists/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -405,7 +405,6 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/checklists/$runId'
-    | '/checklists/admin'
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/checklists'
@@ -417,6 +416,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/checklists/admin'
   id:
     | '__root__'
     | '/'
@@ -442,7 +442,6 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/checklists/$runId'
-    | '/_authenticated/checklists/admin'
     | '/_authenticated/inventarios/$id'
     | '/lovable/email/suppression'
     | '/_authenticated/checklists/'
@@ -454,6 +453,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/_authenticated/checklists/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -648,13 +648,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventariosIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/checklists/admin': {
-      id: '/_authenticated/checklists/admin'
-      path: '/checklists/admin'
-      fullPath: '/checklists/admin'
-      preLoaderRoute: typeof AuthenticatedChecklistsAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/checklists/$runId': {
       id: '/_authenticated/checklists/$runId'
       path: '/checklists/$runId'
@@ -675,6 +668,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.lovable/oauth/consent'
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/checklists/admin/': {
+      id: '/_authenticated/checklists/admin/'
+      path: '/checklists/admin'
+      fullPath: '/checklists/admin/'
+      preLoaderRoute: typeof AuthenticatedChecklistsAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
@@ -720,28 +720,13 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/checklists/admin/$templateId': {
       id: '/_authenticated/checklists/admin/$templateId'
-      path: '/$templateId'
+      path: '/checklists/admin/$templateId'
       fullPath: '/checklists/admin/$templateId'
       preLoaderRoute: typeof AuthenticatedChecklistsAdminTemplateIdRouteImport
-      parentRoute: typeof AuthenticatedChecklistsAdminRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
-
-interface AuthenticatedChecklistsAdminRouteChildren {
-  AuthenticatedChecklistsAdminTemplateIdRoute: typeof AuthenticatedChecklistsAdminTemplateIdRoute
-}
-
-const AuthenticatedChecklistsAdminRouteChildren: AuthenticatedChecklistsAdminRouteChildren =
-  {
-    AuthenticatedChecklistsAdminTemplateIdRoute:
-      AuthenticatedChecklistsAdminTemplateIdRoute,
-  }
-
-const AuthenticatedChecklistsAdminRouteWithChildren =
-  AuthenticatedChecklistsAdminRoute._addFileChildren(
-    AuthenticatedChecklistsAdminRouteChildren,
-  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
@@ -755,10 +740,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsRunIdRoute: typeof AuthenticatedChecklistsRunIdRoute
-  AuthenticatedChecklistsAdminRoute: typeof AuthenticatedChecklistsAdminRouteWithChildren
   AuthenticatedInventariosIdRoute: typeof AuthenticatedInventariosIdRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
   AuthenticatedInventariosIndexRoute: typeof AuthenticatedInventariosIndexRoute
+  AuthenticatedChecklistsAdminTemplateIdRoute: typeof AuthenticatedChecklistsAdminTemplateIdRoute
+  AuthenticatedChecklistsAdminIndexRoute: typeof AuthenticatedChecklistsAdminIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -773,11 +759,13 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsRunIdRoute: AuthenticatedChecklistsRunIdRoute,
-  AuthenticatedChecklistsAdminRoute:
-    AuthenticatedChecklistsAdminRouteWithChildren,
   AuthenticatedInventariosIdRoute: AuthenticatedInventariosIdRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
   AuthenticatedInventariosIndexRoute: AuthenticatedInventariosIndexRoute,
+  AuthenticatedChecklistsAdminTemplateIdRoute:
+    AuthenticatedChecklistsAdminTemplateIdRoute,
+  AuthenticatedChecklistsAdminIndexRoute:
+    AuthenticatedChecklistsAdminIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -808,13 +796,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

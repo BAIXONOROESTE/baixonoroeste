@@ -153,7 +153,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
       for (let attempt = 0; attempt < 2; attempt++) {
         const { data: item, error } = await supabase
           .from("count_items")
-          .select("*, product:products(omie_id, name, code, unit), inventory:inventories(status, name), counter:profiles!count_items_counted_by_fkey(full_name)")
+          .select("*, product:products(omie_id, name, code, unit, family_id), inventory:inventories(status, name), counter:profiles!count_items_counted_by_fkey(full_name)")
           .eq("id", data.count_item_id)
           .single();
         if (item) return item;
@@ -208,41 +208,123 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
     });
 
     // Notificação por email (não bloqueia a resposta em caso de erro).
+    // Regra: se o produto NÃO tem família → e-mail individual imediato.
+    // Se tem família → só dispara e-mail consolidado quando TODOS os produtos
+    // da família (dentro do escopo deste inventário) já foram contados.
     try {
       const { sendTemplateEmail, loadNotificationRecipients } = await import("@/lib/email/notify.server");
-      const { data: counter } = await supabaseAdmin
-        .from("profiles").select("email, full_name").eq("id", item.counted_by).maybeSingle();
-      const recipients = await loadNotificationRecipients(counter?.email ? [counter.email] : []);
-      if (recipients.length > 0) {
-        const expected = Number(item.quantity_before ?? 0);
-        const counted = Number(item.quantity_counted);
+      const productFamilyId = (item.product as { family_id?: string | null }).family_id ?? null;
+      const inventoryId = item.inventory_id as string;
 
-        const diffPct = expected === 0 ? (counted === 0 ? 0 : 100) : (diff / expected) * 100;
-        await sendTemplateEmail({
-          templateName: "count-completed",
-          recipients,
-          idempotencyKeyPrefix: `count-${item.id}`,
-          templateData: {
-            counter_name: counter?.full_name ?? "—",
-            inventory_name: (item as { inventory?: { name?: string } }).inventory?.name ?? "",
-            finished_at: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-            mode: "individual",
-            total_diff_value: Number(item.financial_diff ?? 0),
-            items: [{
-              product: item.product.name,
-              code: item.product.code ?? undefined,
-              expected,
-              counted,
-              diff,
-              diff_pct: diffPct,
-              sent_to_omie: sentToOmie,
-              unit: item.product.unit ?? undefined,
-            }],
-          },
-        });
+      if (!productFamilyId) {
+        // ---- Modo individual (sem família) ----
+        const { data: counter } = await supabaseAdmin
+          .from("profiles").select("email, full_name").eq("id", item.counted_by).maybeSingle();
+        const recipients = await loadNotificationRecipients(counter?.email ? [counter.email] : []);
+        if (recipients.length > 0) {
+          const expected = Number(item.quantity_before ?? 0);
+          const counted = Number(item.quantity_counted);
+          const diffPct = expected === 0 ? (counted === 0 ? 0 : 100) : (diff / expected) * 100;
+          await sendTemplateEmail({
+            templateName: "count-completed",
+            recipients,
+            idempotencyKeyPrefix: `count-${item.id}`,
+            templateData: {
+              counter_name: counter?.full_name ?? "—",
+              inventory_name: (item as { inventory?: { name?: string } }).inventory?.name ?? "",
+              finished_at: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+              mode: "individual",
+              total_diff_value: Number(item.financial_diff ?? 0),
+              items: [{
+                product: item.product.name,
+                code: item.product.code ?? undefined,
+                expected,
+                counted,
+                diff,
+                diff_pct: diffPct,
+                sent_to_omie: sentToOmie,
+                unit: item.product.unit ?? undefined,
+              }],
+            },
+          });
+        }
+      } else {
+        // ---- Modo por família (agrupado) ----
+        // 1) produtos ativos dessa família
+        const { data: familyProducts } = await supabaseAdmin
+          .from("products")
+          .select("id")
+          .eq("family_id", productFamilyId)
+          .eq("active", true);
+        let scopedProductIds = (familyProducts ?? []).map((p) => p.id as string);
+
+        // 2) restringir ao escopo do inventário, se houver
+        const { data: invProducts } = await supabaseAdmin
+          .from("inventory_products")
+          .select("product_id")
+          .eq("inventory_id", inventoryId);
+        if ((invProducts ?? []).length > 0) {
+          const invSet = new Set((invProducts ?? []).map((r) => r.product_id as string));
+          scopedProductIds = scopedProductIds.filter((id) => invSet.has(id));
+        }
+
+        // 3) contar quantos count_items já existem para esses produtos
+        if (scopedProductIds.length > 0) {
+          const { data: familyCountItems } = await supabaseAdmin
+            .from("count_items")
+            .select("id, product_id, quantity_before, quantity_counted, difference, financial_diff, status, product:products(name, code, unit)")
+            .eq("inventory_id", inventoryId)
+            .in("product_id", scopedProductIds);
+
+          const countedIds = new Set((familyCountItems ?? []).map((r) => r.product_id as string));
+          const allDone = scopedProductIds.every((id) => countedIds.has(id));
+
+          if (allDone) {
+            const { data: family } = await supabaseAdmin
+              .from("families").select("name").eq("id", productFamilyId).maybeSingle();
+            const { data: counter } = await supabaseAdmin
+              .from("profiles").select("email, full_name").eq("id", item.counted_by).maybeSingle();
+            const recipients = await loadNotificationRecipients(counter?.email ? [counter.email] : []);
+            if (recipients.length > 0) {
+              const emailItems = (familyCountItems ?? []).map((i) => {
+                const expected = Number(i.quantity_before ?? 0);
+                const counted = Number(i.quantity_counted);
+                const d = Number(i.difference);
+                return {
+                  product: (i.product as { name: string }).name,
+                  code: (i.product as { code?: string }).code,
+                  expected,
+                  counted,
+                  diff: d,
+                  diff_pct: expected === 0 ? (counted === 0 ? 0 : 100) : (d / expected) * 100,
+                  sent_to_omie: i.status === "atualizado",
+                  unit: (i.product as { unit?: string | null }).unit ?? undefined,
+                };
+              });
+              const totalDiff = (familyCountItems ?? []).reduce(
+                (a, i) => a + Number(i.financial_diff ?? 0),
+                0,
+              );
+              await sendTemplateEmail({
+                templateName: "count-completed",
+                recipients,
+                idempotencyKeyPrefix: `family-${inventoryId}-${productFamilyId}`,
+                templateData: {
+                  counter_name: counter?.full_name ?? "—",
+                  inventory_name: (item as { inventory?: { name?: string } }).inventory?.name ?? "",
+                  family_name: family?.name ?? "—",
+                  finished_at: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+                  mode: "family",
+                  total_diff_value: totalDiff,
+                  items: emailItems,
+                },
+              });
+            }
+          }
+        }
       }
     } catch (e) {
-      console.error("[notify] contagem individual falhou", e);
+      console.error("[notify] contagem individual/família falhou", e);
     }
 
     return { ok: true, skipped: diff === 0 };
