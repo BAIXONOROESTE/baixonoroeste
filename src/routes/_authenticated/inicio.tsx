@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench } from "lucide-react";
+import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -16,9 +16,11 @@ export const Route = createFileRoute("/_authenticated/inicio")({ component: Home
 const tiles = [
   { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor"] as const },
   { to: "/inventarios", label: "Inventários", icon: Package, roles: ["admin","supervisor","contador"] as const },
+  { to: "/checklists", label: "Checklists", icon: CheckSquare, roles: ["admin","supervisor","contador"] as const },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] as const },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] as const },
   { to: "/perdas", label: "Perdas & Quebras", icon: AlertTriangle, roles: ["admin","supervisor","contador"] as const },
+  { to: "/manutencao", label: "Manutenção", icon: Wrench, roles: ["admin","supervisor"] as const },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin","supervisor"] as const },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["admin"] as const },
   { to: "/logs", label: "Logs", icon: ScrollText, roles: ["admin","supervisor"] as const },
