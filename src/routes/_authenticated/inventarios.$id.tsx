@@ -80,11 +80,12 @@ function InventoryDetail() {
     queryFn: async () => {
       const { data: r } = await supabase
         .from("close_requests")
-        .select("id, approval_token, requested_at, requested_by, push_to_omie")
+        .select("id, approval_token, created_at, requested_by, push_to_omie")
         .eq("inventory_id", id)
         .eq("status", "pendente")
-        .order("requested_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1)
+
         .maybeSingle();
       if (!r) return null;
       const { data: prof } = await supabase
