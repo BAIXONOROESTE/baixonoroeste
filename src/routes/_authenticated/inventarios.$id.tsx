@@ -438,6 +438,21 @@ function InventoryDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!recountItemId} onOpenChange={(o) => { if (!o) setRecountItemId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Solicitar nova contagem deste item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A contagem atual será descartada e o item voltará a aparecer como pendente para novo lançamento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRecount}>Recontar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
