@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -19,11 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Camera, Wrench } from "lucide-react";
+import { Camera, Wrench, X } from "lucide-react";
 import { toast } from "sonner";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 import { useServerFn } from "@tanstack/react-start";
 import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
+import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 type CapturedEvidence = {
   blob: Blob;
@@ -48,6 +49,7 @@ export function MaintenanceTicketDialog({
   const uid = profile?.id ?? null;
   const qc = useQueryClient();
   const notifyAssigned = useServerFn(notifyMaintenanceTicketAssigned);
+  const listLoginProfilesFn = useServerFn(listLoginProfiles);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -55,22 +57,27 @@ export function MaintenanceTicketDialog({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [assignedTo, setAssignedTo] = useState<string>(NONE);
 
-  // Reaproveita a RPC `list_assignable_profiles` (mesma usada em outras
-  // telas) para listar apenas admin/supervisor — sem depender de SELECT
-  // direto em `profiles`, que é restrito por RLS a self/admin.
+  // Lista TODOS os perfis ativos (admin, supervisor e colaborador),
+  // reaproveitando a mesma consulta usada na tela de login.
   const { data: assignable } = useQuery({
-    queryKey: ["assignable-profiles"],
+    queryKey: ["login-profiles-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("list_assignable_profiles");
-      if (error) throw error;
-      return (data ?? []).filter(
-        (p: any) =>
-          Array.isArray(p.roles) &&
-          (p.roles.includes("admin") || p.roles.includes("supervisor")),
-      ) as { id: string; full_name: string; roles: string[] }[];
+      const rows = await listLoginProfilesFn();
+      return (rows ?? []).filter((p) => p.active);
     },
     enabled: open,
   });
+
+  // Preview object URL — cria/limpa conforme evidência muda.
+  const evidenceUrl = useMemo(
+    () => (evidence ? URL.createObjectURL(evidence.blob) : null),
+    [evidence],
+  );
+  useEffect(() => {
+    return () => {
+      if (evidenceUrl) URL.revokeObjectURL(evidenceUrl);
+    };
+  }, [evidenceUrl]);
 
   const reset = () => {
     setTitle("");
@@ -205,14 +212,29 @@ export function MaintenanceTicketDialog({
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Evidência (opcional)</label>
-              {evidence ? (
-                <div className="flex items-center justify-between rounded-md border border-border p-2 text-sm">
-                  <span className="truncate">
-                    {evidence.type === "foto" ? "📷 Foto" : "🎥 Vídeo"} anexada
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={() => setEvidence(null)}>
-                    Remover
-                  </Button>
+              {evidence && evidenceUrl ? (
+                <div className="relative inline-block">
+                  {evidence.type === "foto" ? (
+                    <img
+                      src={evidenceUrl}
+                      alt="Prévia da evidência"
+                      className="h-24 w-24 rounded-md border border-border object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={evidenceUrl}
+                      controls
+                      className="h-24 w-24 rounded-md border border-border object-cover bg-black"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEvidence(null)}
+                    aria-label="Remover evidência"
+                    className="absolute -top-2 -right-2 rounded-full bg-background border border-border p-0.5 shadow hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               ) : (
                 <Button
