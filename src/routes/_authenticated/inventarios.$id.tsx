@@ -292,6 +292,115 @@ function InventoryDetail() {
         </div>
       )}
 
+      {pendingCloseRequest && isSupOrAdminRole && (
+        <div className="rounded-2xl bg-warning/10 border-2 border-warning p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            Pedido de fechamento pendente
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Solicitado por <b className="text-foreground">{pendingCloseRequest.requester_name}</b>
+            {" em "}
+            {new Date(pendingCloseRequest.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg bg-background p-2"><span className="text-muted-foreground">Divergências: </span><b>{divergencias}</b></div>
+            <div className="rounded-lg bg-background p-2"><span className="text-muted-foreground">Δ R$: </span><b className={totalDiff < 0 ? "text-destructive" : ""}>{fmtMoney(totalDiff)}</b></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              disabled={respondBusy}
+              onClick={() => setRejectOpen(true)}
+            >
+              <X className="h-4 w-4 mr-1" /> Reprovar
+            </Button>
+            <Button
+              disabled={respondBusy}
+              onClick={async () => {
+                setRespondBusy(true);
+                try {
+                  await respondCloseFn({ data: { token: pendingCloseRequest.approval_token, approve: true } });
+                  toast.success("Inventário fechado!");
+                  qc.invalidateQueries({ queryKey: ["close-request-pending", id] });
+                  qc.invalidateQueries({ queryKey: ["inventory", id] });
+                  qc.invalidateQueries({ queryKey: ["count-items", id] });
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Falha ao aprovar.");
+                } finally { setRespondBusy(false); }
+              }}
+            >
+              <Check className="h-4 w-4 mr-1" /> Aprovar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reprovar pedido de fechamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja reprovar? A contagem não será enviada à Omie e o inventário continuará aberto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={respondBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={respondBusy}
+              onClick={async () => {
+                if (!pendingCloseRequest) return;
+                setRespondBusy(true);
+                try {
+                  await respondCloseFn({ data: { token: pendingCloseRequest.approval_token, approve: false } });
+                  toast.success("Pedido reprovado.");
+                  qc.invalidateQueries({ queryKey: ["close-request-pending", id] });
+                  qc.invalidateQueries({ queryKey: ["inventory", id] });
+                  qc.invalidateQueries({ queryKey: ["count-items", id] });
+                  setRejectOpen(false);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Falha ao reprovar.");
+                } finally { setRespondBusy(false); }
+              }}
+            >
+              Reprovar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={reopenOpen} onOpenChange={setReopenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir inventário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Reabrir este inventário permite editar contagens novamente. Se ajustes já foram enviados à Omie, reabrir e editar pode causar divergência entre o estoque do sistema e o real — o ajuste anterior não é desfeito automaticamente. Deseja continuar mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reopenBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reopenBusy}
+              onClick={async () => {
+                setReopenBusy(true);
+                try {
+                  await reopenFn({ data: { inventory_id: id } });
+                  toast.success("Inventário reaberto.");
+                  qc.invalidateQueries({ queryKey: ["inventory", id] });
+                  qc.invalidateQueries({ queryKey: ["count-items", id] });
+                  setReopenOpen(false);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Falha ao reabrir.");
+                } finally { setReopenBusy(false); }
+              }}
+            >
+              Reabrir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
           <span>Progresso</span>
