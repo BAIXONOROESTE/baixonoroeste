@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { template as countCompletedTemplate } from './count-completed'
 import { template as lossesDailyTemplate } from './losses-daily'
 import { template as lossRegisteredTemplate } from './loss-registered'
+import { maintenanceTicketTemplate } from './maintenance-ticket'
 import {
   taskAssignedTemplate,
   recountRequestedTemplate,
@@ -29,4 +30,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'adjustment-requested': adjustRequestedTemplate,
   'revalidation-needed': revalidationNeededTemplate,
   'task-approved': taskApprovedTemplate,
+  'maintenance-ticket': maintenanceTicketTemplate,
 }
