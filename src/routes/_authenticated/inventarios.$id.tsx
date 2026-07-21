@@ -78,10 +78,7 @@ function InventoryDetail() {
     const targetId = recountItemId;
     setRecountItemId(null);
     try {
-      const { error } = await supabase
-        .from("count_items")
-        .update({ quantity_counted: null, status: "pendente", difference: null, financial_diff: null })
-        .eq("id", targetId);
+      const { error } = await supabase.from("count_items").delete().eq("id", targetId);
       if (error) throw error;
       const { data: u } = await supabase.auth.getUser();
       if (u.user) {
