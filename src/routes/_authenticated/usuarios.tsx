@@ -128,7 +128,7 @@ function UsuariosPage() {
         )}
         <div className="space-y-2">
           {(teams ?? []).map((t) => {
-            const members = (profiles ?? []).filter((p) => p.team_id === t.id && p.active);
+            const members = (profiles ?? []).filter((p) => p.team_ids.includes(t.id) && p.active);
             return (
               <div key={t.id} className="rounded-xl border border-border bg-background/50 p-3">
                 <div className="flex items-center justify-between">
