@@ -93,6 +93,39 @@ function HomePage() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: pendingMaintenanceTickets } = useQuery({
+    queryKey: ["pending-maintenance-tickets"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("maintenance_tickets")
+        .select("id, title, status, assigned_to, reported_by, created_at")
+        .in("status", ["aberto", "em_andamento"])
+        .order("created_at", { ascending: false });
+      const rows = data ?? [];
+      const ids = Array.from(
+        new Set(
+          rows.flatMap((r) => [r.assigned_to, r.reported_by]).filter(Boolean) as string[],
+        ),
+      );
+      const names: Record<string, string> = {};
+      if (ids.length) {
+        const profs = await listLoginProfiles();
+        (profs ?? [])
+          .filter((p) => ids.includes(p.id))
+          .forEach((p) => {
+            names[p.id] = p.full_name;
+          });
+      }
+      return rows.map((r) => ({
+        ...r,
+        assigned_name: r.assigned_to ? names[r.assigned_to] ?? null : null,
+        reporter_name: names[r.reported_by] ?? null,
+      }));
+    },
+    refetchOnWindowFocus: true,
+  });
+
 
 
   const sync = useMutation({
