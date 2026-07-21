@@ -19,7 +19,7 @@ type ProfileRow = {
   email: string | null;
   active: boolean;
   roles: string[];
-  team_id: string | null;
+  team_ids: string[];
 };
 
 function UsuariosPage() {
@@ -48,7 +48,7 @@ function UsuariosPage() {
       return (p ?? []).map((prof) => ({
         ...prof,
         roles: (r ?? []).filter((x) => x.user_id === prof.id).map((x) => x.role),
-        team_id: (tm ?? []).find((x) => x.user_id === prof.id)?.team_id ?? null,
+        team_ids: (tm ?? []).filter((x) => x.user_id === prof.id).map((x) => x.team_id),
       })) as ProfileRow[];
     },
   });
