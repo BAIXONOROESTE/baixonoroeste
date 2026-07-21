@@ -521,9 +521,37 @@ function InventoryDetail() {
                       {canSeeStock && !isInactive ? ` · Est.: ${fmtNumber(p.stock_omie)}` : ""}
                     </div>
                   </div>
-                  {!isInactive && (item && (item.status === "correto" || item.status === "atualizado")
-                    ? <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
-                    : isDiv ? <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" /> : null)}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {!isInactive && isDiv && isSupOrAdminRole && item && (
+                      <>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          title="Aceitar"
+                          aria-label="Aceitar divergência e enviar à Omie"
+                          onClick={(e) => { e.stopPropagation(); if (quickBusyId !== item.id) handleQuickAccept(item.id); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); if (quickBusyId !== item.id) handleQuickAccept(item.id); } }}
+                          className={`inline-flex items-center justify-center h-7 w-7 rounded-md border border-success/40 bg-success/10 text-success hover:bg-success/20 cursor-pointer ${quickBusyId === item.id ? "opacity-50 pointer-events-none" : ""}`}
+                        >
+                          <Check className="h-4 w-4" />
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          title="Recontar"
+                          aria-label="Solicitar nova contagem deste item"
+                          onClick={(e) => { e.stopPropagation(); setRecountItemId(item.id); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setRecountItemId(item.id); } }}
+                          className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 cursor-pointer"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </span>
+                      </>
+                    )}
+                    {!isInactive && (item && (item.status === "correto" || item.status === "atualizado")
+                      ? <CheckCircle2 className="h-5 w-5 text-success" />
+                      : isDiv ? <AlertTriangle className="h-5 w-5 text-warning" /> : null)}
+                  </div>
                 </button>
               );
             })}
