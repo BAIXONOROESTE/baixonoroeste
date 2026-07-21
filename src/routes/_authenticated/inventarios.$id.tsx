@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, RefreshCw, ArrowLeft, Save } from "lucide-react";
+import { Camera, Search, CheckCircle2, AlertTriangle, X, Lock, Unlock, RefreshCw, ArrowLeft, Save, Check } from "lucide-react";
 import { fmtMoney, fmtNumber } from "@/lib/format";
 import { useServerFn } from "@tanstack/react-start";
-import { closeInventory, pushCountToOmie, syncFamiliesAndProducts } from "@/lib/omie.functions";
-import { requestCloseInventory } from "@/lib/close-requests.functions";
+import { closeInventory, pushCountToOmie, reopenInventory, syncFamiliesAndProducts } from "@/lib/omie.functions";
+import { requestCloseInventory, respondCloseRequest } from "@/lib/close-requests.functions";
 import { notifyDivergence } from "@/lib/notify.functions";
 import { LossModal } from "@/components/LossModal";
 import { useProfile } from "@/hooks/useProfile";
@@ -20,6 +20,17 @@ import { useOfflineCountQueue } from "@/hooks/useOfflineCountQueue";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { CloudOff, RefreshCw as SyncIcon } from "lucide-react";
 import { DeleteInventoryButton } from "@/components/DeleteInventoryButton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 
 export const Route = createFileRoute("/_authenticated/inventarios/$id")({ component: InventoryDetail });
@@ -36,10 +47,17 @@ function InventoryDetail() {
   const navigate = useNavigate();
   const closeFn = useServerFn(closeInventory);
   const requestCloseFn = useServerFn(requestCloseInventory);
+  const respondCloseFn = useServerFn(respondCloseRequest);
+  const reopenFn = useServerFn(reopenInventory);
   const pushFn = useServerFn(pushCountToOmie);
   const notifyDivFn = useServerFn(notifyDivergence);
   const syncFn = useServerFn(syncFamiliesAndProducts);
   const { data: profile, isLoading: profileLoading, error: profileError } = useProfile();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [respondBusy, setRespondBusy] = useState(false);
+  const [reopenBusy, setReopenBusy] = useState(false);
+
 
 
   const { data: inv, isLoading: invLoading, error: invError } = useQuery({
@@ -55,6 +73,29 @@ function InventoryDetail() {
     queryKey: ["count-items", id],
     queryFn: async () => (await supabase.from("count_items").select("*, product:products(name, code, unit)").eq("inventory_id", id)).data ?? [],
   });
+
+  const isSupOrAdminRole = profile?.role === "admin" || profile?.role === "supervisor";
+  const { data: pendingCloseRequest } = useQuery({
+    queryKey: ["close-request-pending", id],
+    queryFn: async () => {
+      const { data: r } = await supabase
+        .from("close_requests")
+        .select("id, approval_token, created_at, requested_by, push_to_omie")
+        .eq("inventory_id", id)
+        .eq("status", "pendente")
+        .order("created_at", { ascending: false })
+        .limit(1)
+
+        .maybeSingle();
+      if (!r) return null;
+      const { data: prof } = await supabase
+        .from("profiles").select("full_name").eq("id", r.requested_by).maybeSingle();
+      return { ...r, requester_name: prof?.full_name ?? "—" };
+    },
+    enabled: !!profile && isSupOrAdminRole,
+  });
+
+
 
   const { data: scope } = useQuery({
     queryKey: ["inventory-scope", id, inv?.type],
@@ -251,6 +292,115 @@ function InventoryDetail() {
         </div>
       )}
 
+      {pendingCloseRequest && isSupOrAdminRole && (
+        <div className="rounded-2xl bg-warning/10 border-2 border-warning p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            Pedido de fechamento pendente
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Solicitado por <b className="text-foreground">{pendingCloseRequest.requester_name}</b>
+            {" em "}
+            {new Date(pendingCloseRequest.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg bg-background p-2"><span className="text-muted-foreground">Divergências: </span><b>{divergencias}</b></div>
+            <div className="rounded-lg bg-background p-2"><span className="text-muted-foreground">Δ R$: </span><b className={totalDiff < 0 ? "text-destructive" : ""}>{fmtMoney(totalDiff)}</b></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              disabled={respondBusy}
+              onClick={() => setRejectOpen(true)}
+            >
+              <X className="h-4 w-4 mr-1" /> Reprovar
+            </Button>
+            <Button
+              disabled={respondBusy}
+              onClick={async () => {
+                setRespondBusy(true);
+                try {
+                  await respondCloseFn({ data: { token: pendingCloseRequest.approval_token, approve: true } });
+                  toast.success("Inventário fechado!");
+                  qc.invalidateQueries({ queryKey: ["close-request-pending", id] });
+                  qc.invalidateQueries({ queryKey: ["inventory", id] });
+                  qc.invalidateQueries({ queryKey: ["count-items", id] });
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Falha ao aprovar.");
+                } finally { setRespondBusy(false); }
+              }}
+            >
+              <Check className="h-4 w-4 mr-1" /> Aprovar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reprovar pedido de fechamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja reprovar? A contagem não será enviada à Omie e o inventário continuará aberto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={respondBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={respondBusy}
+              onClick={async () => {
+                if (!pendingCloseRequest) return;
+                setRespondBusy(true);
+                try {
+                  await respondCloseFn({ data: { token: pendingCloseRequest.approval_token, approve: false } });
+                  toast.success("Pedido reprovado.");
+                  qc.invalidateQueries({ queryKey: ["close-request-pending", id] });
+                  qc.invalidateQueries({ queryKey: ["inventory", id] });
+                  qc.invalidateQueries({ queryKey: ["count-items", id] });
+                  setRejectOpen(false);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Falha ao reprovar.");
+                } finally { setRespondBusy(false); }
+              }}
+            >
+              Reprovar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={reopenOpen} onOpenChange={setReopenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir inventário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Reabrir este inventário permite editar contagens novamente. Se ajustes já foram enviados à Omie, reabrir e editar pode causar divergência entre o estoque do sistema e o real — o ajuste anterior não é desfeito automaticamente. Deseja continuar mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reopenBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reopenBusy}
+              onClick={async () => {
+                setReopenBusy(true);
+                try {
+                  await reopenFn({ data: { inventory_id: id } });
+                  toast.success("Inventário reaberto.");
+                  qc.invalidateQueries({ queryKey: ["inventory", id] });
+                  qc.invalidateQueries({ queryKey: ["count-items", id] });
+                  setReopenOpen(false);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Falha ao reabrir.");
+                } finally { setReopenBusy(false); }
+              }}
+            >
+              Reabrir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
           <span>Progresso</span>
@@ -384,10 +534,23 @@ function InventoryDetail() {
       )}
 
       {closed && (
-        <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground flex items-center gap-2">
-          <Lock className="h-4 w-4" /> Inventário fechado. Somente leitura.
+        <div className="space-y-2">
+          <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground flex items-center gap-2">
+            <Lock className="h-4 w-4" /> Inventário fechado. Somente leitura.
+          </div>
+          {profile?.role === "admin" && (
+            <Button
+              variant="outline"
+              className="w-full border-destructive/40 text-destructive hover:bg-destructive/10"
+              onClick={() => setReopenOpen(true)}
+              disabled={reopenBusy}
+            >
+              <Unlock className="h-4 w-4 mr-2" /> Reabrir inventário
+            </Button>
+          )}
         </div>
       )}
+
 
       {selectedProduct && selected && canEditCounts && (
         <CountForm

@@ -444,3 +444,28 @@ export const closeInventory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const reopenInventory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { inventory_id: string }) => d)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: isAdmin, error: roleErr } = await supabase.rpc("current_user_is_admin");
+    if (roleErr || !isAdmin) throw new Error("Apenas administrador pode reabrir inventários.");
+
+    const { error: updErr } = await supabase
+      .from("inventories")
+      .update({ status: "aberto", closed_at: null })
+      .eq("id", data.inventory_id);
+    if (updErr) throw new Error(`Falha ao reabrir inventário: ${updErr.message}`);
+
+    await supabase.from("logs").insert({
+      user_id: userId,
+      action: "inventario_reaberto",
+      entity: "inventory",
+      details: { inventory_id: data.inventory_id },
+    });
+
+    return { ok: true };
+  });
+
+
