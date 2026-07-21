@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare } from "lucide-react";
+import { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -7,6 +8,7 @@ import { syncFamiliesAndProducts } from "@/lib/omie.functions";
 import { listLoginProfiles } from "@/lib/login-profiles.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
 
