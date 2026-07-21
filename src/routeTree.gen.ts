@@ -33,6 +33,7 @@ import { Route as AuthenticatedInventariosIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedInventariosIdRouteImport } from './routes/_authenticated/inventarios.$id'
+import { Route as AuthenticatedChecklistsAdminRouteImport } from './routes/_authenticated/checklists.admin'
 import { Route as AuthenticatedChecklistsRunIdRouteImport } from './routes/_authenticated/checklists.$runId'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -42,6 +43,7 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicReportsLossesDailyRouteImport } from './routes/api/public/reports/losses-daily'
+import { Route as AuthenticatedChecklistsAdminTemplateIdRouteImport } from './routes/_authenticated/checklists.admin.$templateId'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
@@ -168,6 +170,12 @@ const AuthenticatedInventariosIdRoute =
     path: '/inventarios/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedChecklistsAdminRoute =
+  AuthenticatedChecklistsAdminRouteImport.update({
+    id: '/checklists/admin',
+    path: '/checklists/admin',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedChecklistsRunIdRoute =
   AuthenticatedChecklistsRunIdRouteImport.update({
     id: '/checklists/$runId',
@@ -219,6 +227,12 @@ const ApiPublicReportsLossesDailyRoute =
     path: '/api/public/reports/losses-daily',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedChecklistsAdminTemplateIdRoute =
+  AuthenticatedChecklistsAdminTemplateIdRouteImport.update({
+    id: '/$templateId',
+    path: '/$templateId',
+    getParentRoute: () => AuthenticatedChecklistsAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -243,10 +257,12 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/checklists/$runId': typeof AuthenticatedChecklistsRunIdRoute
+  '/checklists/admin': typeof AuthenticatedChecklistsAdminRouteWithChildren
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/inventarios/': typeof AuthenticatedInventariosIndexRoute
+  '/checklists/admin/$templateId': typeof AuthenticatedChecklistsAdminTemplateIdRoute
   '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -277,10 +293,12 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/checklists/$runId': typeof AuthenticatedChecklistsRunIdRoute
+  '/checklists/admin': typeof AuthenticatedChecklistsAdminRouteWithChildren
   '/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
   '/inventarios': typeof AuthenticatedInventariosIndexRoute
+  '/checklists/admin/$templateId': typeof AuthenticatedChecklistsAdminTemplateIdRoute
   '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -313,10 +331,12 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/checklists/$runId': typeof AuthenticatedChecklistsRunIdRoute
+  '/_authenticated/checklists/admin': typeof AuthenticatedChecklistsAdminRouteWithChildren
   '/_authenticated/inventarios/$id': typeof AuthenticatedInventariosIdRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/_authenticated/inventarios/': typeof AuthenticatedInventariosIndexRoute
+  '/_authenticated/checklists/admin/$templateId': typeof AuthenticatedChecklistsAdminTemplateIdRoute
   '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -349,10 +369,12 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/checklists/$runId'
+    | '/checklists/admin'
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/checklists/'
     | '/inventarios/'
+    | '/checklists/admin/$templateId'
     | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -383,10 +405,12 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/checklists/$runId'
+    | '/checklists/admin'
     | '/inventarios/$id'
     | '/lovable/email/suppression'
     | '/checklists'
     | '/inventarios'
+    | '/checklists/admin/$templateId'
     | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -418,10 +442,12 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/checklists/$runId'
+    | '/_authenticated/checklists/admin'
     | '/_authenticated/inventarios/$id'
     | '/lovable/email/suppression'
     | '/_authenticated/checklists/'
     | '/_authenticated/inventarios/'
+    | '/_authenticated/checklists/admin/$templateId'
     | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -622,6 +648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventariosIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/checklists/admin': {
+      id: '/_authenticated/checklists/admin'
+      path: '/checklists/admin'
+      fullPath: '/checklists/admin'
+      preLoaderRoute: typeof AuthenticatedChecklistsAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/checklists/$runId': {
       id: '/_authenticated/checklists/$runId'
       path: '/checklists/$runId'
@@ -685,8 +718,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicReportsLossesDailyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/checklists/admin/$templateId': {
+      id: '/_authenticated/checklists/admin/$templateId'
+      path: '/$templateId'
+      fullPath: '/checklists/admin/$templateId'
+      preLoaderRoute: typeof AuthenticatedChecklistsAdminTemplateIdRouteImport
+      parentRoute: typeof AuthenticatedChecklistsAdminRoute
+    }
   }
 }
+
+interface AuthenticatedChecklistsAdminRouteChildren {
+  AuthenticatedChecklistsAdminTemplateIdRoute: typeof AuthenticatedChecklistsAdminTemplateIdRoute
+}
+
+const AuthenticatedChecklistsAdminRouteChildren: AuthenticatedChecklistsAdminRouteChildren =
+  {
+    AuthenticatedChecklistsAdminTemplateIdRoute:
+      AuthenticatedChecklistsAdminTemplateIdRoute,
+  }
+
+const AuthenticatedChecklistsAdminRouteWithChildren =
+  AuthenticatedChecklistsAdminRoute._addFileChildren(
+    AuthenticatedChecklistsAdminRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
@@ -700,6 +755,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsRunIdRoute: typeof AuthenticatedChecklistsRunIdRoute
+  AuthenticatedChecklistsAdminRoute: typeof AuthenticatedChecklistsAdminRouteWithChildren
   AuthenticatedInventariosIdRoute: typeof AuthenticatedInventariosIdRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
   AuthenticatedInventariosIndexRoute: typeof AuthenticatedInventariosIndexRoute
@@ -717,6 +773,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsRunIdRoute: AuthenticatedChecklistsRunIdRoute,
+  AuthenticatedChecklistsAdminRoute:
+    AuthenticatedChecklistsAdminRouteWithChildren,
   AuthenticatedInventariosIdRoute: AuthenticatedInventariosIdRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
   AuthenticatedInventariosIndexRoute: AuthenticatedInventariosIndexRoute,
