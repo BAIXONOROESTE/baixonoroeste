@@ -57,6 +57,47 @@ function InventoryDetail() {
   const [reopenOpen, setReopenOpen] = useState(false);
   const [respondBusy, setRespondBusy] = useState(false);
   const [reopenBusy, setReopenBusy] = useState(false);
+  const [recountItemId, setRecountItemId] = useState<string | null>(null);
+  const [quickBusyId, setQuickBusyId] = useState<string | null>(null);
+
+  async function handleQuickAccept(countItemId: string) {
+    setQuickBusyId(countItemId);
+    try {
+      await pushFn({ data: { count_item_id: countItemId } });
+      toast.success("Ajuste enviado à Omie.");
+      qc.invalidateQueries({ queryKey: ["count-items", id] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar à Omie.");
+    } finally {
+      setQuickBusyId(null);
+    }
+  }
+
+  async function handleConfirmRecount() {
+    if (!recountItemId) return;
+    const targetId = recountItemId;
+    setRecountItemId(null);
+    try {
+      const { error } = await supabase
+        .from("count_items")
+        .update({ quantity_counted: null, status: "pendente", difference: null, financial_diff: null })
+        .eq("id", targetId);
+      if (error) throw error;
+      const { data: u } = await supabase.auth.getUser();
+      if (u.user) {
+        await supabase.from("logs").insert({
+          user_id: u.user.id,
+          action: "recontagem_solicitada_item",
+          entity: "count_item",
+          details: { count_item_id: targetId },
+        });
+      }
+      toast.success("Recontagem solicitada.");
+      qc.invalidateQueries({ queryKey: ["count-items", id] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao solicitar recontagem.");
+    }
+  }
 
 
 
