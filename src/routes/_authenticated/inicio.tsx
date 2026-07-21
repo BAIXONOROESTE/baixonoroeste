@@ -33,6 +33,7 @@ function HomePage() {
   const { data: profile } = useProfile();
   const qc = useQueryClient();
   const syncFn = useServerFn(syncFamiliesAndProducts);
+  const [ticketOpen, setTicketOpen] = useState(false);
 
   const role = profile?.role ?? "contador";
   const isSup = role === "admin" || role === "supervisor";
