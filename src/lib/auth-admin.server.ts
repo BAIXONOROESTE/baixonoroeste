@@ -62,24 +62,21 @@ async function updateAuthUserPasswordViaInviteSignup(userId: string, password: s
   const role = roles?.some((r) => r.role === "admin") ? "admin" : roles?.some((r) => r.role === "supervisor") ? "supervisor" : "contador";
   const resetEmail = `${profile.slug}.reset.${crypto.randomUUID()}@users.baixonoroeste.com.br`;
 
-  // Remove convites de reset pendentes anteriores para este usuário (evita conflito no índice único).
-  const { error: cleanupErr } = await supabaseAdmin
+  const { error: inviteErr } = await supabaseAdmin
     .from("auth_signup_invites")
-    .delete()
-    .eq("reset_for_user_id", userId)
-    .is("used_at", null);
-  if (cleanupErr) throw new Error(`Falha ao limpar reset de PIN anterior: ${cleanupErr.message}`);
-
-  const { error: inviteErr } = await supabaseAdmin.from("auth_signup_invites").insert({
-    auth_email: resetEmail,
-    full_name: profile.full_name,
-    slug: profile.slug,
-    role,
-    avatar_color: profile.avatar_color ?? "amber",
-    phone: profile.phone,
-    contact_email: profile.email,
-    reset_for_user_id: userId,
-  });
+    .upsert(
+      {
+        auth_email: resetEmail,
+        full_name: profile.full_name,
+        slug: profile.slug,
+        role,
+        avatar_color: profile.avatar_color ?? "amber",
+        phone: profile.phone,
+        contact_email: profile.email,
+        reset_for_user_id: userId,
+      },
+      { onConflict: "reset_for_user_id" },
+    );
   if (inviteErr) throw new Error(`Falha ao preparar reset de PIN: ${inviteErr.message}`);
 
   const publicAuth = createServerAuthClient();

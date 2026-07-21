@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare } from "lucide-react";
+import { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -7,6 +8,7 @@ import { syncFamiliesAndProducts } from "@/lib/omie.functions";
 import { listLoginProfiles } from "@/lib/login-profiles.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
 import { toast } from "sonner";
 import { fmtDateTime } from "@/lib/format";
 
@@ -31,6 +33,7 @@ function HomePage() {
   const { data: profile } = useProfile();
   const qc = useQueryClient();
   const syncFn = useServerFn(syncFamiliesAndProducts);
+  const [ticketOpen, setTicketOpen] = useState(false);
 
   const role = profile?.role ?? "contador";
   const isSup = role === "admin" || role === "supervisor";
@@ -230,6 +233,27 @@ function HomePage() {
           </div>
         </section>
       )}
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Manutenção</h2>
+        <Button
+          onClick={() => setTicketOpen(true)}
+          variant="outline"
+          className="w-full justify-start rounded-2xl h-auto py-3"
+        >
+          <Wrench className="h-4 w-4 mr-2 text-primary" />
+          <div className="text-left">
+            <div className="text-sm font-medium">Reportar problema</div>
+            <div className="text-xs text-muted-foreground">Abrir um chamado de manutenção</div>
+          </div>
+        </Button>
+      </section>
+
+      <MaintenanceTicketDialog
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+        onCreated={() => qc.invalidateQueries({ queryKey: ["pending-maintenance-tickets"] })}
+      />
 
       {isSup && pendingCloses && pendingCloses.length > 0 && (
         <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
