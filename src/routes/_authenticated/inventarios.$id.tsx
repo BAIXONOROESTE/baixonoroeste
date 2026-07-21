@@ -74,6 +74,23 @@ function InventoryDetail() {
     queryFn: async () => (await supabase.from("count_items").select("*, product:products(name, code, unit)").eq("inventory_id", id)).data ?? [],
   });
 
+  const isSupOrAdminRole = profile?.role === "admin" || profile?.role === "supervisor";
+  const { data: pendingCloseRequest } = useQuery({
+    queryKey: ["close-request-pending", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("close_requests")
+        .select("id, approval_token, requested_at, requested_by, push_to_omie, requester:profiles!close_requests_requested_by_fkey(full_name)")
+        .eq("inventory_id", id)
+        .eq("status", "pendente")
+        .order("requested_at", { ascending: false })
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!profile && isSupOrAdminRole,
+  });
+
+
   const { data: scope } = useQuery({
     queryKey: ["inventory-scope", id, inv?.type],
     queryFn: async () => {
