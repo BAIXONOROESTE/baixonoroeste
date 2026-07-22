@@ -117,37 +117,39 @@ export const registerLoss = createServerFn({ method: "POST" })
         });
       }
 
-      // ---- Notificação por e-mail (via RPC, sem supabaseAdmin) ----
+      // ---- Notificação por e-mail (via supabaseAdmin) ----
       if (recipients.length > 0) {
-        const { sendTemplateEmailViaRpc } = await import("@/lib/email/notify.server");
+        const { sendTemplateEmail } = await import("@/lib/email/notify.server");
         const unitCost = Number(product?.cost ?? 0);
         const finValue = unitCost * Number(data.quantity);
-        const emailResult = await sendTemplateEmailViaRpc(supabase, {
-          templateName: "loss-registered",
-          recipients,
-          idempotencyKeyPrefix: `loss-${created.id}`,
-          templateData: {
-            product_name: product?.name ?? "—",
-            product_code: product?.code ?? "",
-            unit: product?.unit ?? "",
-            quantity: Number(data.quantity),
-            unit_cost: unitCost,
-            financial_value: finValue,
-            reason: reason?.name ?? "—",
-            observation: data.observation ?? "",
-            registered_by: actor?.full_name ?? "—",
-            inventory_name: inventoryName,
-            registered_at: new Date(created.created_at).toLocaleString("pt-BR", {
-              timeZone: "America/Sao_Paulo",
-            }),
-          },
-        });
-        if (emailResult.errors.length > 0) {
+        try {
+          await sendTemplateEmail({
+            templateName: "loss-registered",
+            recipients,
+            idempotencyKeyPrefix: `loss-${created.id}`,
+            templateData: {
+              product_name: product?.name ?? "—",
+              product_code: product?.code ?? "",
+              unit: product?.unit ?? "",
+              quantity: Number(data.quantity),
+              unit_cost: unitCost,
+              financial_value: finValue,
+              reason: reason?.name ?? "—",
+              observation: data.observation ?? "",
+              registered_by: actor?.full_name ?? "—",
+              inventory_name: inventoryName,
+              registered_at: new Date(created.created_at).toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo",
+              }),
+            },
+          });
+        } catch (mailErr) {
+          const emsg = mailErr instanceof Error ? mailErr.message : String(mailErr);
           await supabase.from("logs").insert({
             user_id: userId,
             action: "registerLoss_email_erro",
             entity: "loss",
-            details: { loss_id: created.id, errors: JSON.parse(JSON.stringify(emailResult.errors)) },
+            details: { loss_id: created.id, erro: emsg },
           });
         }
       }
