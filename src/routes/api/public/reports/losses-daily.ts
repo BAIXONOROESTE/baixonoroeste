@@ -92,8 +92,8 @@ async function handle(request: Request) {
 export const Route = createFileRoute('/api/public/reports/losses-daily')({
   server: {
     handlers: {
-      GET: async () => handle(),
-      POST: async () => handle(),
+      GET: async ({ request }) => handle(request),
+      POST: async ({ request }) => handle(request),
     },
   },
 })
