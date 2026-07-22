@@ -20,7 +20,15 @@ function saoPauloYesterdayRange(): { startUtc: string; endUtc: string; label: st
   return { startUtc: start.toISOString(), endUtc: end.toISOString(), label }
 }
 
-async function handle() {
+async function handle(request: Request) {
+  // Shared-secret auth: pg_cron sends the service-role key as a bearer token.
+  const expected = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const auth = request.headers.get('authorization') ?? '';
+  const provided = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+  if (!expected || !provided || provided !== expected) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
   const { startUtc, endUtc, label } = saoPauloYesterdayRange()
   const admin = supabaseAdmin as any
 
