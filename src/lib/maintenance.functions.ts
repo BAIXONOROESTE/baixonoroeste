@@ -38,6 +38,9 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
         return { ok: false, sent: 0, targets: 0, reason: "forbidden" as const };
       }
 
+      if (!ticket.assigned_to) {
+        return { ok: true, sent: 0, targets: 0, reason: "no_assignee" as const };
+      }
 
       const [{ data: assignee }, { data: reporter }] = await Promise.all([
         supabaseAdmin.from("profiles").select("email, full_name").eq("id", ticket.assigned_to).maybeSingle(),
