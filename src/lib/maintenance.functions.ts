@@ -81,7 +81,7 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
           entity: "maintenance_ticket",
           details: { ticket_id: ticket.id, email },
         });
-        return { ok: false, sent: 0, targets: 1, reason: "suppressed" as const, email };
+        return { ok: false, sent: 0, targets: 1, reason: "suppressed" as const };
       }
 
       const origin = process.env.PUBLIC_SITE_URL || "https://baixonoroeste.lovable.app";
