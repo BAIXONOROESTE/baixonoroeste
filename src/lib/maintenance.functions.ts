@@ -15,13 +15,30 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { sendTemplateEmail } = await import("@/lib/email/notify.server");
 
-      const { data: ticket } = await supabaseAdmin
-        .from("maintenance_tickets")
-        .select("id, title, description, assigned_to, reported_by, created_at")
-        .eq("id", data.ticket_id)
-        .maybeSingle();
+      // Authorization: caller must be reporter, assignee, or a supervisor/admin.
+      const [{ data: ticket }, { data: callerRoles }] = await Promise.all([
+        supabaseAdmin
+          .from("maintenance_tickets")
+          .select("id, title, description, assigned_to, reported_by, created_at")
+          .eq("id", data.ticket_id)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId),
+      ]);
 
-      if (!ticket || !ticket.assigned_to) {
+      if (!ticket) {
+        return { ok: false, sent: 0, targets: 0, reason: "ticket_not_found" as const };
+      }
+
+      const isPriv = (callerRoles ?? []).some((r) => r.role === "admin" || r.role === "supervisor");
+      const isParty = ticket.reported_by === userId || ticket.assigned_to === userId;
+      if (!isPriv && !isParty) {
+        return { ok: false, sent: 0, targets: 0, reason: "forbidden" as const };
+      }
+
+      if (!ticket.assigned_to) {
         return { ok: true, sent: 0, targets: 0, reason: "no_assignee" as const };
       }
 
@@ -64,7 +81,7 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
           entity: "maintenance_ticket",
           details: { ticket_id: ticket.id, email },
         });
-        return { ok: false, sent: 0, targets: 1, reason: "suppressed" as const, email };
+        return { ok: false, sent: 0, targets: 1, reason: "suppressed" as const };
       }
 
       const origin = process.env.PUBLIC_SITE_URL || "https://baixonoroeste.lovable.app";
@@ -101,7 +118,6 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
         sent: res.enqueued,
         targets: 1,
         skipped: res.skipped,
-        email,
         reason: (res.enqueued > 0 ? "enqueued" : "not_enqueued") as
           | "enqueued"
           | "not_enqueued",
