@@ -118,7 +118,6 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
         sent: res.enqueued,
         targets: 1,
         skipped: res.skipped,
-        email,
         reason: (res.enqueued > 0 ? "enqueued" : "not_enqueued") as
           | "enqueued"
           | "not_enqueued",
