@@ -265,7 +265,7 @@ export function MaintenanceTicketDialog({
             </Button>
             <Button
               onClick={() => createTicket.mutate()}
-              disabled={!title.trim() || createTicket.isPending}
+              disabled={!title.trim() || !evidence || createTicket.isPending}
             >
               {createTicket.isPending ? "Enviando…" : "Reportar"}
             </Button>
