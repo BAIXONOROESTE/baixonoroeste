@@ -463,6 +463,85 @@ function ChecklistAdminEditPage() {
               </div>
               <Switch checked={itemEvReq} onCheckedChange={setItemEvReq} />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Foto ou vídeo de referência (como deve ficar) — opcional
+              </label>
+              {refMedia && refPreviewUrl ? (
+                <div className="relative inline-block">
+                  {refMedia.type === "foto" ? (
+                    <img
+                      src={refPreviewUrl}
+                      alt="Prévia da referência"
+                      className="h-24 w-24 rounded-md border border-border object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={refPreviewUrl}
+                      controls
+                      className="h-24 w-24 rounded-md border border-border object-cover bg-black"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setRefMedia(null)}
+                    aria-label="Remover"
+                    className="absolute -top-2 -right-2 rounded-full bg-background border border-border p-0.5 shadow hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : existingRef && !removeExistingRef ? (
+                <div className="relative inline-block">
+                  {existingRef.type === "foto" ? (
+                    <img
+                      src={existingRef.url}
+                      alt="Referência atual"
+                      className="h-24 w-24 rounded-md border border-border object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={existingRef.url}
+                      controls
+                      className="h-24 w-24 rounded-md border border-border object-cover bg-black"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setRemoveExistingRef(true)}
+                    aria-label="Remover referência atual"
+                    className="absolute -top-2 -right-2 rounded-full bg-background border border-border p-0.5 shadow hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCameraOpen(true)}>
+                    <Camera className="h-4 w-4 mr-1.5" /> Capturar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-1.5" /> Enviar arquivo
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleFilePick(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemDialogOpen(false)} disabled={saveItem.isPending}>
