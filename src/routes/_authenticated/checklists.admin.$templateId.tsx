@@ -118,7 +118,7 @@ function ChecklistAdminEditPage() {
     queryFn: async (): Promise<TemplateItem[]> => {
       const { data, error } = await supabase
         .from("checklist_template_items")
-        .select("id, position, title, orientacao, evidence_required")
+        .select("id, position, title, orientacao, evidence_required, reference_media_path, reference_media_type")
         .eq("template_id", templateId)
         .order("position", { ascending: true });
       if (error) throw error;
