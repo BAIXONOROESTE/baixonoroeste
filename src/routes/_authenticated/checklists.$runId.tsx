@@ -62,6 +62,8 @@ type RunItem = {
     orientacao: string | null;
     evidence_required: boolean;
     position: number;
+    reference_media_path: string | null;
+    reference_media_type: "foto" | "video" | null;
   } | null;
   evidence: Evidence[];
 };
