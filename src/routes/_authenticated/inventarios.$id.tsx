@@ -643,7 +643,11 @@ function InventoryDetail() {
           onClose={() => setSelectedProduct(null)}
           onSaved={async (item_id, status) => {
             qc.invalidateQueries({ queryKey: ["count-items", id] });
-            if (settings?.omie_update_mode === "imediato") {
+            // Contagens sem divergência ("correto") vão para o Omie imediatamente,
+            // independente do modo configurado — não exigem aprovação.
+            // Divergências continuam seguindo o fluxo de aprovação/validação em lote.
+            const shouldPushNow = status === "correto" || settings?.omie_update_mode === "imediato";
+            if (shouldPushNow && status !== "divergencia") {
               try { await pushFn({ data: { count_item_id: item_id } }); qc.invalidateQueries({ queryKey: ["count-items", id] }); }
               catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao atualizar Omie."); }
             }
