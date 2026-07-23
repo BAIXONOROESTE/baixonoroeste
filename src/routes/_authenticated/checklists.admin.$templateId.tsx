@@ -75,8 +75,28 @@ function ChecklistAdminEditPage() {
   const [itemTitle, setItemTitle] = useState("");
   const [itemOrient, setItemOrient] = useState("");
   const [itemEvReq, setItemEvReq] = useState(true);
+  const [refMedia, setRefMedia] = useState<
+    | { blob: Blob; ext: "jpg" | "webm" | "mp4"; type: "foto" | "video" }
+    | null
+  >(null);
+  const [existingRef, setExistingRef] = useState<
+    { path: string; type: "foto" | "video"; url: string } | null
+  >(null);
+  const [removeExistingRef, setRemoveExistingRef] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<TemplateItem | null>(null);
+
+  const refPreviewUrl = useMemo(
+    () => (refMedia ? URL.createObjectURL(refMedia.blob) : null),
+    [refMedia],
+  );
+  useEffect(() => {
+    return () => {
+      if (refPreviewUrl) URL.revokeObjectURL(refPreviewUrl);
+    };
+  }, [refPreviewUrl]);
 
   const templateQuery = useQuery({
     queryKey: ["checklist-admin-template", templateId],
