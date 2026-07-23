@@ -128,6 +128,25 @@ function RunPage() {
   const item = items[currentIndex] ?? null;
   const isLast = currentIndex === total - 1 && total > 0;
 
+  const refPath = item?.template_item?.reference_media_path ?? null;
+  const refType = item?.template_item?.reference_media_type ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    if (!refPath) {
+      setRefUrl(null);
+      return;
+    }
+    supabase.storage
+      .from("checklist-evidence")
+      .createSignedUrl(refPath, 3600)
+      .then(({ data }) => {
+        if (!cancelled) setRefUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refPath]);
+
   const canReview = role === "admin" || role === "supervisor";
   const mode: "execucao" | "aprovacao" | "leitura" = !run
     ? "leitura"
