@@ -92,6 +92,7 @@ function RunPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [refUrl, setRefUrl] = useState<string | null>(null);
 
 
 
