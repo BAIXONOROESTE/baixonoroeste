@@ -105,7 +105,7 @@ function RunPage() {
            template:checklist_templates(name, scheduled_time),
            items:checklist_run_items(
              id, done, done_by, done_at, observacao, justificativa, review_status,
-             template_item:checklist_template_items(title, orientacao, evidence_required, position),
+             template_item:checklist_template_items(title, orientacao, evidence_required, position, reference_media_path, reference_media_type),
              evidence:checklist_run_item_evidence(id, evidence_path, evidence_type, created_by, created_at)
            )`,
         )
