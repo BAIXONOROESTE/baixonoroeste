@@ -578,6 +578,15 @@ function ChecklistAdminEditPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CameraCaptureModal
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(blob, ext, type) => {
+          setRefMedia({ blob, ext, type });
+          setRemoveExistingRef(true);
+        }}
+      />
     </div>
   );
 }
