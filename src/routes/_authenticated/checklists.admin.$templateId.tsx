@@ -203,6 +203,7 @@ function ChecklistAdminEditPage() {
   const saveItem = useMutation({
     mutationFn: async () => {
       if (!itemTitle.trim()) throw new Error("Informe o título.");
+      let itemId: string;
       if (editingItem) {
         const { error } = await supabase
           .from("checklist_template_items")
@@ -213,21 +214,68 @@ function ChecklistAdminEditPage() {
           })
           .eq("id", editingItem.id);
         if (error) throw error;
+        itemId = editingItem.id;
       } else {
         const maxPos = (itemsQuery.data ?? []).reduce((m, i) => Math.max(m, i.position), 0);
-        const { error } = await supabase.from("checklist_template_items").insert({
-          template_id: templateId,
-          position: maxPos + 1,
-          title: itemTitle.trim(),
-          orientacao: itemOrient.trim() || null,
-          evidence_required: itemEvReq,
-        });
+        const { data: inserted, error } = await supabase
+          .from("checklist_template_items")
+          .insert({
+            template_id: templateId,
+            position: maxPos + 1,
+            title: itemTitle.trim(),
+            orientacao: itemOrient.trim() || null,
+            evidence_required: itemEvReq,
+          })
+          .select("id")
+          .single();
         if (error) throw error;
+        itemId = inserted.id;
+      }
+
+      // Reference media: upload new / remove existing.
+      if (refMedia) {
+        const contentType =
+          refMedia.type === "video"
+            ? refMedia.ext === "mp4"
+              ? "video/mp4"
+              : "video/webm"
+            : "image/jpeg";
+        const path = `templates/${itemId}/reference.${refMedia.ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("checklist-evidence")
+          .upload(path, refMedia.blob, { contentType, upsert: true });
+        if (upErr) throw upErr;
+        // Remove previous file if the extension changed.
+        if (
+          editingItem?.reference_media_path &&
+          editingItem.reference_media_path !== path
+        ) {
+          await supabase.storage
+            .from("checklist-evidence")
+            .remove([editingItem.reference_media_path]);
+        }
+        const { error: updErr } = await supabase
+          .from("checklist_template_items")
+          .update({ reference_media_path: path, reference_media_type: refMedia.type })
+          .eq("id", itemId);
+        if (updErr) throw updErr;
+      } else if (removeExistingRef && editingItem?.reference_media_path) {
+        await supabase.storage
+          .from("checklist-evidence")
+          .remove([editingItem.reference_media_path]);
+        const { error: updErr } = await supabase
+          .from("checklist_template_items")
+          .update({ reference_media_path: null, reference_media_type: null })
+          .eq("id", itemId);
+        if (updErr) throw updErr;
       }
     },
     onSuccess: () => {
       toast.success(editingItem ? "Item atualizado" : "Item adicionado");
       setItemDialogOpen(false);
+      setRefMedia(null);
+      setExistingRef(null);
+      setRemoveExistingRef(false);
       qc.invalidateQueries({ queryKey: ["checklist-admin-items", templateId] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar item"),
