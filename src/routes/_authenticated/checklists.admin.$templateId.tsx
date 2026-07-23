@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -25,8 +25,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowDown, ArrowLeft, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Camera, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 
 export const Route = createFileRoute("/_authenticated/checklists/admin/$templateId")({
   head: () => ({ meta: [{ title: "Editar checklist · Baixo Noroeste" }] }),
@@ -47,6 +48,8 @@ type TemplateItem = {
   title: string;
   orientacao: string | null;
   evidence_required: boolean;
+  reference_media_path: string | null;
+  reference_media_type: "foto" | "video" | null;
 };
 
 type Template = {
@@ -72,8 +75,28 @@ function ChecklistAdminEditPage() {
   const [itemTitle, setItemTitle] = useState("");
   const [itemOrient, setItemOrient] = useState("");
   const [itemEvReq, setItemEvReq] = useState(true);
+  const [refMedia, setRefMedia] = useState<
+    | { blob: Blob; ext: "jpg" | "webm" | "mp4"; type: "foto" | "video" }
+    | null
+  >(null);
+  const [existingRef, setExistingRef] = useState<
+    { path: string; type: "foto" | "video"; url: string } | null
+  >(null);
+  const [removeExistingRef, setRemoveExistingRef] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<TemplateItem | null>(null);
+
+  const refPreviewUrl = useMemo(
+    () => (refMedia ? URL.createObjectURL(refMedia.blob) : null),
+    [refMedia],
+  );
+  useEffect(() => {
+    return () => {
+      if (refPreviewUrl) URL.revokeObjectURL(refPreviewUrl);
+    };
+  }, [refPreviewUrl]);
 
   const templateQuery = useQuery({
     queryKey: ["checklist-admin-template", templateId],
@@ -95,7 +118,7 @@ function ChecklistAdminEditPage() {
     queryFn: async (): Promise<TemplateItem[]> => {
       const { data, error } = await supabase
         .from("checklist_template_items")
-        .select("id, position, title, orientacao, evidence_required")
+        .select("id, position, title, orientacao, evidence_required, reference_media_path, reference_media_type")
         .eq("template_id", templateId)
         .order("position", { ascending: true });
       if (error) throw error;
@@ -133,19 +156,54 @@ function ChecklistAdminEditPage() {
     setItemTitle("");
     setItemOrient("");
     setItemEvReq(true);
+    setRefMedia(null);
+    setExistingRef(null);
+    setRemoveExistingRef(false);
     setItemDialogOpen(true);
   };
-  const openEditItem = (it: TemplateItem) => {
+  const openEditItem = async (it: TemplateItem) => {
     setEditingItem(it);
     setItemTitle(it.title);
     setItemOrient(it.orientacao ?? "");
     setItemEvReq(it.evidence_required);
+    setRefMedia(null);
+    setRemoveExistingRef(false);
+    setExistingRef(null);
     setItemDialogOpen(true);
+    if (it.reference_media_path && it.reference_media_type) {
+      const { data } = await supabase.storage
+        .from("checklist-evidence")
+        .createSignedUrl(it.reference_media_path, 3600);
+      if (data?.signedUrl) {
+        setExistingRef({
+          path: it.reference_media_path,
+          type: it.reference_media_type,
+          url: data.signedUrl,
+        });
+      }
+    }
+  };
+
+  const handleFilePick = (file: File) => {
+    const isVideo = file.type.startsWith("video/");
+    const isImage = file.type.startsWith("image/");
+    if (!isVideo && !isImage) {
+      toast.error("Selecione uma imagem ou vídeo.");
+      return;
+    }
+    const ext: "jpg" | "webm" | "mp4" = isVideo
+      ? file.type.includes("mp4")
+        ? "mp4"
+        : "webm"
+      : "jpg";
+    setRefMedia({ blob: file, ext, type: isVideo ? "video" : "foto" });
+    setRemoveExistingRef(true);
   };
 
   const saveItem = useMutation({
     mutationFn: async () => {
       if (!itemTitle.trim()) throw new Error("Informe o título.");
+      let itemId: string;
       if (editingItem) {
         const { error } = await supabase
           .from("checklist_template_items")
@@ -156,21 +214,68 @@ function ChecklistAdminEditPage() {
           })
           .eq("id", editingItem.id);
         if (error) throw error;
+        itemId = editingItem.id;
       } else {
         const maxPos = (itemsQuery.data ?? []).reduce((m, i) => Math.max(m, i.position), 0);
-        const { error } = await supabase.from("checklist_template_items").insert({
-          template_id: templateId,
-          position: maxPos + 1,
-          title: itemTitle.trim(),
-          orientacao: itemOrient.trim() || null,
-          evidence_required: itemEvReq,
-        });
+        const { data: inserted, error } = await supabase
+          .from("checklist_template_items")
+          .insert({
+            template_id: templateId,
+            position: maxPos + 1,
+            title: itemTitle.trim(),
+            orientacao: itemOrient.trim() || null,
+            evidence_required: itemEvReq,
+          })
+          .select("id")
+          .single();
         if (error) throw error;
+        itemId = inserted.id;
+      }
+
+      // Reference media: upload new / remove existing.
+      if (refMedia) {
+        const contentType =
+          refMedia.type === "video"
+            ? refMedia.ext === "mp4"
+              ? "video/mp4"
+              : "video/webm"
+            : "image/jpeg";
+        const path = `templates/${itemId}/reference.${refMedia.ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("checklist-evidence")
+          .upload(path, refMedia.blob, { contentType, upsert: true });
+        if (upErr) throw upErr;
+        // Remove previous file if the extension changed.
+        if (
+          editingItem?.reference_media_path &&
+          editingItem.reference_media_path !== path
+        ) {
+          await supabase.storage
+            .from("checklist-evidence")
+            .remove([editingItem.reference_media_path]);
+        }
+        const { error: updErr } = await supabase
+          .from("checklist_template_items")
+          .update({ reference_media_path: path, reference_media_type: refMedia.type })
+          .eq("id", itemId);
+        if (updErr) throw updErr;
+      } else if (removeExistingRef && editingItem?.reference_media_path) {
+        await supabase.storage
+          .from("checklist-evidence")
+          .remove([editingItem.reference_media_path]);
+        const { error: updErr } = await supabase
+          .from("checklist_template_items")
+          .update({ reference_media_path: null, reference_media_type: null })
+          .eq("id", itemId);
+        if (updErr) throw updErr;
       }
     },
     onSuccess: () => {
       toast.success(editingItem ? "Item atualizado" : "Item adicionado");
       setItemDialogOpen(false);
+      setRefMedia(null);
+      setExistingRef(null);
+      setRemoveExistingRef(false);
       qc.invalidateQueries({ queryKey: ["checklist-admin-items", templateId] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar item"),
@@ -358,6 +463,85 @@ function ChecklistAdminEditPage() {
               </div>
               <Switch checked={itemEvReq} onCheckedChange={setItemEvReq} />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Foto ou vídeo de referência (como deve ficar) — opcional
+              </label>
+              {refMedia && refPreviewUrl ? (
+                <div className="relative inline-block">
+                  {refMedia.type === "foto" ? (
+                    <img
+                      src={refPreviewUrl}
+                      alt="Prévia da referência"
+                      className="h-24 w-24 rounded-md border border-border object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={refPreviewUrl}
+                      controls
+                      className="h-24 w-24 rounded-md border border-border object-cover bg-black"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setRefMedia(null)}
+                    aria-label="Remover"
+                    className="absolute -top-2 -right-2 rounded-full bg-background border border-border p-0.5 shadow hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : existingRef && !removeExistingRef ? (
+                <div className="relative inline-block">
+                  {existingRef.type === "foto" ? (
+                    <img
+                      src={existingRef.url}
+                      alt="Referência atual"
+                      className="h-24 w-24 rounded-md border border-border object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={existingRef.url}
+                      controls
+                      className="h-24 w-24 rounded-md border border-border object-cover bg-black"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setRemoveExistingRef(true)}
+                    aria-label="Remover referência atual"
+                    className="absolute -top-2 -right-2 rounded-full bg-background border border-border p-0.5 shadow hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCameraOpen(true)}>
+                    <Camera className="h-4 w-4 mr-1.5" /> Capturar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-1.5" /> Enviar arquivo
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleFilePick(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemDialogOpen(false)} disabled={saveItem.isPending}>
@@ -394,6 +578,15 @@ function ChecklistAdminEditPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CameraCaptureModal
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(blob, ext, type) => {
+          setRefMedia({ blob, ext, type });
+          setRemoveExistingRef(true);
+        }}
+      />
     </div>
   );
 }

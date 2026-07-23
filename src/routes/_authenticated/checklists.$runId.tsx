@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,8 @@ type RunItem = {
     orientacao: string | null;
     evidence_required: boolean;
     position: number;
+    reference_media_path: string | null;
+    reference_media_type: "foto" | "video" | null;
   } | null;
   evidence: Evidence[];
 };
@@ -90,6 +92,7 @@ function RunPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [refUrl, setRefUrl] = useState<string | null>(null);
 
 
 
@@ -103,7 +106,7 @@ function RunPage() {
            template:checklist_templates(name, scheduled_time),
            items:checklist_run_items(
              id, done, done_by, done_at, observacao, justificativa, review_status,
-             template_item:checklist_template_items(title, orientacao, evidence_required, position),
+             template_item:checklist_template_items(title, orientacao, evidence_required, position, reference_media_path, reference_media_type),
              evidence:checklist_run_item_evidence(id, evidence_path, evidence_type, created_by, created_at)
            )`,
         )
@@ -124,6 +127,25 @@ function RunPage() {
   const pct = total ? Math.round((done / total) * 100) : 0;
   const item = items[currentIndex] ?? null;
   const isLast = currentIndex === total - 1 && total > 0;
+
+  const refPath = item?.template_item?.reference_media_path ?? null;
+  const refType = item?.template_item?.reference_media_type ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    if (!refPath) {
+      setRefUrl(null);
+      return;
+    }
+    supabase.storage
+      .from("checklist-evidence")
+      .createSignedUrl(refPath, 3600)
+      .then(({ data }) => {
+        if (!cancelled) setRefUrl(data?.signedUrl ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refPath]);
 
   const canReview = role === "admin" || role === "supervisor";
   const mode: "execucao" | "aprovacao" | "leitura" = !run
@@ -356,6 +378,26 @@ function RunPage() {
               </p>
             )}
           </div>
+
+          {refPath && refUrl && (
+            <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
+              <div className="text-xs font-medium text-muted-foreground">Veja como deve ficar</div>
+              {refType === "video" ? (
+                <video
+                  src={refUrl}
+                  controls
+                  className="w-full max-h-64 rounded-md bg-black object-contain"
+                />
+              ) : (
+                <img
+                  src={refUrl}
+                  alt="Referência do item"
+                  className="w-full max-h-64 rounded-md object-contain"
+                />
+              )}
+            </div>
+          )}
+
 
           <div>
             <Button
