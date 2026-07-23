@@ -48,6 +48,8 @@ type TemplateItem = {
   title: string;
   orientacao: string | null;
   evidence_required: boolean;
+  reference_media_path: string | null;
+  reference_media_type: "foto" | "video" | null;
 };
 
 type Template = {
