@@ -156,14 +156,48 @@ function ChecklistAdminEditPage() {
     setItemTitle("");
     setItemOrient("");
     setItemEvReq(true);
+    setRefMedia(null);
+    setExistingRef(null);
+    setRemoveExistingRef(false);
     setItemDialogOpen(true);
   };
-  const openEditItem = (it: TemplateItem) => {
+  const openEditItem = async (it: TemplateItem) => {
     setEditingItem(it);
     setItemTitle(it.title);
     setItemOrient(it.orientacao ?? "");
     setItemEvReq(it.evidence_required);
+    setRefMedia(null);
+    setRemoveExistingRef(false);
+    setExistingRef(null);
     setItemDialogOpen(true);
+    if (it.reference_media_path && it.reference_media_type) {
+      const { data } = await supabase.storage
+        .from("checklist-evidence")
+        .createSignedUrl(it.reference_media_path, 3600);
+      if (data?.signedUrl) {
+        setExistingRef({
+          path: it.reference_media_path,
+          type: it.reference_media_type,
+          url: data.signedUrl,
+        });
+      }
+    }
+  };
+
+  const handleFilePick = (file: File) => {
+    const isVideo = file.type.startsWith("video/");
+    const isImage = file.type.startsWith("image/");
+    if (!isVideo && !isImage) {
+      toast.error("Selecione uma imagem ou vídeo.");
+      return;
+    }
+    const ext: "jpg" | "webm" | "mp4" = isVideo
+      ? file.type.includes("mp4")
+        ? "mp4"
+        : "webm"
+      : "jpg";
+    setRefMedia({ blob: file, ext, type: isVideo ? "video" : "foto" });
+    setRemoveExistingRef(true);
   };
 
   const saveItem = useMutation({
