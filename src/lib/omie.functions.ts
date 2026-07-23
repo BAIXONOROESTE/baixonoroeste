@@ -153,7 +153,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
       for (let attempt = 0; attempt < 2; attempt++) {
         const { data: item, error } = await supabase
           .from("count_items")
-          .select("*, product:products(omie_id, name, code, unit, family_id), inventory:inventories(status, name), counter:profiles!count_items_counted_by_fkey(full_name)")
+          .select("*, product:products(omie_id, name, code, unit, family_id), inventory:inventories(status, name)")
           .eq("id", data.count_item_id)
           .single();
         if (item) return item;
