@@ -379,6 +379,26 @@ function RunPage() {
             )}
           </div>
 
+          {refPath && refUrl && (
+            <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
+              <div className="text-xs font-medium text-muted-foreground">Veja como deve ficar</div>
+              {refType === "video" ? (
+                <video
+                  src={refUrl}
+                  controls
+                  className="w-full max-h-64 rounded-md bg-black object-contain"
+                />
+              ) : (
+                <img
+                  src={refUrl}
+                  alt="Referência do item"
+                  className="w-full max-h-64 rounded-md object-contain"
+                />
+              )}
+            </div>
+          )}
+
+
           <div>
             <Button
               variant="ghost"
