@@ -211,7 +211,9 @@ export function MaintenanceTicketDialog({
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Evidência (opcional)</label>
+              <label className="text-sm font-medium">
+                Evidência <span className="text-destructive">*</span>
+              </label>
               {evidence && evidenceUrl ? (
                 <div className="relative inline-block">
                   {evidence.type === "foto" ? (
@@ -237,14 +239,19 @@ export function MaintenanceTicketDialog({
                   </button>
                 </div>
               ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCameraOpen(true)}
-                >
-                  <Camera className="h-4 w-4 mr-1.5" /> Adicionar foto/vídeo
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCameraOpen(true)}
+                  >
+                    <Camera className="h-4 w-4 mr-1.5" /> Adicionar foto/vídeo
+                  </Button>
+                  <p className="text-xs text-amber-600">
+                    É obrigatório anexar uma foto ou vídeo do problema.
+                  </p>
+                </>
               )}
             </div>
           </div>
