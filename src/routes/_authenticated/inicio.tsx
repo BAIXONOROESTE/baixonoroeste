@@ -286,13 +286,13 @@ function HomePage() {
         </div>
       )}
 
-      {isSup && pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
+      {pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
         <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-warning" />
               <div className="text-sm font-medium">
-                Manutenção pendente ({pendingMaintenanceTickets.length})
+                {isSup ? "Manutenção pendente" : "Meus chamados"} ({pendingMaintenanceTickets.length})
               </div>
             </div>
             {pendingMaintenanceTickets.length > 5 && (
