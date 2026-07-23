@@ -99,14 +99,17 @@ function HomePage() {
   });
 
   const { data: pendingMaintenanceTickets } = useQuery({
-    queryKey: ["pending-maintenance-tickets"],
-    enabled: isSup,
+    queryKey: ["pending-maintenance-tickets", isSup ? "all" : uid ?? "anon"],
+    enabled: !!uid,
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("maintenance_tickets")
         .select("id, title, status, assigned_to, reported_by, created_at")
         .in("status", ["aberto", "em_andamento"])
         .order("created_at", { ascending: false });
+      // Admin/supervisor: todos os chamados abertos. Colaborador: só onde ele é o responsável.
+      if (!isSup && uid) query = query.eq("assigned_to", uid);
+      const { data } = await query;
       const rows = data ?? [];
       const ids = Array.from(
         new Set(
