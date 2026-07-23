@@ -185,7 +185,9 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
       await supabaseAdmin.from("count_items").update({ status: "correto" }).eq("id", item.id);
     } else {
       const invName = (item as { inventory?: { name?: string } }).inventory?.name ?? `inventario ${item.inventory_id}`;
-      const counterName = (item as { counter?: { full_name?: string } }).counter?.full_name ?? "desconhecido";
+      const { data: counterProfile } = await supabaseAdmin
+        .from("profiles").select("full_name").eq("id", item.counted_by).maybeSingle();
+      const counterName = counterProfile?.full_name ?? "desconhecido";
       const resp = await ajustarEstoqueOmie({
         codigo_produto: Number(item.product.omie_id),
         quantidade: diff,
