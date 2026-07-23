@@ -244,6 +244,8 @@ export type Database = {
           id: string
           orientacao: string | null
           position: number
+          reference_media_path: string | null
+          reference_media_type: string | null
           template_id: string
           title: string
           updated_at: string
@@ -254,6 +256,8 @@ export type Database = {
           id?: string
           orientacao?: string | null
           position: number
+          reference_media_path?: string | null
+          reference_media_type?: string | null
           template_id: string
           title: string
           updated_at?: string
@@ -264,6 +268,8 @@ export type Database = {
           id?: string
           orientacao?: string | null
           position?: number
+          reference_media_path?: string | null
+          reference_media_type?: string | null
           template_id?: string
           title?: string
           updated_at?: string
