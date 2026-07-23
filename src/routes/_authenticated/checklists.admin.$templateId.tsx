@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -25,8 +25,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowDown, ArrowLeft, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Camera, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 
 export const Route = createFileRoute("/_authenticated/checklists/admin/$templateId")({
   head: () => ({ meta: [{ title: "Editar checklist · Baixo Noroeste" }] }),
