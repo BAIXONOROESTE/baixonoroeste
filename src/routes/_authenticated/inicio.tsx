@@ -99,14 +99,17 @@ function HomePage() {
   });
 
   const { data: pendingMaintenanceTickets } = useQuery({
-    queryKey: ["pending-maintenance-tickets"],
-    enabled: isSup,
+    queryKey: ["pending-maintenance-tickets", isSup ? "all" : uid ?? "anon"],
+    enabled: !!uid,
     queryFn: async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("maintenance_tickets")
         .select("id, title, status, assigned_to, reported_by, created_at")
         .in("status", ["aberto", "em_andamento"])
         .order("created_at", { ascending: false });
+      // Admin/supervisor: todos os chamados abertos. Colaborador: só onde ele é o responsável.
+      if (!isSup && uid) query = query.eq("assigned_to", uid);
+      const { data } = await query;
       const rows = data ?? [];
       const ids = Array.from(
         new Set(
@@ -283,13 +286,13 @@ function HomePage() {
         </div>
       )}
 
-      {isSup && pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
+      {pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
         <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-warning" />
               <div className="text-sm font-medium">
-                Manutenção pendente ({pendingMaintenanceTickets.length})
+                {isSup ? "Manutenção pendente" : "Meus chamados"} ({pendingMaintenanceTickets.length})
               </div>
             </div>
             {pendingMaintenanceTickets.length > 5 && (

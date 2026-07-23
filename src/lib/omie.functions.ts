@@ -153,7 +153,7 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
       for (let attempt = 0; attempt < 2; attempt++) {
         const { data: item, error } = await supabase
           .from("count_items")
-          .select("*, product:products(omie_id, name, code, unit, family_id), inventory:inventories(status, name), counter:profiles!count_items_counted_by_fkey(full_name)")
+          .select("*, product:products(omie_id, name, code, unit, family_id), inventory:inventories(status, name)")
           .eq("id", data.count_item_id)
           .single();
         if (item) return item;
@@ -185,7 +185,9 @@ export const pushCountToOmie = createServerFn({ method: "POST" })
       await supabaseAdmin.from("count_items").update({ status: "correto" }).eq("id", item.id);
     } else {
       const invName = (item as { inventory?: { name?: string } }).inventory?.name ?? `inventario ${item.inventory_id}`;
-      const counterName = (item as { counter?: { full_name?: string } }).counter?.full_name ?? "desconhecido";
+      const { data: counterProfile } = await supabaseAdmin
+        .from("profiles").select("full_name").eq("id", item.counted_by).maybeSingle();
+      const counterName = counterProfile?.full_name ?? "desconhecido";
       const resp = await ajustarEstoqueOmie({
         codigo_produto: Number(item.product.omie_id),
         quantidade: diff,
@@ -345,25 +347,43 @@ export const closeInventory = createServerFn({ method: "POST" })
 
 
     if (data.push_to_omie) {
-      const { data: inv } = await supabase
+      const { data: inv, error: invErr } = await supabase
         .from("inventories")
-        .select("name, counter:profiles!inventories_assigned_counter_id_fkey(full_name)")
+        .select("name, assigned_counter_id")
         .eq("id", data.inventory_id)
         .maybeSingle();
-      const invName = (inv as { name?: string } | null)?.name ?? `inventario ${data.inventory_id}`;
-      const invCounterName = (inv as { counter?: { full_name?: string } } | null)?.counter?.full_name ?? null;
+      if (invErr) throw new Error(`Falha ao buscar inventário: ${invErr.message}`);
+      const invName = inv?.name ?? `inventario ${data.inventory_id}`;
+      let invCounterName: string | null = null;
+      if (inv?.assigned_counter_id) {
+        const { data: invCounter } = await supabase
+          .from("profiles").select("full_name").eq("id", inv.assigned_counter_id).maybeSingle();
+        invCounterName = invCounter?.full_name ?? null;
+      }
 
-      const { data: pending } = await supabase
+      const { data: pending, error: pendingErr } = await supabase
         .from("count_items")
-        .select("*, product:products(omie_id, name), counter:profiles!count_items_counted_by_fkey(full_name)")
+        .select("*, product:products(omie_id, name)")
         .eq("inventory_id", data.inventory_id)
         .eq("status", "divergencia");
+      if (pendingErr) throw new Error(`Falha ao buscar itens divergentes: ${pendingErr.message}`);
+
+      // Prefetch counter names to avoid N+1 without breaking on missing FK embed.
+      const counterIds = Array.from(new Set((pending ?? []).map((p) => p.counted_by).filter(Boolean) as string[]));
+      const counterNameById = new Map<string, string>();
+      if (counterIds.length) {
+        const { data: counterProfiles } = await supabase
+          .from("profiles").select("id, full_name").in("id", counterIds);
+        for (const c of counterProfiles ?? []) {
+          if (c.id && c.full_name) counterNameById.set(c.id, c.full_name);
+        }
+      }
 
       for (const item of pending ?? []) {
         const diff = Number(item.difference);
         if (diff === 0) continue;
         try {
-          const counterName = (item as { counter?: { full_name?: string } }).counter?.full_name ?? invCounterName ?? "desconhecido";
+          const counterName = (item.counted_by && counterNameById.get(item.counted_by)) ?? invCounterName ?? "desconhecido";
           const resp = await ajustarEstoqueOmie({
             codigo_produto: Number(item.product.omie_id),
             quantidade: diff,
