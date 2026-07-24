@@ -16,30 +16,84 @@ interface Row {
   registered_by: string
 }
 
+interface CountFamilyRow {
+  family: string
+  items_counted: number
+  divergences: number
+  diff_value: number
+}
+
 interface Props {
   date_label?: string
   rows?: Row[]
   total_value?: number
+  counts_by_family?: CountFamilyRow[]
+  counts_total_items?: number
+  counts_total_divergences?: number
+  counts_total_diff_value?: number
 }
 
-const LossesDaily = ({ date_label = '—', rows = [], total_value = 0 }: Props) => (
+const LossesDaily = ({
+  date_label = '—',
+  rows = [],
+  total_value = 0,
+  counts_by_family = [],
+  counts_total_items = 0,
+  counts_total_divergences = 0,
+  counts_total_diff_value = 0,
+}: Props) => (
   <Html lang="pt-BR" dir="ltr">
     <Head />
-    <Preview>{`Relatório de perdas e quebras — ${date_label}`}</Preview>
+    <Preview>{`Resumo diário — ${date_label}`}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Section style={header}>
           <Img src={LOGO_URL} alt="Baixo Noroeste" width="160" style={{ display: 'block', margin: '0 auto 12px auto', maxWidth: '160px', height: 'auto' }} />
-          <Heading style={h1}>Perdas & Quebras — Baixo Noroeste</Heading>
-          <Text style={sub}>Relatório diário — {date_label}</Text>
-        </Section>
-
-        <Section style={card}>
-          <Text style={row}><strong>Total de lançamentos:</strong> {rows.length}</Text>
-          <Text style={row}><strong>Valor total:</strong> R$ {total_value.toFixed(2)}</Text>
+          <Heading style={h1}>Resumo diário — Baixo Noroeste</Heading>
+          <Text style={sub}>{date_label}</Text>
         </Section>
 
         <Section>
+          <Heading as="h2" style={h2}>Contagens do dia</Heading>
+          <Section style={card}>
+            <Text style={row}><strong>Itens contados:</strong> {counts_total_items}</Text>
+            <Text style={row}><strong>Divergências:</strong> {counts_total_divergences}</Text>
+            <Text style={row}><strong>Valor total de diferença:</strong> R$ {counts_total_diff_value.toFixed(2)}</Text>
+          </Section>
+          {counts_by_family.length === 0 ? (
+            <Text style={muted}>Nenhuma contagem registrada no período.</Text>
+          ) : (
+            <table style={table} cellPadding={0} cellSpacing={0}>
+              <thead>
+                <tr>
+                  <th style={th}>Família</th>
+                  <th style={thNum}>Itens</th>
+                  <th style={thNum}>Divergências</th>
+                  <th style={thNum}>Dif. financeira</th>
+                </tr>
+              </thead>
+              <tbody>
+                {counts_by_family.map((f, i) => (
+                  <tr key={i} style={i % 2 ? trAlt : trS}>
+                    <td style={td}>{f.family}</td>
+                    <td style={tdNum}>{f.items_counted}</td>
+                    <td style={tdNum}>{f.divergences}</td>
+                    <td style={{ ...tdNum, color: f.diff_value === 0 ? '#94a3b8' : f.diff_value > 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
+                      R$ {f.diff_value.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Section>
+
+        <Section>
+          <Heading as="h2" style={h2}>Perdas & Quebras</Heading>
+          <Section style={card}>
+            <Text style={row}><strong>Total de lançamentos:</strong> {rows.length}</Text>
+            <Text style={row}><strong>Valor total:</strong> R$ {total_value.toFixed(2)}</Text>
+          </Section>
           {rows.length === 0 ? (
             <Text style={muted}>Nenhuma perda ou quebra registrada no período.</Text>
           ) : (
@@ -89,6 +143,7 @@ const main = { backgroundColor: '#ffffff', fontFamily: 'Inter, Arial, sans-serif
 const container = { maxWidth: '720px', margin: '0 auto', padding: '24px' }
 const header = { textAlign: 'center' as const, paddingBottom: '16px' }
 const h1 = { color: '#f5b400', fontSize: '22px', margin: '0 0 4px 0' }
+const h2 = { color: '#0b0b0f', fontSize: '16px', margin: '20px 0 8px 0' }
 const sub = { color: '#64748b', fontSize: '14px', margin: 0 }
 const card = { backgroundColor: '#faf7f0', border: '1px solid #eadfc4', borderRadius: '12px', padding: '16px' }
 const row = { color: '#0b0b0f', fontSize: '14px', margin: '4px 0' }
@@ -106,13 +161,20 @@ const footer = { color: '#94a3b8', fontSize: '11px', textAlign: 'center' as cons
 
 export const template = {
   component: LossesDaily,
-  subject: (d: Record<string, unknown>) => `[Baixo Noroeste] Perdas & Quebras — ${d.date_label ?? ''}`,
-  displayName: 'Relatório diário de perdas e quebras',
+  subject: (d: Record<string, unknown>) => `[Baixo Noroeste] Resumo diário — ${d.date_label ?? ''}`,
+  displayName: 'Resumo diário (contagens + perdas)',
   previewData: {
     date_label: '10/07/2026',
     total_value: 479.8,
     rows: [
       { created_at: '14:12', product: 'LICOR JAGERMEISTER 700ml', code: 'PRD00846', quantity: 2, unit: 'UN', cost: 239.9, reason: 'Quebra', observation: 'Caiu no estoque', registered_by: 'PEDROHMG' },
     ],
+    counts_by_family: [
+      { family: 'Bebidas', items_counted: 12, divergences: 3, diff_value: -45.6 },
+      { family: 'Mercearia', items_counted: 8, divergences: 0, diff_value: 0 },
+    ],
+    counts_total_items: 20,
+    counts_total_divergences: 3,
+    counts_total_diff_value: -45.6,
   },
 } satisfies TemplateEntry
