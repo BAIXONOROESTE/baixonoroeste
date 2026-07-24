@@ -82,7 +82,7 @@ async function handle(request: Request) {
   const { data: fams } = familyIds.length
     ? await admin.from('families').select('id, name').in('id', familyIds)
     : { data: [] as Array<{ id: string; name: string }> }
-  const famNameById = new Map((fams ?? []).map((f: any) => [f.id, f.name]))
+  const famNameById = new Map<string, string>((fams ?? []).map((f: any) => [f.id as string, f.name as string]))
 
   const byFamily = new Map<string, { family: string; items_counted: number; divergences: number; diff_value: number }>()
   for (const it of ciList) {
