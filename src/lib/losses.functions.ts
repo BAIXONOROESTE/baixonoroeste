@@ -70,7 +70,7 @@ export const registerLoss = createServerFn({ method: "POST" })
       const product = ctx?.product ?? null;
       const reason = ctx?.reason ?? null;
       const actor = ctx?.actor ?? null;
-      const inventoryName = ctx?.count_item?.inventory_name ?? null;
+      void ctx?.count_item?.inventory_name;
       const recipients = ctx?.recipients ?? [];
 
       // ---- Ajuste imediato de estoque na Omie ----
