@@ -67,6 +67,38 @@ async function handle(request: Request) {
   })
   const total_value = rows.reduce((s, r) => s + r.quantity * r.cost, 0)
 
+  // ---- Resumo de contagens do dia (agrupado por família) ----
+  const { data: countItems, error: ciErr } = await admin
+    .from('count_items')
+    .select('difference, financial_diff, status, product:products(family_id)')
+    .gte('created_at', startUtc)
+    .lt('created_at', endUtc)
+  if (ciErr) return new Response(`db error: ${ciErr.message}`, { status: 500 })
+
+  const ciList = (countItems ?? []) as any[]
+  const familyIds = Array.from(
+    new Set(ciList.map((r) => r.product?.family_id).filter(Boolean) as string[]),
+  )
+  const { data: fams } = familyIds.length
+    ? await admin.from('families').select('id, name').in('id', familyIds)
+    : { data: [] as Array<{ id: string; name: string }> }
+  const famNameById = new Map((fams ?? []).map((f: any) => [f.id, f.name]))
+
+  const byFamily = new Map<string, { family: string; items_counted: number; divergences: number; diff_value: number }>()
+  for (const it of ciList) {
+    const fid = (it.product?.family_id as string | null) ?? '__none__'
+    const fname = fid === '__none__' ? 'Sem família' : (famNameById.get(fid) ?? '—')
+    const cur = byFamily.get(fid) ?? { family: fname, items_counted: 0, divergences: 0, diff_value: 0 }
+    cur.items_counted += 1
+    if (Number(it.difference ?? 0) !== 0) cur.divergences += 1
+    cur.diff_value += Number(it.financial_diff ?? 0)
+    byFamily.set(fid, cur)
+  }
+  const counts_by_family = Array.from(byFamily.values()).sort((a, b) => a.family.localeCompare(b.family))
+  const counts_total_items = ciList.length
+  const counts_total_divergences = ciList.filter((r) => Number(r.difference ?? 0) !== 0).length
+  const counts_total_diff_value = ciList.reduce((s, r) => s + Number(r.financial_diff ?? 0), 0)
+
   // Only admins receive this report
   const { data: adminRoles } = await admin.from('user_roles').select('user_id').eq('role', 'admin')
   const adminIds = (adminRoles ?? []).map((r: any) => r.user_id)
@@ -80,11 +112,19 @@ async function handle(request: Request) {
   const result = await sendTemplateEmail({
     templateName: 'losses-daily',
     recipients,
-    templateData: { date_label: label, rows, total_value },
-    idempotencyKeyPrefix: `losses-daily-${label}`,
+    templateData: {
+      date_label: label,
+      rows,
+      total_value,
+      counts_by_family,
+      counts_total_items,
+      counts_total_divergences,
+      counts_total_diff_value,
+    },
+    idempotencyKeyPrefix: `daily-summary-${label}`,
   })
 
-  return new Response(JSON.stringify({ ok: true, ...result, count: rows.length, label }), {
+  return new Response(JSON.stringify({ ok: true, ...result, losses: rows.length, counts: counts_total_items, label }), {
     headers: { 'Content-Type': 'application/json' },
   })
 }
