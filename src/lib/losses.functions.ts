@@ -70,7 +70,7 @@ export const registerLoss = createServerFn({ method: "POST" })
       const product = ctx?.product ?? null;
       const reason = ctx?.reason ?? null;
       const actor = ctx?.actor ?? null;
-      const inventoryName = ctx?.count_item?.inventory_name ?? null;
+      void ctx?.count_item?.inventory_name;
       const recipients = ctx?.recipients ?? [];
 
       // ---- Ajuste imediato de estoque na Omie ----
@@ -117,42 +117,10 @@ export const registerLoss = createServerFn({ method: "POST" })
         });
       }
 
-      // ---- Notificação por e-mail (via supabaseAdmin) ----
-      if (recipients.length > 0) {
-        const { sendTemplateEmail } = await import("@/lib/email/notify.server");
-        const unitCost = Number(product?.cost ?? 0);
-        const finValue = unitCost * Number(data.quantity);
-        try {
-          await sendTemplateEmail({
-            templateName: "loss-registered",
-            recipients,
-            idempotencyKeyPrefix: `loss-${created.id}`,
-            templateData: {
-              product_name: product?.name ?? "—",
-              product_code: product?.code ?? "",
-              unit: product?.unit ?? "",
-              quantity: Number(data.quantity),
-              unit_cost: unitCost,
-              financial_value: finValue,
-              reason: reason?.name ?? "—",
-              observation: data.observation ?? "",
-              registered_by: actor?.full_name ?? "—",
-              inventory_name: inventoryName,
-              registered_at: new Date(created.created_at).toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-              }),
-            },
-          });
-        } catch (mailErr) {
-          const emsg = mailErr instanceof Error ? mailErr.message : String(mailErr);
-          await supabase.from("logs").insert({
-            user_id: userId,
-            action: "registerLoss_email_erro",
-            entity: "loss",
-            details: { loss_id: created.id, erro: emsg },
-          });
-        }
-      }
+      // E-mail instantâneo de perda/quebra removido — o resumo diário das 5h
+      // consolida essas informações. Recipients ainda são calculados via RPC
+      // security definer para manter a possibilidade futura sem depender de RLS.
+      void recipients;
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e);
       console.error("[registerLoss] pós-insert falhou", e);
