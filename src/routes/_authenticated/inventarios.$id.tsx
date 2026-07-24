@@ -675,28 +675,34 @@ function InventoryDetail() {
 
       {canEditCounts && (
         <div className="pt-2">
-          <Button className="w-full" variant="default"
-            onClick={async () => {
-              const isSup = profile?.role === "admin" || profile?.role === "supervisor";
-              const pushToOmie = settings?.omie_update_mode === "encerramento";
-              const modeText = isSup
-                ? (pushToOmie ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?")
-                : "Enviar pedido de fechamento para o supervisor/admin por e-mail?";
-              if (!confirm(modeText)) return;
-              try {
-                if (isSup) {
-                  await closeFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
-                  toast.success("Inventário fechado!");
-                  qc.invalidateQueries();
-                  navigate({ to: "/inventarios" });
-                } else {
-                  const r = await requestCloseFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
-                  toast.success(`Pedido enviado (${r.sent}/${r.targets} notificações).`);
-                }
-              } catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao fechar."); }
-            }}>
-            <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
-          </Button>
+          {page + 1 >= totalPages ? (
+            <Button className="w-full" variant="default"
+              onClick={async () => {
+                const isSup = profile?.role === "admin" || profile?.role === "supervisor";
+                const pushToOmie = settings?.omie_update_mode === "encerramento";
+                const modeText = isSup
+                  ? (pushToOmie ? "Isso vai empurrar TODAS as divergências para o Omie. Continuar?" : "Fechar inventário?")
+                  : "Enviar pedido de fechamento para o supervisor/admin por e-mail?";
+                if (!confirm(modeText)) return;
+                try {
+                  if (isSup) {
+                    await closeFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
+                    toast.success("Inventário fechado!");
+                    qc.invalidateQueries();
+                    navigate({ to: "/inventarios" });
+                  } else {
+                    const r = await requestCloseFn({ data: { inventory_id: id, push_to_omie: pushToOmie } });
+                    toast.success(`Pedido enviado (${r.sent}/${r.targets} notificações).`);
+                  }
+                } catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao fechar."); }
+              }}>
+              <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
+            </Button>
+          ) : (
+            <div className="rounded-md border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
+              Veja todos os produtos antes de fechar (página {page + 1} de {totalPages}).
+            </div>
+          )}
         </div>
       )}
 
