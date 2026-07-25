@@ -238,12 +238,23 @@ function ChecklistAdminPage() {
                 {t.items?.length ?? 0} itens
               </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <Switch
                 checked={t.active}
                 onCheckedChange={(v) => toggleActive.mutate({ id: t.id, active: v })}
                 aria-label="Ativo"
               />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setAssignFor(t);
+                  setAssignDate(todayLocalISO());
+                  setAssignUserId("");
+                }}
+              >
+                <UserCheck className="h-4 w-4 mr-1.5" /> Atribuir
+              </Button>
               <Button asChild size="sm" variant="outline">
                 <Link to="/checklists/admin/$templateId" params={{ templateId: t.id }}>
                   <Pencil className="h-4 w-4 mr-1.5" /> Editar
