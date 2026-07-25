@@ -62,12 +62,6 @@ type RunSummary = {
   items: { id: string; done: boolean }[];
 };
 
-type TemplateRow = {
-  id: string;
-  name: string;
-  scheduled_time: string | null;
-  runs: RunSummary[];
-};
 
 type Assignment = {
   id: string;
