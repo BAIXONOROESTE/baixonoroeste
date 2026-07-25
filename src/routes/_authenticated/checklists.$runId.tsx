@@ -231,6 +231,9 @@ function RunPage() {
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar observação geral."),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
+  });
+
+
 
   const uploadEvidence = useMutation({
     mutationFn: async ({
