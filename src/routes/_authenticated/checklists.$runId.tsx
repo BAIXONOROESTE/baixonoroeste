@@ -221,6 +221,17 @@ function RunPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
   });
 
+  const saveObservacaoGeral = useMutation({
+    mutationFn: async (value: string) => {
+      const { error } = await supabase
+        .from("checklist_runs")
+        .update({ observacao_geral: value || null })
+        .eq("id", runId);
+      if (error) throw error;
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar observação geral."),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
+
   const uploadEvidence = useMutation({
     mutationFn: async ({
       itemId,
