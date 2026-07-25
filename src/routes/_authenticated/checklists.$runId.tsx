@@ -74,8 +74,15 @@ type RunData = {
   started_by: string;
   submitted_at: string | null;
   template_id: string;
+  run_date: string;
+  observacao_geral: string | null;
   template: { name: string; scheduled_time: string | null } | null;
+  starter: { full_name: string | null } | null;
   items: RunItem[];
+};
+
+type AssignmentInfo = {
+  assignee: { full_name: string | null } | null;
 };
 
 function RunPage() {
