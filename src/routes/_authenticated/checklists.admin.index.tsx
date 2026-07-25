@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
+import { listLoginProfiles } from "@/lib/login-profiles.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +17,20 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Pencil, Plus } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Pencil, Plus, UserCheck } from "lucide-react";
 import { toast } from "sonner";
+
+function todayLocalISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export const Route = createFileRoute("/_authenticated/checklists/admin/")({
   head: () => ({ meta: [{ title: "Gerenciar checklists · Baixo Noroeste" }] }),
@@ -48,6 +62,73 @@ function ChecklistAdminPage() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTime, setNewTime] = useState("");
+
+  const [assignFor, setAssignFor] = useState<TemplateRow | null>(null);
+  const [assignDate, setAssignDate] = useState<string>(todayLocalISO());
+  const [assignUserId, setAssignUserId] = useState<string>("");
+
+  const listLoginProfilesFn = useServerFn(listLoginProfiles);
+  const activeProfilesQ = useQuery({
+    queryKey: ["login-profiles-active"],
+    queryFn: async () => {
+      const rows = await listLoginProfilesFn();
+      return (rows ?? []).filter((p) => p.active);
+    },
+    enabled: canManage,
+  });
+
+  const existingAssignmentQ = useQuery({
+    queryKey: ["checklist-assignment", assignFor?.id, assignDate],
+    enabled: !!assignFor && !!assignDate,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("checklist_assignments")
+        .select("id, assigned_to")
+        .eq("template_id", assignFor!.id)
+        .eq("assignment_date", assignDate)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Sincroniza o usuário selecionado com o valor persistido quando abre.
+  const currentAssigned = existingAssignmentQ.data?.assigned_to ?? "";
+  useEffect(() => {
+    if (assignFor && currentAssigned && !assignUserId) {
+      setAssignUserId(currentAssigned);
+    }
+  }, [assignFor, currentAssigned, assignUserId]);
+
+
+  const upsertAssignment = useMutation({
+    mutationFn: async () => {
+      if (!assignFor) throw new Error("Selecione um checklist.");
+      if (!assignUserId) throw new Error("Selecione um colaborador.");
+      if (!profile?.id) throw new Error("Sem usuário autenticado.");
+      const { error } = await supabase
+        .from("checklist_assignments")
+        .upsert(
+          {
+            template_id: assignFor.id,
+            assignment_date: assignDate,
+            assigned_to: assignUserId,
+            created_by: profile.id,
+          },
+          { onConflict: "template_id,assignment_date" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Responsável definido");
+      qc.invalidateQueries({ queryKey: ["checklists"] });
+      qc.invalidateQueries({ queryKey: ["checklist-assignment"] });
+      setAssignFor(null);
+      setAssignUserId("");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao atribuir"),
+  });
+
 
   const query = useQuery({
     queryKey: ["checklist-admin-templates"],
@@ -157,12 +238,23 @@ function ChecklistAdminPage() {
                 {t.items?.length ?? 0} itens
               </div>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <Switch
                 checked={t.active}
                 onCheckedChange={(v) => toggleActive.mutate({ id: t.id, active: v })}
                 aria-label="Ativo"
               />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setAssignFor(t);
+                  setAssignDate(todayLocalISO());
+                  setAssignUserId("");
+                }}
+              >
+                <UserCheck className="h-4 w-4 mr-1.5" /> Atribuir
+              </Button>
               <Button asChild size="sm" variant="outline">
                 <Link to="/checklists/admin/$templateId" params={{ templateId: t.id }}>
                   <Pencil className="h-4 w-4 mr-1.5" /> Editar
@@ -197,6 +289,72 @@ function ChecklistAdminPage() {
               disabled={!newName.trim() || createTemplate.isPending}
             >
               {createTemplate.isPending ? "Salvando…" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!assignFor}
+        onOpenChange={(v) => {
+          if (!v) {
+            setAssignFor(null);
+            setAssignUserId("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atribuir responsável</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground truncate">
+              {assignFor?.name}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Data</label>
+              <Input
+                type="date"
+                value={assignDate}
+                min={todayLocalISO()}
+                onChange={(e) => {
+                  setAssignDate(e.target.value);
+                  setAssignUserId("");
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Colaborador esperado</label>
+              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um colaborador" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(activeProfilesQ.data ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAssignFor(null);
+                setAssignUserId("");
+              }}
+              disabled={upsertAssignment.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => upsertAssignment.mutate()}
+              disabled={!assignUserId || upsertAssignment.isPending}
+            >
+              {upsertAssignment.isPending ? "Salvando…" : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

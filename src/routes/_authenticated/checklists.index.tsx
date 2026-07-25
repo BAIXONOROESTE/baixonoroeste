@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
@@ -6,6 +7,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Settings } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,12 +62,21 @@ type RunSummary = {
   items: { id: string; done: boolean }[];
 };
 
+
+type Assignment = {
+  id: string;
+  assigned_to: string;
+  assignee: { full_name: string | null } | null;
+};
+
 type TemplateRow = {
   id: string;
   name: string;
   scheduled_time: string | null;
   runs: RunSummary[];
+  assignments: Assignment[];
 };
+
 
 type PendingReview = {
   id: string;
@@ -68,11 +88,17 @@ type PendingReview = {
 
 function ChecklistsPage() {
   const { data: profile } = useProfile();
+  const uid = profile?.id ?? null;
   const role = profile?.role ?? "contador";
   const canReview = role === "admin" || role === "supervisor";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const todayISO = todayLocalISO();
+
+  const [assignmentPrompt, setAssignmentPrompt] = useState<{
+    templateId: string;
+    expectedName: string;
+  } | null>(null);
 
   const todayQuery = useQuery({
     queryKey: ["checklists", "today", todayISO],
@@ -81,19 +107,51 @@ function ChecklistsPage() {
         .from("checklist_templates")
         .select(
           `id, name, scheduled_time,
-           runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done))`,
+           runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done)),
+           assignments:checklist_assignments(id, assigned_to, assignment_date, assignee:profiles!checklist_assignments_assigned_to_fkey(full_name))`,
         )
         .eq("active", true)
-        .eq("runs.run_date", todayISO);
+        .eq("runs.run_date", todayISO)
+        .eq("assignments.assignment_date", todayISO);
       if (error) throw error;
       return (data ?? []).map((t: any) => ({
         id: t.id,
         name: t.name,
         scheduled_time: t.scheduled_time,
         runs: (t.runs ?? []) as RunSummary[],
+        assignments: (t.assignments ?? []) as Assignment[],
       }));
     },
   });
+
+  const avgTimesQuery = useQuery({
+    queryKey: ["checklists", "avg-times"],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase
+        .from("checklist_runs")
+        .select("template_id, created_at, submitted_at")
+        .eq("status", "aprovado")
+        .not("submitted_at", "is", null);
+      if (error) throw error;
+      const acc: Record<string, { sum: number; n: number }> = {};
+      for (const r of (data ?? []) as any[]) {
+        if (!r.submitted_at || !r.created_at) continue;
+        const ms = new Date(r.submitted_at).getTime() - new Date(r.created_at).getTime();
+        if (!Number.isFinite(ms) || ms <= 0) continue;
+        const key = r.template_id as string;
+        acc[key] ??= { sum: 0, n: 0 };
+        acc[key].sum += ms;
+        acc[key].n += 1;
+      }
+      const result: Record<string, number> = {};
+      for (const [k, v] of Object.entries(acc)) {
+        if (v.n >= 3) result[k] = Math.round(v.sum / v.n / 60000);
+      }
+      return result;
+    },
+  });
+
+
 
   const pendingQuery = useQuery({
     queryKey: ["checklists", "pending-review"],
@@ -232,14 +290,30 @@ function ChecklistsPage() {
             sched !== null &&
             nowMinutes >= sched - 30 &&
             nowMinutes <= sched + 120;
+          const assignment = t.assignments[0] ?? null;
+          const expectedName = assignment?.assignee?.full_name ?? null;
+          const avgMin = avgTimesQuery.data?.[t.id];
 
           let badge: { label: string; className: string } | null = null;
           let action: React.ReactNode = null;
 
+          const handleStart = () => {
+            if (
+              assignment &&
+              uid &&
+              assignment.assigned_to !== uid &&
+              expectedName
+            ) {
+              setAssignmentPrompt({ templateId: t.id, expectedName });
+              return;
+            }
+            startRun.mutate(t.id);
+          };
+
           if (!run) {
             if (isNowWindow) badge = { label: "Agora", className: "bg-primary text-primary-foreground" };
             action = (
-              <Button size="sm" disabled={startRun.isPending} onClick={() => startRun.mutate(t.id)}>
+              <Button size="sm" disabled={startRun.isPending} onClick={handleStart}>
                 Iniciar
               </Button>
             );
@@ -276,10 +350,24 @@ function ChecklistsPage() {
             <Card key={t.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-sm font-mono text-muted-foreground w-12 shrink-0">
-                    {t.scheduled_time ? t.scheduled_time.slice(0, 5) : "—"}
-                  </span>
-                  <span className="font-medium truncate">{t.name}</span>
+                  <div className="w-12 shrink-0 leading-tight">
+                    <div className="text-sm font-mono text-muted-foreground">
+                      {t.scheduled_time ? t.scheduled_time.slice(0, 5) : "—"}
+                    </div>
+                    {typeof avgMin === "number" && (
+                      <div className="text-[10px] text-muted-foreground">
+                        ~{avgMin} min
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{t.name}</div>
+                    {expectedName && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        Esperado: {expectedName}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {badge && (
                   <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
@@ -294,6 +382,35 @@ function ChecklistsPage() {
           );
         })}
       </section>
+
+      <AlertDialog
+        open={!!assignmentPrompt}
+        onOpenChange={(v) => {
+          if (!v) setAssignmentPrompt(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Substituir responsável?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este checklist estava atribuído a {assignmentPrompt?.expectedName}. Confirma que vai fazer no lugar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (assignmentPrompt) {
+                  startRun.mutate(assignmentPrompt.templateId);
+                }
+                setAssignmentPrompt(null);
+              }}
+            >
+              Sim, fazer agora
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

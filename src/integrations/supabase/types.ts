@@ -59,6 +59,44 @@ export type Database = {
         }
         Relationships: []
       }
+      checklist_assignments: {
+        Row: {
+          assigned_to: string
+          assignment_date: string
+          created_at: string
+          created_by: string
+          id: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to: string
+          assignment_date: string
+          created_at?: string
+          created_by: string
+          id?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string
+          assignment_date?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_assignments_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_run_item_evidence: {
         Row: {
           created_at: string
@@ -200,6 +238,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          observacao_geral: string | null
           run_date: string
           started_by: string
           status: string
@@ -210,6 +249,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          observacao_geral?: string | null
           run_date?: string
           started_by: string
           status?: string
@@ -220,6 +260,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          observacao_geral?: string | null
           run_date?: string
           started_by?: string
           status?: string

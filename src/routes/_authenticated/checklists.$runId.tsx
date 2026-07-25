@@ -74,8 +74,15 @@ type RunData = {
   started_by: string;
   submitted_at: string | null;
   template_id: string;
+  run_date: string;
+  observacao_geral: string | null;
   template: { name: string; scheduled_time: string | null } | null;
+  starter: { full_name: string | null } | null;
   items: RunItem[];
+};
+
+type AssignmentInfo = {
+  assignee: { full_name: string | null } | null;
 };
 
 function RunPage() {
@@ -102,8 +109,9 @@ function RunPage() {
       const { data, error } = await supabase
         .from("checklist_runs")
         .select(
-          `id, status, started_by, submitted_at, template_id,
+          `id, status, started_by, submitted_at, template_id, run_date, observacao_geral,
            template:checklist_templates(name, scheduled_time),
+           starter:profiles!checklist_runs_started_by_fkey(full_name),
            items:checklist_run_items(
              id, done, done_by, done_at, observacao, justificativa, review_status,
              template_item:checklist_template_items(title, orientacao, evidence_required, position, reference_media_path, reference_media_type),
@@ -117,6 +125,21 @@ function RunPage() {
         (a: RunItem, b: RunItem) => (a.template_item?.position ?? 0) - (b.template_item?.position ?? 0),
       );
       return { ...(data as any), items } as RunData;
+    },
+  });
+
+  const assignmentQuery = useQuery({
+    queryKey: ["checklists", "run-assignment", runQuery.data?.template_id, runQuery.data?.run_date],
+    enabled: !!runQuery.data?.template_id && !!runQuery.data?.run_date,
+    queryFn: async (): Promise<AssignmentInfo | null> => {
+      const { data, error } = await supabase
+        .from("checklist_assignments")
+        .select("assignee:profiles!checklist_assignments_assigned_to_fkey(full_name)")
+        .eq("template_id", runQuery.data!.template_id)
+        .eq("assignment_date", runQuery.data!.run_date)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) ?? null;
     },
   });
 
@@ -197,6 +220,20 @@ function RunPage() {
     onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar justificativa."),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
   });
+
+  const saveObservacaoGeral = useMutation({
+    mutationFn: async (value: string) => {
+      const { error } = await supabase
+        .from("checklist_runs")
+        .update({ observacao_geral: value || null })
+        .eq("id", runId);
+      if (error) throw error;
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao salvar observação geral."),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["checklists", "run", runId] }),
+  });
+
+
 
   const uploadEvidence = useMutation({
     mutationFn: async ({
@@ -335,6 +372,40 @@ function RunPage() {
           </div>
           <Progress value={pct} className="h-2" />
         </div>
+
+        {mode === "aprovacao" && assignmentQuery.data?.assignee?.full_name && (
+          <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
+            Esperado: <span className="font-medium text-foreground">{assignmentQuery.data.assignee.full_name}</span>
+            {" · "}Feito por: <span className="font-medium text-foreground">{run.starter?.full_name ?? "—"}</span>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Observação geral</label>
+          {mode === "execucao" ? (
+            <Textarea
+              key={`obs-geral-${run.id}`}
+              defaultValue={run.observacao_geral ?? ""}
+              rows={2}
+              placeholder="Observação sobre o checklist como um todo (opcional)…"
+              onBlur={(e) => {
+                const value = e.target.value;
+                if (value !== (run.observacao_geral ?? "")) {
+                  saveObservacaoGeral.mutate(value);
+                }
+              }}
+            />
+          ) : run.observacao_geral ? (
+            <p className="text-sm whitespace-pre-wrap rounded-md border border-border bg-muted/30 px-3 py-2">
+              {run.observacao_geral}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sem observação geral.</p>
+          )}
+        </div>
+
+
+
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium rounded-full bg-muted px-2 py-1">
