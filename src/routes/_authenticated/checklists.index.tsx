@@ -120,7 +120,6 @@ function ChecklistsPage() {
         scheduled_time: t.scheduled_time,
         runs: (t.runs ?? []) as RunSummary[],
         assignments: (t.assignments ?? []) as Assignment[],
-        approved_runs: [] as ApprovedRun[],
       }));
     },
   });
