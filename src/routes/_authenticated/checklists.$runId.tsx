@@ -373,6 +373,37 @@ function RunPage() {
           <Progress value={pct} className="h-2" />
         </div>
 
+        {mode === "aprovacao" && assignmentQuery.data?.assignee?.full_name && (
+          <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
+            Esperado: <span className="font-medium text-foreground">{assignmentQuery.data.assignee.full_name}</span>
+            {" · "}Feito por: <span className="font-medium text-foreground">{run.starter?.full_name ?? "—"}</span>
+          </div>
+        )}
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Observação geral</label>
+          {mode === "execucao" ? (
+            <Textarea
+              key={`obs-geral-${run.id}`}
+              defaultValue={run.observacao_geral ?? ""}
+              rows={2}
+              placeholder="Observação sobre o checklist como um todo (opcional)…"
+              onBlur={(e) => {
+                const value = e.target.value;
+                if (value !== (run.observacao_geral ?? "")) {
+                  saveObservacaoGeral.mutate(value);
+                }
+              }}
+            />
+          ) : run.observacao_geral ? (
+            <p className="text-sm whitespace-pre-wrap rounded-md border border-border bg-muted/30 px-3 py-2">
+              {run.observacao_geral}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sem observação geral.</p>
+          )}
+
+
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium rounded-full bg-muted px-2 py-1">
             Item {currentIndex + 1} de {total}
