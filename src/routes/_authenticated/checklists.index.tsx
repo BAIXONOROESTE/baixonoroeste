@@ -69,6 +69,26 @@ type TemplateRow = {
   runs: RunSummary[];
 };
 
+type Assignment = {
+  id: string;
+  assigned_to: string;
+  assignee: { full_name: string | null } | null;
+};
+
+type ApprovedRun = {
+  submitted_at: string | null;
+  created_at: string;
+};
+
+type TemplateRow = {
+  id: string;
+  name: string;
+  scheduled_time: string | null;
+  runs: RunSummary[];
+  assignments: Assignment[];
+  approved_runs: ApprovedRun[];
+};
+
 type PendingReview = {
   id: string;
   run_date: string;
@@ -79,11 +99,17 @@ type PendingReview = {
 
 function ChecklistsPage() {
   const { data: profile } = useProfile();
+  const uid = profile?.id ?? null;
   const role = profile?.role ?? "contador";
   const canReview = role === "admin" || role === "supervisor";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const todayISO = todayLocalISO();
+
+  const [assignmentPrompt, setAssignmentPrompt] = useState<{
+    templateId: string;
+    expectedName: string;
+  } | null>(null);
 
   const todayQuery = useQuery({
     queryKey: ["checklists", "today", todayISO],
