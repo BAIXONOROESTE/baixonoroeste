@@ -109,8 +109,9 @@ function RunPage() {
       const { data, error } = await supabase
         .from("checklist_runs")
         .select(
-          `id, status, started_by, submitted_at, template_id,
+          `id, status, started_by, submitted_at, template_id, run_date, observacao_geral,
            template:checklist_templates(name, scheduled_time),
+           starter:profiles!checklist_runs_started_by_fkey(full_name),
            items:checklist_run_items(
              id, done, done_by, done_at, observacao, justificativa, review_status,
              template_item:checklist_template_items(title, orientacao, evidence_required, position, reference_media_path, reference_media_type),
@@ -124,6 +125,21 @@ function RunPage() {
         (a: RunItem, b: RunItem) => (a.template_item?.position ?? 0) - (b.template_item?.position ?? 0),
       );
       return { ...(data as any), items } as RunData;
+    },
+  });
+
+  const assignmentQuery = useQuery({
+    queryKey: ["checklists", "run-assignment", runQuery.data?.template_id, runQuery.data?.run_date],
+    enabled: !!runQuery.data?.template_id && !!runQuery.data?.run_date,
+    queryFn: async (): Promise<AssignmentInfo | null> => {
+      const { data, error } = await supabase
+        .from("checklist_assignments")
+        .select("assignee:profiles!checklist_assignments_assigned_to_fkey(full_name)")
+        .eq("template_id", runQuery.data!.template_id)
+        .eq("assignment_date", runQuery.data!.run_date)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as any) ?? null;
     },
   });
 
