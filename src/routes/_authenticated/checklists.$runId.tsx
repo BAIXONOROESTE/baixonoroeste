@@ -402,6 +402,9 @@ function RunPage() {
           ) : (
             <p className="text-xs text-muted-foreground">Sem observação geral.</p>
           )}
+        </div>
+
+
 
 
         <div className="flex items-center gap-2">
