@@ -69,19 +69,14 @@ type Assignment = {
   assignee: { full_name: string | null } | null;
 };
 
-type ApprovedRun = {
-  submitted_at: string | null;
-  created_at: string;
-};
-
 type TemplateRow = {
   id: string;
   name: string;
   scheduled_time: string | null;
   runs: RunSummary[];
   assignments: Assignment[];
-  approved_runs: ApprovedRun[];
 };
+
 
 type PendingReview = {
   id: string;
