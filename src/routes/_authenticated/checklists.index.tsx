@@ -290,14 +290,30 @@ function ChecklistsPage() {
             sched !== null &&
             nowMinutes >= sched - 30 &&
             nowMinutes <= sched + 120;
+          const assignment = t.assignments[0] ?? null;
+          const expectedName = assignment?.assignee?.full_name ?? null;
+          const avgMin = avgTimesQuery.data?.[t.id];
 
           let badge: { label: string; className: string } | null = null;
           let action: React.ReactNode = null;
 
+          const handleStart = () => {
+            if (
+              assignment &&
+              uid &&
+              assignment.assigned_to !== uid &&
+              expectedName
+            ) {
+              setAssignmentPrompt({ templateId: t.id, expectedName });
+              return;
+            }
+            startRun.mutate(t.id);
+          };
+
           if (!run) {
             if (isNowWindow) badge = { label: "Agora", className: "bg-primary text-primary-foreground" };
             action = (
-              <Button size="sm" disabled={startRun.isPending} onClick={() => startRun.mutate(t.id)}>
+              <Button size="sm" disabled={startRun.isPending} onClick={handleStart}>
                 Iniciar
               </Button>
             );
@@ -334,10 +350,24 @@ function ChecklistsPage() {
             <Card key={t.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-sm font-mono text-muted-foreground w-12 shrink-0">
-                    {t.scheduled_time ? t.scheduled_time.slice(0, 5) : "—"}
-                  </span>
-                  <span className="font-medium truncate">{t.name}</span>
+                  <div className="w-12 shrink-0 leading-tight">
+                    <div className="text-sm font-mono text-muted-foreground">
+                      {t.scheduled_time ? t.scheduled_time.slice(0, 5) : "—"}
+                    </div>
+                    {typeof avgMin === "number" && (
+                      <div className="text-[10px] text-muted-foreground">
+                        ~{avgMin} min
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{t.name}</div>
+                    {expectedName && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        Esperado: {expectedName}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {badge && (
                   <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
@@ -352,6 +382,35 @@ function ChecklistsPage() {
           );
         })}
       </section>
+
+      <AlertDialog
+        open={!!assignmentPrompt}
+        onOpenChange={(v) => {
+          if (!v) setAssignmentPrompt(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Substituir responsável?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este checklist estava atribuído a {assignmentPrompt?.expectedName}. Confirma que vai fazer no lugar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (assignmentPrompt) {
+                  startRun.mutate(assignmentPrompt.templateId);
+                }
+                setAssignmentPrompt(null);
+              }}
+            >
+              Sim, fazer agora
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
