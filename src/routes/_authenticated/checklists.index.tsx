@@ -112,19 +112,26 @@ function ChecklistsPage() {
         .from("checklist_templates")
         .select(
           `id, name, scheduled_time,
-           runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done))`,
+           runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done)),
+           assignments:checklist_assignments(id, assigned_to, assignment_date, assignee:profiles!checklist_assignments_assigned_to_fkey(full_name)),
+           approved_runs:checklist_runs!checklist_runs_template_id_fkey(submitted_at, created_at, status)`,
         )
         .eq("active", true)
-        .eq("runs.run_date", todayISO);
+        .eq("runs.run_date", todayISO)
+        .eq("assignments.assignment_date", todayISO)
+        .eq("approved_runs.status", "aprovado");
       if (error) throw error;
       return (data ?? []).map((t: any) => ({
         id: t.id,
         name: t.name,
         scheduled_time: t.scheduled_time,
         runs: (t.runs ?? []) as RunSummary[],
+        assignments: (t.assignments ?? []) as Assignment[],
+        approved_runs: (t.approved_runs ?? []) as ApprovedRun[],
       }));
     },
   });
+
 
   const pendingQuery = useQuery({
     queryKey: ["checklists", "pending-review"],
