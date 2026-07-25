@@ -113,13 +113,11 @@ function ChecklistsPage() {
         .select(
           `id, name, scheduled_time,
            runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done)),
-           assignments:checklist_assignments(id, assigned_to, assignment_date, assignee:profiles!checklist_assignments_assigned_to_fkey(full_name)),
-           approved_runs:checklist_runs!checklist_runs_template_id_fkey(submitted_at, created_at, status)`,
+           assignments:checklist_assignments(id, assigned_to, assignment_date, assignee:profiles!checklist_assignments_assigned_to_fkey(full_name))`,
         )
         .eq("active", true)
         .eq("runs.run_date", todayISO)
-        .eq("assignments.assignment_date", todayISO)
-        .eq("approved_runs.status", "aprovado");
+        .eq("assignments.assignment_date", todayISO);
       if (error) throw error;
       return (data ?? []).map((t: any) => ({
         id: t.id,
@@ -127,10 +125,38 @@ function ChecklistsPage() {
         scheduled_time: t.scheduled_time,
         runs: (t.runs ?? []) as RunSummary[],
         assignments: (t.assignments ?? []) as Assignment[],
-        approved_runs: (t.approved_runs ?? []) as ApprovedRun[],
+        approved_runs: [] as ApprovedRun[],
       }));
     },
   });
+
+  const avgTimesQuery = useQuery({
+    queryKey: ["checklists", "avg-times"],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase
+        .from("checklist_runs")
+        .select("template_id, created_at, submitted_at")
+        .eq("status", "aprovado")
+        .not("submitted_at", "is", null);
+      if (error) throw error;
+      const acc: Record<string, { sum: number; n: number }> = {};
+      for (const r of (data ?? []) as any[]) {
+        if (!r.submitted_at || !r.created_at) continue;
+        const ms = new Date(r.submitted_at).getTime() - new Date(r.created_at).getTime();
+        if (!Number.isFinite(ms) || ms <= 0) continue;
+        const key = r.template_id as string;
+        acc[key] ??= { sum: 0, n: 0 };
+        acc[key].sum += ms;
+        acc[key].n += 1;
+      }
+      const result: Record<string, number> = {};
+      for (const [k, v] of Object.entries(acc)) {
+        if (v.n >= 3) result[k] = Math.round(v.sum / v.n / 60000);
+      }
+      return result;
+    },
+  });
+
 
 
   const pendingQuery = useQuery({
