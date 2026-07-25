@@ -293,6 +293,72 @@ function ChecklistAdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!assignFor}
+        onOpenChange={(v) => {
+          if (!v) {
+            setAssignFor(null);
+            setAssignUserId("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atribuir responsável</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm text-muted-foreground truncate">
+              {assignFor?.name}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Data</label>
+              <Input
+                type="date"
+                value={assignDate}
+                min={todayLocalISO()}
+                onChange={(e) => {
+                  setAssignDate(e.target.value);
+                  setAssignUserId("");
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Colaborador esperado</label>
+              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um colaborador" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(activeProfilesQ.data ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAssignFor(null);
+                setAssignUserId("");
+              }}
+              disabled={upsertAssignment.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => upsertAssignment.mutate()}
+              disabled={!assignUserId || upsertAssignment.isPending}
+            >
+              {upsertAssignment.isPending ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
