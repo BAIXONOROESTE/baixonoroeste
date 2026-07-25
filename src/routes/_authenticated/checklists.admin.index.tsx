@@ -94,10 +94,12 @@ function ChecklistAdminPage() {
 
   // Sincroniza o usuário selecionado com o valor persistido quando abre.
   const currentAssigned = existingAssignmentQ.data?.assigned_to ?? "";
-  if (assignFor && !assignUserId && currentAssigned) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    setAssignUserId(currentAssigned);
-  }
+  useEffect(() => {
+    if (assignFor && currentAssigned && !assignUserId) {
+      setAssignUserId(currentAssigned);
+    }
+  }, [assignFor, currentAssigned, assignUserId]);
+
 
   const upsertAssignment = useMutation({
     mutationFn: async () => {
