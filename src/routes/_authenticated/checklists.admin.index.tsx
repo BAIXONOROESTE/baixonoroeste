@@ -63,6 +63,71 @@ function ChecklistAdminPage() {
   const [newName, setNewName] = useState("");
   const [newTime, setNewTime] = useState("");
 
+  const [assignFor, setAssignFor] = useState<TemplateRow | null>(null);
+  const [assignDate, setAssignDate] = useState<string>(todayLocalISO());
+  const [assignUserId, setAssignUserId] = useState<string>("");
+
+  const listLoginProfilesFn = useServerFn(listLoginProfiles);
+  const activeProfilesQ = useQuery({
+    queryKey: ["login-profiles-active"],
+    queryFn: async () => {
+      const rows = await listLoginProfilesFn();
+      return (rows ?? []).filter((p) => p.active);
+    },
+    enabled: canManage,
+  });
+
+  const existingAssignmentQ = useQuery({
+    queryKey: ["checklist-assignment", assignFor?.id, assignDate],
+    enabled: !!assignFor && !!assignDate,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("checklist_assignments")
+        .select("id, assigned_to")
+        .eq("template_id", assignFor!.id)
+        .eq("assignment_date", assignDate)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Sincroniza o usuário selecionado com o valor persistido quando abre.
+  const currentAssigned = existingAssignmentQ.data?.assigned_to ?? "";
+  if (assignFor && !assignUserId && currentAssigned) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    setAssignUserId(currentAssigned);
+  }
+
+  const upsertAssignment = useMutation({
+    mutationFn: async () => {
+      if (!assignFor) throw new Error("Selecione um checklist.");
+      if (!assignUserId) throw new Error("Selecione um colaborador.");
+      if (!profile?.id) throw new Error("Sem usuário autenticado.");
+      const { error } = await supabase
+        .from("checklist_assignments")
+        .upsert(
+          {
+            template_id: assignFor.id,
+            assignment_date: assignDate,
+            assigned_to: assignUserId,
+            created_by: profile.id,
+          },
+          { onConflict: "template_id,assignment_date" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Responsável definido");
+      qc.invalidateQueries({ queryKey: ["checklists"] });
+      qc.invalidateQueries({ queryKey: ["checklist-assignment"] });
+      setAssignFor(null);
+      setAssignUserId("");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao atribuir"),
+  });
+
+
   const query = useQuery({
     queryKey: ["checklist-admin-templates"],
     enabled: canManage,
