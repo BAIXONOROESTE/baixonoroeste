@@ -179,11 +179,13 @@ function ProfileRowItem({
   profile,
   teams,
   isAdmin,
+  isSupOrAdmin,
   onChanged,
 }: {
   profile: ProfileRow;
   teams: { id: string; name: string }[];
   isAdmin: boolean;
+  isSupOrAdmin: boolean;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
