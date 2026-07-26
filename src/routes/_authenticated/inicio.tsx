@@ -23,6 +23,7 @@ const tiles = [
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] as const },
   { to: "/perdas", label: "Perdas & Quebras", icon: AlertTriangle, roles: ["admin","supervisor","contador"] as const },
   { to: "/manutencao", label: "Manutenção", icon: Wrench, roles: ["admin","supervisor"] as const },
+  { to: "/atividade-fora-turno", label: "Fora de turno", icon: Clock, roles: ["admin","supervisor"] as const },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin","supervisor"] as const },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["admin"] as const },
   { to: "/logs", label: "Logs", icon: ScrollText, roles: ["admin","supervisor"] as const },
