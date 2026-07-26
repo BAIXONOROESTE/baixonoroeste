@@ -165,6 +165,7 @@ function UsuariosPage() {
             profile={p}
             teams={teams ?? []}
             isAdmin={!!isAdmin}
+            isSupOrAdmin={!!isSupOrAdmin}
             onChanged={() => qc.invalidateQueries()}
           />
         ))}
