@@ -304,6 +304,197 @@ function ProfileRowItem({
           <Button size="sm" onClick={doReset}>Trocar</Button>
         </div>
       )}
+      {shiftOpen && (
+        <WorkShiftDialog
+          userId={profile.id}
+          userName={profile.full_name}
+          open={shiftOpen}
+          onOpenChange={setShiftOpen}
+        />
+      )}
     </div>
+  );
+}
+
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+type WorkShift = {
+  id: string;
+  user_id: string;
+  shift_type: "semanal" | "12x36";
+  weekday: number | null;
+  reference_date: string | null;
+  start_time: string;
+  end_time: string;
+};
+
+function WorkShiftDialog({ userId, userName, open, onOpenChange }: { userId: string; userName: string; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const qc = useQueryClient();
+  const [shiftType, setShiftType] = useState<"semanal" | "12x36">("semanal");
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [referenceDate, setReferenceDate] = useState("");
+  const [startTime, setStartTime] = useState("08:00");
+  const [endTime, setEndTime] = useState("18:00");
+
+  const { data: shifts } = useQuery({
+    queryKey: ["work_shifts", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("work_shifts").select("*").eq("user_id", userId).order("created_at");
+      if (error) throw error;
+      return (data ?? []) as WorkShift[];
+    },
+    enabled: open,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      setWeekdays([]);
+      setReferenceDate("");
+      setShiftType("semanal");
+      setStartTime("08:00");
+      setEndTime("18:00");
+    }
+  }, [open]);
+
+  const add = useMutation({
+    mutationFn: async () => {
+      const st = startTime.length === 5 ? `${startTime}:00` : startTime;
+      const et = endTime.length === 5 ? `${endTime}:00` : endTime;
+      if (shiftType === "semanal") {
+        const days = weekdays.length ? weekdays : [null];
+        const rows = days.map((d) => ({
+          user_id: userId,
+          shift_type: "semanal" as const,
+          weekday: d,
+          reference_date: null,
+          start_time: st,
+          end_time: et,
+        }));
+        const { error } = await supabase.from("work_shifts").insert(rows);
+        if (error) throw error;
+      } else {
+        if (!referenceDate) throw new Error("Informe uma data de referência (dia trabalhado).");
+        const { error } = await supabase.from("work_shifts").insert({
+          user_id: userId,
+          shift_type: "12x36",
+          weekday: null,
+          reference_date: referenceDate,
+          start_time: st,
+          end_time: et,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Horário adicionado.");
+      setWeekdays([]);
+      qc.invalidateQueries({ queryKey: ["work_shifts", userId] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+
+  const del = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("work_shifts").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Horário removido.");
+      qc.invalidateQueries({ queryKey: ["work_shifts", userId] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
+  });
+
+  function toggleDay(d: number) {
+    setWeekdays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+  }
+
+  function fmtShift(s: WorkShift) {
+    const tr = `${s.start_time.slice(0, 5)}–${s.end_time.slice(0, 5)}`;
+    if (s.shift_type === "semanal") {
+      return `Semanal · ${s.weekday === null ? "Todo dia" : WEEKDAYS[s.weekday]} · ${tr}`;
+    }
+    return `12x36 · ref ${s.reference_date} · ${tr}`;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Horário de trabalho — {userName}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <div className="text-xs font-medium mb-2">Horários cadastrados</div>
+            {(shifts ?? []).length === 0 ? (
+              <div className="text-xs text-muted-foreground">Nenhum horário cadastrado.</div>
+            ) : (
+              <div className="space-y-1">
+                {(shifts ?? []).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between rounded-md border border-border bg-background/50 px-2.5 py-1.5 text-xs">
+                    <span>{fmtShift(s)}</span>
+                    <Button size="sm" variant="ghost" onClick={() => del.mutate(s.id)} disabled={del.isPending}>Remover</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="border-t border-border pt-3 space-y-3">
+            <div className="text-xs font-medium">Adicionar novo</div>
+            <div className="flex gap-2">
+              <label className="flex items-center gap-1.5 text-sm">
+                <input type="radio" checked={shiftType === "semanal"} onChange={() => setShiftType("semanal")} />
+                Semanal
+              </label>
+              <label className="flex items-center gap-1.5 text-sm">
+                <input type="radio" checked={shiftType === "12x36"} onChange={() => setShiftType("12x36")} />
+                12x36
+              </label>
+            </div>
+            {shiftType === "semanal" ? (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Dias da semana (nenhum = todos)</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEKDAYS.map((lbl, i) => {
+                    const on = weekdays.includes(i);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => toggleDay(i)}
+                        className={`rounded-full border px-2.5 py-1 text-xs ${on ? "bg-primary/15 border-primary/50" : "bg-background/50 border-border"}`}
+                      >
+                        {lbl}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Data de referência (um dia trabalhado)</div>
+                <Input type="date" value={referenceDate} onChange={(e) => setReferenceDate(e.target.value)} />
+                <div className="text-[11px] text-muted-foreground mt-1">A partir dessa data, dias pares no ciclo (0, 2, 4, …) são considerados dias de trabalho.</div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Início</div>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Fim</div>
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              </div>
+            </div>
+            <div className="text-[11px] text-muted-foreground">Se o fim for menor que o início, o turno cruza a meia-noite.</div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
+          <Button onClick={() => add.mutate()} disabled={add.isPending}>Adicionar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
