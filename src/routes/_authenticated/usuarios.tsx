@@ -251,14 +251,15 @@ function ProfileRowItem({
             ✉ {profile.email ?? "sem email"} · ☎ {profile.phone ?? "—"}
           </div>
         </div>
-        {isAdmin && (
-          <div className="flex gap-1 flex-shrink-0">
-            <Button size="sm" variant="outline" onClick={() => { setEditing((v) => !v); setResetting(false); }}>{editing ? "Fechar" : "Editar"}</Button>
-            <Button size="sm" variant="outline" onClick={() => { setResetting((v) => !v); setEditing(false); }}>{resetting ? "Fechar" : "PIN"}</Button>
-            <Button size="sm" variant="outline" onClick={async () => {
+        {(isAdmin || isSupOrAdmin) && (
+          <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
+            {isAdmin && <Button size="sm" variant="outline" onClick={() => { setEditing((v) => !v); setResetting(false); }}>{editing ? "Fechar" : "Editar"}</Button>}
+            {isAdmin && <Button size="sm" variant="outline" onClick={() => { setResetting((v) => !v); setEditing(false); }}>{resetting ? "Fechar" : "PIN"}</Button>}
+            {isSupOrAdmin && <Button size="sm" variant="outline" onClick={() => setShiftOpen(true)}>Horário</Button>}
+            {isAdmin && <Button size="sm" variant="outline" onClick={async () => {
               await supabase.from("profiles").update({ active: !profile.active }).eq("id", profile.id);
               onChanged();
-            }}>{profile.active ? "Desativar" : "Ativar"}</Button>
+            }}>{profile.active ? "Desativar" : "Ativar"}</Button>}
           </div>
         )}
       </div>
