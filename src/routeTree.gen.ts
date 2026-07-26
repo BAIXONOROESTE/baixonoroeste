@@ -17,6 +17,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedAtividadeForaTurnoRouteImport } from './routes/_authenticated/atividade-fora-turno'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedContarRouteImport } from './routes/_authenticated/contar'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -85,6 +86,12 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     id: '/.well-known/oauth-protected-resource',
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAtividadeForaTurnoRoute =
+  AuthenticatedAtividadeForaTurnoRouteImport.update({
+    id: '/atividade-fora-turno',
+    path: '/atividade-fora-turno',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedConfiguracoesRoute =
   AuthenticatedConfiguracoesRouteImport.update({
@@ -242,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/atividade-fora-turno': typeof AuthenticatedAtividadeForaTurnoRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contar': typeof AuthenticatedContarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -278,6 +286,7 @@ export interface FileRoutesByTo {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/atividade-fora-turno': typeof AuthenticatedAtividadeForaTurnoRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contar': typeof AuthenticatedContarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -316,6 +325,7 @@ export interface FileRoutesById {
   '/unsubscribe': typeof UnsubscribeRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/atividade-fora-turno': typeof AuthenticatedAtividadeForaTurnoRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contar': typeof AuthenticatedContarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -354,6 +364,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/atividade-fora-turno'
     | '/configuracoes'
     | '/contar'
     | '/dashboard'
@@ -390,6 +401,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/atividade-fora-turno'
     | '/configuracoes'
     | '/contar'
     | '/dashboard'
@@ -427,6 +439,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/atividade-fora-turno'
     | '/_authenticated/configuracoes'
     | '/_authenticated/contar'
     | '/_authenticated/dashboard'
@@ -535,6 +548,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.well-known/oauth-protected-resource'
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/atividade-fora-turno': {
+      id: '/_authenticated/atividade-fora-turno'
+      path: '/atividade-fora-turno'
+      fullPath: '/atividade-fora-turno'
+      preLoaderRoute: typeof AuthenticatedAtividadeForaTurnoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/configuracoes': {
       id: '/_authenticated/configuracoes'
@@ -729,6 +749,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAtividadeForaTurnoRoute: typeof AuthenticatedAtividadeForaTurnoRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContarRoute: typeof AuthenticatedContarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -748,6 +769,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAtividadeForaTurnoRoute: AuthenticatedAtividadeForaTurnoRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContarRoute: AuthenticatedContarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
