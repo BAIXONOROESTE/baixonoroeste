@@ -194,6 +194,7 @@ function ProfileRowItem({
   const [resetting, setResetting] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [savingTeam, setSavingTeam] = useState(false);
+  const [shiftOpen, setShiftOpen] = useState(false);
   const resetFn = useServerFn(resetUserPinAsAdmin);
 
   async function saveContact() {
