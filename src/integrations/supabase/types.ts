@@ -1507,8 +1507,55 @@ export type Database = {
         }
         Relationships: []
       }
+      work_shifts: {
+        Row: {
+          created_at: string
+          end_time: string
+          id: string
+          reference_date: string | null
+          shift_type: string
+          start_time: string
+          updated_at: string
+          user_id: string
+          weekday: number | null
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          id?: string
+          reference_date?: string | null
+          shift_type: string
+          start_time: string
+          updated_at?: string
+          user_id: string
+          weekday?: number | null
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          id?: string
+          reference_date?: string | null
+          shift_type?: string
+          start_time?: string
+          updated_at?: string
+          user_id?: string
+          weekday?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
+      out_of_shift_activity: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          full_name: string | null
+          motivo: string | null
+          tipo: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       ranking_view: {
         Row: {
           acertos: number | null

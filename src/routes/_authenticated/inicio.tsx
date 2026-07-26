@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare } from "lucide-react";
+import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare, Clock } from "lucide-react";
 import { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +23,7 @@ const tiles = [
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] as const },
   { to: "/perdas", label: "Perdas & Quebras", icon: AlertTriangle, roles: ["admin","supervisor","contador"] as const },
   { to: "/manutencao", label: "Manutenção", icon: Wrench, roles: ["admin","supervisor"] as const },
+  { to: "/atividade-fora-turno", label: "Fora de turno", icon: Clock, roles: ["admin","supervisor"] as const },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin","supervisor"] as const },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["admin"] as const },
   { to: "/logs", label: "Logs", icon: ScrollText, roles: ["admin","supervisor"] as const },
