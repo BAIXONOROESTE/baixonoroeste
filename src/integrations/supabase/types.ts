@@ -1212,6 +1212,39 @@ export type Database = {
           },
         ]
       }
+      pending_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          recipients: string[]
+          send_after: string
+          sent_at: string | null
+          template_data: Json
+          template_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          recipients: string[]
+          send_after: string
+          sent_at?: string | null
+          template_data: Json
+          template_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          recipients?: string[]
+          send_after?: string
+          sent_at?: string | null
+          template_data?: Json
+          template_name?: string
+        }
+        Relationships: []
+      }
       pin_reset_tokens: {
         Row: {
           created_at: string

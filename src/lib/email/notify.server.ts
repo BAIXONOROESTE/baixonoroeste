@@ -198,3 +198,59 @@ export async function sendTemplateEmailViaRpc(
   return { enqueued, skipped, errors }
 }
 
+// America/Sao_Paulo has been UTC-3 year-round since the DST rules were
+// suspended in 2019, so this is a fixed offset (no DST math needed).
+const SP_OFFSET_HOURS = 3
+
+function nowInSaoPaulo(): Date {
+  return new Date(Date.now() - SP_OFFSET_HOURS * 60 * 60 * 1000)
+}
+
+function isWithinBusinessHours(spDate: Date): boolean {
+  const h = spDate.getUTCHours()
+  return h >= 10 && h < 22
+}
+
+function nextTenAmUtc(spNow: Date): Date {
+  const y = spNow.getUTCFullYear()
+  const m = spNow.getUTCMonth()
+  const d = spNow.getUTCDate()
+  const isBeforeTenToday = spNow.getUTCHours() < 10
+  const targetDay = isBeforeTenToday ? d : d + 1
+  return new Date(Date.UTC(y, m, targetDay, 10 + SP_OFFSET_HOURS, 0, 0))
+}
+
+/**
+ * Like sendTemplateEmail, but for assignment-type notifications that should
+ * only reach someone during business hours (10:00-22:00 America/Sao_Paulo).
+ * If called inside that window, sends immediately. If called outside it,
+ * defers: writes a row to public.pending_notifications with send_after set
+ * to the next 10:00, picked up later by a cron job.
+ */
+export async function sendOrDeferEmail(opts: {
+  templateName: string
+  recipients: string[]
+  templateData: Record<string, unknown>
+  idempotencyKeyPrefix?: string
+  fromName?: string
+}): Promise<{ enqueued: number; skipped: number; deferred: number }> {
+  const spNow = nowInSaoPaulo()
+  if (isWithinBusinessHours(spNow)) {
+    const result = await sendTemplateEmail(opts)
+    return { ...result, deferred: 0 }
+  }
+
+  const admin = supabaseAdmin as any
+  const sendAfter = nextTenAmUtc(spNow)
+  const { error } = await admin.from('pending_notifications').insert({
+    kind: 'email',
+    template_name: opts.templateName,
+    recipients: opts.recipients,
+    template_data: opts.templateData,
+    send_after: sendAfter.toISOString(),
+  })
+  if (error) throw new Error(`Falha ao adiar notificação: ${error.message}`)
+  return { enqueued: 0, skipped: 0, deferred: 1 }
+}
+
+

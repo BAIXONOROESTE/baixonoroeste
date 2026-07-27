@@ -39,6 +39,7 @@ import { Route as AuthenticatedInventariosIdRouteImport } from './routes/_authen
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedChecklistsAdminIndexRouteImport } from './routes/_authenticated/checklists.admin.index'
 import { Route as AuthenticatedChecklistsAdminTemplateIdRouteImport } from './routes/_authenticated/checklists.admin.$templateId'
+import { Route as ApiPublicNotificationsProcessPendingRouteImport } from './routes/api/public/notifications/process-pending'
 import { Route as ApiPublicReportsLossesDailyRouteImport } from './routes/api/public/reports/losses-daily'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -206,6 +207,12 @@ const AuthenticatedChecklistsAdminTemplateIdRoute =
     path: '/checklists/admin/$templateId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicNotificationsProcessPendingRoute =
+  ApiPublicNotificationsProcessPendingRouteImport.update({
+    id: '/api/public/notifications/process-pending',
+    path: '/api/public/notifications/process-pending',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicReportsLossesDailyRoute =
   ApiPublicReportsLossesDailyRouteImport.update({
     id: '/api/public/reports/losses-daily',
@@ -270,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/inventarios/': typeof AuthenticatedInventariosIndexRoute
   '/checklists/admin/$templateId': typeof AuthenticatedChecklistsAdminTemplateIdRoute
+  '/api/public/notifications/process-pending': typeof ApiPublicNotificationsProcessPendingRoute
   '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -307,6 +315,7 @@ export interface FileRoutesByTo {
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
   '/inventarios': typeof AuthenticatedInventariosIndexRoute
   '/checklists/admin/$templateId': typeof AuthenticatedChecklistsAdminTemplateIdRoute
+  '/api/public/notifications/process-pending': typeof ApiPublicNotificationsProcessPendingRoute
   '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -346,6 +355,7 @@ export interface FileRoutesById {
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/_authenticated/inventarios/': typeof AuthenticatedInventariosIndexRoute
   '/_authenticated/checklists/admin/$templateId': typeof AuthenticatedChecklistsAdminTemplateIdRoute
+  '/api/public/notifications/process-pending': typeof ApiPublicNotificationsProcessPendingRoute
   '/api/public/reports/losses-daily': typeof ApiPublicReportsLossesDailyRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/checklists/'
     | '/inventarios/'
     | '/checklists/admin/$templateId'
+    | '/api/public/notifications/process-pending'
     | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/checklists'
     | '/inventarios'
     | '/checklists/admin/$templateId'
+    | '/api/public/notifications/process-pending'
     | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -460,6 +472,7 @@ export interface FileRouteTypes {
     | '/_authenticated/checklists/'
     | '/_authenticated/inventarios/'
     | '/_authenticated/checklists/admin/$templateId'
+    | '/api/public/notifications/process-pending'
     | '/api/public/reports/losses-daily'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -483,6 +496,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiPublicNotificationsProcessPendingRoute: typeof ApiPublicNotificationsProcessPendingRoute
   ApiPublicReportsLossesDailyRoute: typeof ApiPublicReportsLossesDailyRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -703,6 +717,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChecklistsAdminTemplateIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/notifications/process-pending': {
+      id: '/api/public/notifications/process-pending'
+      path: '/api/public/notifications/process-pending'
+      fullPath: '/api/public/notifications/process-pending'
+      preLoaderRoute: typeof ApiPublicNotificationsProcessPendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/reports/losses-daily': {
       id: '/api/public/reports/losses-daily'
       path: '/api/public/reports/losses-daily'
@@ -808,6 +829,8 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiPublicNotificationsProcessPendingRoute:
+    ApiPublicNotificationsProcessPendingRoute,
   ApiPublicReportsLossesDailyRoute: ApiPublicReportsLossesDailyRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
