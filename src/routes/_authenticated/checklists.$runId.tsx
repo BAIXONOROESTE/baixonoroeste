@@ -111,7 +111,6 @@ function RunPage() {
         .select(
           `id, status, started_by, submitted_at, template_id, run_date, observacao_geral,
            template:checklist_templates(name, scheduled_time),
-           starter:profiles!checklist_runs_started_by_fkey(full_name),
            items:checklist_run_items(
              id, done, done_by, done_at, observacao, justificativa, review_status,
              template_item:checklist_template_items(title, orientacao, evidence_required, position, reference_media_path, reference_media_type),
@@ -121,10 +120,22 @@ function RunPage() {
         .eq("id", runId)
         .single();
       if (error) throw error;
+
+      let starterName: string | null = null;
+      if ((data as any).started_by) {
+        const { data: starterProf, error: starterErr } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", (data as any).started_by)
+          .maybeSingle();
+        if (starterErr) throw starterErr;
+        starterName = starterProf?.full_name ?? null;
+      }
+
       const items = ((data as any).items ?? []).slice().sort(
         (a: RunItem, b: RunItem) => (a.template_item?.position ?? 0) - (b.template_item?.position ?? 0),
       );
-      return { ...(data as any), items } as RunData;
+      return { ...(data as any), starter: { full_name: starterName }, items } as RunData;
     },
   });
 
@@ -134,12 +145,20 @@ function RunPage() {
     queryFn: async (): Promise<AssignmentInfo | null> => {
       const { data, error } = await supabase
         .from("checklist_assignments")
-        .select("assignee:profiles!checklist_assignments_assigned_to_fkey(full_name)")
+        .select("assigned_to")
         .eq("template_id", runQuery.data!.template_id)
         .eq("assignment_date", runQuery.data!.run_date)
         .maybeSingle();
       if (error) throw error;
-      return (data as any) ?? null;
+      if (!data) return null;
+
+      const { data: prof, error: profErr } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", (data as any).assigned_to)
+        .maybeSingle();
+      if (profErr) throw profErr;
+      return { assignee: { full_name: prof?.full_name ?? null } } as AssignmentInfo;
     },
   });
 

@@ -108,18 +108,37 @@ function ChecklistsPage() {
         .select(
           `id, name, scheduled_time,
            runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done)),
-           assignments:checklist_assignments(id, assigned_to, assignment_date, assignee:profiles!checklist_assignments_assigned_to_fkey(full_name))`,
+           assignments:checklist_assignments(id, assigned_to, assignment_date)`,
         )
         .eq("active", true)
         .eq("runs.run_date", todayISO)
         .eq("assignments.assignment_date", todayISO);
       if (error) throw error;
+
+      const assignedIds = Array.from(
+        new Set(
+          (data ?? []).flatMap((t: any) => (t.assignments ?? []).map((a: any) => a.assigned_to as string)),
+        ),
+      );
+      const namesById: Record<string, string | null> = {};
+      if (assignedIds.length > 0) {
+        const { data: profs, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", assignedIds);
+        if (profErr) throw profErr;
+        for (const p of profs ?? []) namesById[p.id as string] = p.full_name as string | null;
+      }
+
       return (data ?? []).map((t: any) => ({
         id: t.id,
         name: t.name,
         scheduled_time: t.scheduled_time,
         runs: (t.runs ?? []) as RunSummary[],
-        assignments: (t.assignments ?? []) as Assignment[],
+        assignments: (t.assignments ?? []).map((a: any) => ({
+          ...a,
+          assignee: { full_name: namesById[a.assigned_to] ?? null },
+        })) as Assignment[],
       }));
     },
   });
@@ -160,14 +179,28 @@ function ChecklistsPage() {
       const { data, error } = await supabase
         .from("checklist_runs")
         .select(
-          `id, run_date, status,
-           template:checklist_templates(name),
-           starter:profiles!checklist_runs_started_by_fkey(full_name)`,
+          `id, run_date, status, started_by,
+           template:checklist_templates(name)`,
         )
         .eq("status", "aguardando_aprovacao")
         .order("run_date", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as PendingReview[];
+
+      const starterIds = Array.from(new Set((data ?? []).map((r: any) => r.started_by as string)));
+      const namesById: Record<string, string | null> = {};
+      if (starterIds.length > 0) {
+        const { data: profs, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", starterIds);
+        if (profErr) throw profErr;
+        for (const p of profs ?? []) namesById[p.id as string] = p.full_name as string | null;
+      }
+
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        starter: { full_name: namesById[r.started_by] ?? null },
+      })) as unknown as PendingReview[];
     },
   });
 

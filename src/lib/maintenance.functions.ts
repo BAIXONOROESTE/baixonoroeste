@@ -13,7 +13,7 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
     const { supabase, userId } = context;
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { sendTemplateEmail } = await import("@/lib/email/notify.server");
+      const { sendOrDeferEmail } = await import("@/lib/email/notify.server");
 
       // Authorization: caller must be reporter, assignee, or a supervisor/admin.
       const [{ data: ticket }, { data: callerRoles }] = await Promise.all([
@@ -87,7 +87,7 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
       const origin = process.env.PUBLIC_SITE_URL || "https://baixonoroeste.lovable.app";
       const actionUrl = `${origin.replace(/\/$/, "")}/manutencao`;
 
-      const res = await sendTemplateEmail({
+      const res = await sendOrDeferEmail({
         templateName: "maintenance-ticket",
         recipients: [email],
         idempotencyKeyPrefix: `maintenance-ticket-${ticket.id}`,
@@ -109,6 +109,7 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
           email,
           enqueued: res.enqueued,
           skipped: res.skipped,
+          deferred: res.deferred,
           assignee_found: true,
         },
       });
@@ -118,9 +119,11 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
         sent: res.enqueued,
         targets: 1,
         skipped: res.skipped,
-        reason: (res.enqueued > 0 ? "enqueued" : "not_enqueued") as
-          | "enqueued"
-          | "not_enqueued",
+        reason: (res.deferred > 0
+          ? "deferred_outside_business_hours"
+          : res.enqueued > 0
+            ? "enqueued"
+            : "not_enqueued") as "enqueued" | "not_enqueued" | "deferred_outside_business_hours",
       };
     } catch (e) {
       console.error("[notifyMaintenanceTicketAssigned] falhou", e);

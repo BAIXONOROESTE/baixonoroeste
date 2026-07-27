@@ -16,11 +16,18 @@ async function loadSettings() {
   return data as { tolerance_pct_default?: number | null; omie_update_mode?: string } | null;
 }
 
-async function notifyEmail(templateName: string, recipients: string[], templateData: Record<string, unknown>, idempotencyKeyPrefix?: string) {
+async function notifyEmail(
+  templateName: string,
+  recipients: string[],
+  templateData: Record<string, unknown>,
+  idempotencyKeyPrefix?: string,
+  deferrable = false,
+) {
   if (recipients.length === 0) return;
   try {
-    const { sendTemplateEmail } = await import("@/lib/email/notify.server");
-    await sendTemplateEmail({
+    const { sendTemplateEmail, sendOrDeferEmail } = await import("@/lib/email/notify.server");
+    const send = deferrable ? sendOrDeferEmail : sendTemplateEmail;
+    await send({
       templateName,
       recipients,
       templateData,
@@ -140,7 +147,7 @@ export const createInventoryTask = createServerFn({ method: "POST" })
       await notifyEmail("task-assigned", emails, {
         inventory_name: inv.name,
         deadline: inv.deadline_at ?? null,
-      }, `task-assigned-${inv.id}`);
+      }, `task-assigned-${inv.id}`, true);
     }
     await fireEvent(inv.id, "tarefa_criada");
 

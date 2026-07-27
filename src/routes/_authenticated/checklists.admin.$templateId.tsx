@@ -561,10 +561,10 @@ function ChecklistAdminEditPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover item?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir item?</AlertDialogTitle>
             <AlertDialogDescription>
-              O item "{deleteTarget?.title}" será removido do modelo. Isso não afeta
-              checklists já iniciados anteriormente — apenas os futuros deixarão de incluí-lo.
+              Excluir "{deleteTarget?.title}" apaga também todo o histórico de execuções
+              anteriores dele (respostas, fotos, aprovações). Essa ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
