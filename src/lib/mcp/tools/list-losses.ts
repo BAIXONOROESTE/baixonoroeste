@@ -16,15 +16,34 @@ export default defineTool({
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "Não autenticado." }], isError: true };
     const sb = supabaseForUser(ctx);
     const { data, error } = await sb.from("losses")
-      .select("id, quantity, observation, created_at, product:products(code, name, unit, cost), reason:loss_reasons(name), user:profiles!losses_created_by_fkey(full_name, slug)")
+      .select("id, quantity, observation, created_at, created_by, product:products(code, name, unit, cost), reason:loss_reasons(name)")
       .gte("created_at", from)
       .lt("created_at", to)
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+
+    const userIds = Array.from(new Set((data ?? []).map((l: any) => l.created_by as string).filter(Boolean)));
+    const usersById: Record<string, { full_name: string | null; slug: string | null }> = {};
+    if (userIds.length > 0) {
+      const { data: profs, error: profErr } = await sb
+        .from("profiles")
+        .select("id, full_name, slug")
+        .in("id", userIds);
+      if (profErr) return { content: [{ type: "text", text: profErr.message }], isError: true };
+      for (const p of profs ?? []) {
+        usersById[p.id as string] = { full_name: p.full_name as string | null, slug: p.slug as string | null };
+      }
+    }
+
+    const losses = (data ?? []).map((l: any) => ({
+      ...l,
+      user: usersById[l.created_by] ?? { full_name: null, slug: null },
+    }));
+
     return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      structuredContent: { losses: data ?? [] },
+      content: [{ type: "text", text: JSON.stringify(losses, null, 2) }],
+      structuredContent: { losses },
     };
   },
 });
