@@ -179,14 +179,28 @@ function ChecklistsPage() {
       const { data, error } = await supabase
         .from("checklist_runs")
         .select(
-          `id, run_date, status,
-           template:checklist_templates(name),
-           starter:profiles!checklist_runs_started_by_fkey(full_name)`,
+          `id, run_date, status, started_by,
+           template:checklist_templates(name)`,
         )
         .eq("status", "aguardando_aprovacao")
         .order("run_date", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as PendingReview[];
+
+      const starterIds = Array.from(new Set((data ?? []).map((r: any) => r.started_by as string)));
+      const namesById: Record<string, string | null> = {};
+      if (starterIds.length > 0) {
+        const { data: profs, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", starterIds);
+        if (profErr) throw profErr;
+        for (const p of profs ?? []) namesById[p.id as string] = p.full_name as string | null;
+      }
+
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        starter: { full_name: namesById[r.started_by] ?? null },
+      })) as unknown as PendingReview[];
     },
   });
 
