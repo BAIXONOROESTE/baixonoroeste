@@ -145,12 +145,20 @@ function RunPage() {
     queryFn: async (): Promise<AssignmentInfo | null> => {
       const { data, error } = await supabase
         .from("checklist_assignments")
-        .select("assignee:profiles!checklist_assignments_assigned_to_fkey(full_name)")
+        .select("assigned_to")
         .eq("template_id", runQuery.data!.template_id)
         .eq("assignment_date", runQuery.data!.run_date)
         .maybeSingle();
       if (error) throw error;
-      return (data as any) ?? null;
+      if (!data) return null;
+
+      const { data: prof, error: profErr } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", (data as any).assigned_to)
+        .maybeSingle();
+      if (profErr) throw profErr;
+      return { assignee: { full_name: prof?.full_name ?? null } } as AssignmentInfo;
     },
   });
 
