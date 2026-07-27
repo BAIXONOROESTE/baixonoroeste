@@ -13,7 +13,7 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
     const { supabase, userId } = context;
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { sendTemplateEmail } = await import("@/lib/email/notify.server");
+      const { sendOrDeferEmail } = await import("@/lib/email/notify.server");
 
       // Authorization: caller must be reporter, assignee, or a supervisor/admin.
       const [{ data: ticket }, { data: callerRoles }] = await Promise.all([
