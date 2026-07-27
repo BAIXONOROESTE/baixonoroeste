@@ -111,7 +111,6 @@ function RunPage() {
         .select(
           `id, status, started_by, submitted_at, template_id, run_date, observacao_geral,
            template:checklist_templates(name, scheduled_time),
-           starter:profiles!checklist_runs_started_by_fkey(full_name),
            items:checklist_run_items(
              id, done, done_by, done_at, observacao, justificativa, review_status,
              template_item:checklist_template_items(title, orientacao, evidence_required, position, reference_media_path, reference_media_type),
@@ -121,10 +120,22 @@ function RunPage() {
         .eq("id", runId)
         .single();
       if (error) throw error;
+
+      let starterName: string | null = null;
+      if ((data as any).started_by) {
+        const { data: starterProf, error: starterErr } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", (data as any).started_by)
+          .maybeSingle();
+        if (starterErr) throw starterErr;
+        starterName = starterProf?.full_name ?? null;
+      }
+
       const items = ((data as any).items ?? []).slice().sort(
         (a: RunItem, b: RunItem) => (a.template_item?.position ?? 0) - (b.template_item?.position ?? 0),
       );
-      return { ...(data as any), items } as RunData;
+      return { ...(data as any), starter: { full_name: starterName }, items } as RunData;
     },
   });
 
