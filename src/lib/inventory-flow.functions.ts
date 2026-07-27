@@ -147,7 +147,7 @@ export const createInventoryTask = createServerFn({ method: "POST" })
       await notifyEmail("task-assigned", emails, {
         inventory_name: inv.name,
         deadline: inv.deadline_at ?? null,
-      }, `task-assigned-${inv.id}`);
+      }, `task-assigned-${inv.id}`, true);
     }
     await fireEvent(inv.id, "tarefa_criada");
 
