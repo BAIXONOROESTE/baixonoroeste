@@ -146,21 +146,45 @@ function ChecklistAdminPage() {
   const recurringQ = useQuery({
     queryKey: ["checklist-recurring-assignments"],
     enabled: canManage,
-    queryFn: async (): Promise<Record<string, string>> => {
+    queryFn: async (): Promise<Record<string, { user_id: string | null; team_id: string | null }>> => {
       const { data, error } = await supabase
         .from("checklist_recurring_assignments")
-        .select("template_id, user_id");
+        .select("template_id, user_id, team_id");
       if (error) throw error;
-      const map: Record<string, string> = {};
-      for (const r of (data ?? []) as any[]) map[r.template_id] = r.user_id;
+      const map: Record<string, { user_id: string | null; team_id: string | null }> = {};
+      for (const r of (data ?? []) as any[]) {
+        map[r.template_id] = { user_id: r.user_id ?? null, team_id: r.team_id ?? null };
+      }
       return map;
     },
   });
 
+  const teamsQ = useQuery({
+    queryKey: ["teams-active"],
+    enabled: canManage,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("teams")
+        .select("id, name")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+  });
+
   const upsertRecurring = useMutation({
-    mutationFn: async ({ templateId, userId }: { templateId: string; userId: string }) => {
+    mutationFn: async ({
+      templateId,
+      userId,
+      teamId,
+    }: {
+      templateId: string;
+      userId: string | null;
+      teamId: string | null;
+    }) => {
       if (!profile?.id) throw new Error("Sem usuário autenticado.");
-      if (!userId) {
+      if (!userId && !teamId) {
         const { error } = await supabase
           .from("checklist_recurring_assignments")
           .delete()
@@ -171,7 +195,12 @@ function ChecklistAdminPage() {
       const { error } = await supabase
         .from("checklist_recurring_assignments")
         .upsert(
-          { template_id: templateId, user_id: userId, created_by: profile.id },
+          {
+            template_id: templateId,
+            user_id: userId,
+            team_id: teamId,
+            created_by: profile.id,
+          },
           { onConflict: "template_id" },
         );
       if (error) throw error;
@@ -183,6 +212,7 @@ function ChecklistAdminPage() {
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao atualizar responsável padrão"),
   });
+
 
 
   const toggleActive = useMutation({
