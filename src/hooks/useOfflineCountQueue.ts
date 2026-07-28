@@ -115,7 +115,7 @@ export function useOfflineCountQueue(inventoryId?: string) {
         return { ok: true, synced };
       } catch (e) {
         await refresh();
-        return { ok: false, synced, reason: e instanceof Error ? e.message : String(e) };
+        return { ok: false, synced, reason: e instanceof Error ? e.message : ((e as { message?: string } | null)?.message ?? String(e)) };
       } finally {
         setFlushing(false);
       }
