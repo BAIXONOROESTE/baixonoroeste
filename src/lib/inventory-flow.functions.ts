@@ -237,7 +237,8 @@ export const reviewCountItems = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     if (!await ensureRole(supabase, userId, ["admin", "supervisor"])) throw new Error("Apenas admin/supervisor podem revisar.");
 
-    const { data: inv } = await supabase.from("inventories").select("id, name, assigned_counter_id").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("id, name, assigned_counter_id").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
     for (const dec of data.decisions) {
