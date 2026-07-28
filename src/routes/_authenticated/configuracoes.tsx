@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useEffect, useState } from "react";
+import { PushNotificationsToggle } from "@/components/PushNotificationsToggle";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({ component: ConfigPage });
 
