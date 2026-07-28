@@ -450,3 +450,80 @@ function ChecklistAdminPage() {
     </div>
   );
 }
+
+function RecurringRow({
+  templateId: _templateId,
+  recurring,
+  profiles,
+  teams,
+  onSave,
+}: {
+  templateId: string;
+  recurring: { user_id: string | null; team_id: string | null } | null;
+  profiles: { id: string; full_name: string }[];
+  teams: { id: string; name: string }[];
+  onSave: (userId: string | null, teamId: string | null) => void;
+}) {
+  const initialMode: "pessoa" | "equipe" = recurring?.team_id ? "equipe" : "pessoa";
+  const [mode, setMode] = useState<"pessoa" | "equipe">(initialMode);
+  useEffect(() => {
+    setMode(recurring?.team_id ? "equipe" : "pessoa");
+  }, [recurring?.team_id, recurring?.user_id]);
+
+  const currentUser = recurring?.user_id ?? "";
+  const currentTeam = recurring?.team_id ?? "";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 pl-14">
+      <label className="text-xs text-muted-foreground shrink-0">Padrão:</label>
+      <div className="inline-flex rounded-md border overflow-hidden">
+        <button
+          type="button"
+          className={`px-2 py-1 text-xs ${mode === "pessoa" ? "bg-primary text-primary-foreground" : "bg-background"}`}
+          onClick={() => setMode("pessoa")}
+        >
+          Pessoa
+        </button>
+        <button
+          type="button"
+          className={`px-2 py-1 text-xs border-l ${mode === "equipe" ? "bg-primary text-primary-foreground" : "bg-background"}`}
+          onClick={() => setMode("equipe")}
+        >
+          Equipe
+        </button>
+      </div>
+      {mode === "pessoa" ? (
+        <Select
+          value={currentUser || "none"}
+          onValueChange={(v) => onSave(v === "none" ? null : v, null)}
+        >
+          <SelectTrigger className="h-8 text-xs flex-1 min-w-40">
+            <SelectValue placeholder="Sem responsável padrão" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem responsável padrão</SelectItem>
+            {profiles.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Select
+          value={currentTeam || "none"}
+          onValueChange={(v) => onSave(null, v === "none" ? null : v)}
+        >
+          <SelectTrigger className="h-8 text-xs flex-1 min-w-40">
+            <SelectValue placeholder="Sem equipe padrão" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem equipe padrão</SelectItem>
+            {teams.map((tm) => (
+              <SelectItem key={tm.id} value={tm.id}>{tm.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+}
+
