@@ -80,11 +80,13 @@ function UsuariosPage() {
     },
     onSuccess: () => {
       toast.success("Usuário criado.");
-      setName(""); setPin(""); setPhone(""); setEmail("");
+      setName(""); setPin(""); setPhone(""); setEmail(""); setRole("contador");
+      setNewUserOpen(false);
       qc.invalidateQueries();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
+
 
   const createTeam = useMutation({
     mutationFn: async () => {
