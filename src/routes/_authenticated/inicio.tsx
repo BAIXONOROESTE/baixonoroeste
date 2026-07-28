@@ -190,6 +190,65 @@ function HomePage() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: myChecklistsToday } = useQuery({
+    queryKey: ["my-checklists-today", uid, todayISO],
+    enabled: !!uid && !isSup,
+    queryFn: async () => {
+      // 1) Assignments for me today
+      const { data: assigns, error: aErr } = await supabase
+        .from("checklist_assignments")
+        .select("template_id")
+        .eq("assignment_date", todayISO)
+        .eq("assigned_to", uid!);
+      if (aErr) throw aErr;
+
+      let templates: Array<{ id: string; name: string; scheduled_time: string | null }> = [];
+      if (assigns && assigns.length > 0) {
+        const ids = assigns.map((a) => a.template_id);
+        const { data: t, error: tErr } = await supabase
+          .from("checklist_templates")
+          .select("id, name, scheduled_time")
+          .in("id", ids)
+          .eq("active", true);
+        if (tErr) throw tErr;
+        templates = (t ?? []) as typeof templates;
+      } else {
+        // Fallback: any active template not yet started/approved today
+        const { data: t, error: tErr } = await supabase
+          .from("checklist_templates")
+          .select("id, name, scheduled_time")
+          .eq("active", true);
+        if (tErr) throw tErr;
+        templates = (t ?? []) as typeof templates;
+      }
+      if (templates.length === 0) return [];
+
+      const { data: runs, error: rErr } = await supabase
+        .from("checklist_runs")
+        .select("id, template_id, status")
+        .eq("run_date", todayISO)
+        .in("template_id", templates.map((t) => t.id));
+      if (rErr) throw rErr;
+      const byTpl = new Map<string, { id: string; status: string }>();
+      (runs ?? []).forEach((r) => byTpl.set(r.template_id, { id: r.id, status: r.status as string }));
+
+      return templates
+        .filter((t) => {
+          const r = byTpl.get(t.id);
+          return !r || r.status !== "aprovado";
+        })
+        .map((t) => ({
+          template_id: t.id,
+          name: t.name,
+          scheduled_time: t.scheduled_time,
+          run_id: byTpl.get(t.id)?.id ?? null,
+          run_status: byTpl.get(t.id)?.status ?? null,
+        }));
+    },
+    refetchOnWindowFocus: true,
+  });
+
+
 
   const sync = useMutation({
     mutationFn: () => syncFn(),
