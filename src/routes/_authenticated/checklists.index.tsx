@@ -70,8 +70,8 @@ type Assignment = {
 };
 
 type RecurringAssignee = {
-  user_id: string;
-  assignee: { full_name: string | null } | null;
+  userIds: string[];
+  names: string[];
 };
 
 type ExpectedByShift = {
