@@ -69,13 +69,20 @@ type Assignment = {
   assignee: { full_name: string | null } | null;
 };
 
+type RecurringAssignee = {
+  user_id: string;
+  assignee: { full_name: string | null } | null;
+};
+
 type TemplateRow = {
   id: string;
   name: string;
   scheduled_time: string | null;
   runs: RunSummary[];
   assignments: Assignment[];
+  recurring: RecurringAssignee | null;
 };
+
 
 
 type PendingReview = {
