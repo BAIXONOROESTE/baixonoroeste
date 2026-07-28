@@ -5,7 +5,7 @@ import { fmtDateTime } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Clock, ArrowRight } from "lucide-react";
+import { AlertTriangle, Clock, ArrowRight, Plus } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { DeleteInventoryButton } from "@/components/DeleteInventoryButton";
 
@@ -78,7 +78,14 @@ function InventoriesList() {
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-3">
-      <h1 className="text-2xl font-display font-semibold">Inventários</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-display font-semibold">Inventários</h1>
+        {(profile?.role === "admin" || profile?.role === "supervisor") && (
+          <Link to="/contar">
+            <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Nova contagem</Button>
+          </Link>
+        )}
+      </div>
 
       {(() => {
         const mine = (data ?? []).filter((i) => i.assigned_counter_id === myId && PENDING_FOR_ME.includes(i.status));

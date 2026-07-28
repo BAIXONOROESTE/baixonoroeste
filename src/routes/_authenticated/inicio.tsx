@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare, Clock, CalendarCheck } from "lucide-react";
+import { Package, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare, Clock, CalendarCheck } from "lucide-react";
 import React, { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,14 +16,13 @@ import { fmtDateTime } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/inicio")({ component: HomePage });
 
 const tiles = [
-  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor"] as const },
   { to: "/inventarios", label: "Inventários", icon: Package, roles: ["admin","supervisor","contador"] as const },
   { to: "/checklists", label: "Checklists", icon: CheckSquare, roles: ["admin","supervisor","contador"] as const },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] as const },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] as const },
   { to: "/perdas", label: "Perdas & Quebras", icon: AlertTriangle, roles: ["admin","supervisor","contador"] as const },
   { to: "/manutencao", label: "Manutenção", icon: Wrench, roles: ["admin","supervisor"] as const },
-  { to: "/atividade-fora-turno", label: "Fora de turno", icon: Clock, roles: ["admin","supervisor"] as const },
+  { to: "/atividade-fora-turno", label: "Atividade fora do turno", icon: Clock, roles: ["admin","supervisor"] as const },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin","supervisor"] as const },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["admin"] as const },
   { to: "/logs", label: "Logs", icon: ScrollText, roles: ["admin","supervisor"] as const },
@@ -167,6 +166,20 @@ function HomePage() {
         .from("out_of_shift_activity")
         .select("user_id", { count: "exact", head: true })
         .gte("created_at", since);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: inventoriesInProgress } = useQuery({
+    queryKey: ["home-inventories-in-progress"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("inventories")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["aberto", "em_andamento", "pendente", "recontagem_solicitada", "ajuste_solicitado"]);
       if (error) throw error;
       return count ?? 0;
     },
@@ -491,6 +504,22 @@ function HomePage() {
             <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
               <div className="min-w-0">
                 <div className="font-medium flex items-center gap-1.5">
+                  <Package className="h-4 w-4 text-primary" /> Inventários em andamento
+                </div>
+                {inventoriesInProgress && inventoriesInProgress > 0 ? (
+                  <div className="text-xs text-warning mt-0.5">
+                    {inventoriesInProgress} em andamento
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Tudo fechado ✓</div>
+                )}
+              </div>
+              <Link to="/inventarios" className="text-xs text-primary hover:underline shrink-0">Ver</Link>
+            </div>
+
+            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
                   <Clock className="h-4 w-4 text-primary" /> Atividade fora do turno
                 </div>
                 {outOfShift24h && outOfShift24h > 0 ? (
@@ -569,37 +598,33 @@ function HomePage() {
 
 
 
-      {role === "admin" && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">Sincronização</h2>
-          <div className="rounded-2xl bg-surface border border-border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">Sincronização com Omie</div>
-                <div className="text-xs text-muted-foreground">Última: {fmtDateTime(lastSync?.started_at)}</div>
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Atalhos rápidos</h2>
+        <div className="rounded-2xl bg-surface border border-border p-3 space-y-2">
+          <Button
+            onClick={() => setTicketOpen(true)}
+            variant="outline"
+            className="w-full justify-start h-auto py-2.5"
+          >
+            <Wrench className="h-4 w-4 mr-2 text-primary" />
+            <div className="text-left">
+              <div className="text-sm font-medium">Reportar problema</div>
+              <div className="text-xs text-muted-foreground">Abrir chamado de manutenção</div>
+            </div>
+          </Button>
+          {role === "admin" && (
+            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Sincronizar com Omie</div>
+                <div className="text-xs text-muted-foreground truncate">Última: {fmtDateTime(lastSync?.started_at)}</div>
               </div>
               <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} />
                 {sync.isPending ? "Sincronizando" : "Sincronizar"}
               </Button>
             </div>
-          </div>
-        </section>
-      )}
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Manutenção</h2>
-        <Button
-          onClick={() => setTicketOpen(true)}
-          variant="outline"
-          className="w-full justify-start rounded-2xl h-auto py-3"
-        >
-          <Wrench className="h-4 w-4 mr-2 text-primary" />
-          <div className="text-left">
-            <div className="text-sm font-medium">Reportar problema</div>
-            <div className="text-xs text-muted-foreground">Abrir um chamado de manutenção</div>
-          </div>
-        </Button>
+          )}
+        </div>
       </section>
 
       <MaintenanceTicketDialog
