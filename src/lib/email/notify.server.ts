@@ -202,16 +202,16 @@ export async function sendTemplateEmailViaRpc(
 // suspended in 2019, so this is a fixed offset (no DST math needed).
 const SP_OFFSET_HOURS = 3
 
-function nowInSaoPaulo(): Date {
+export function nowInSaoPaulo(): Date {
   return new Date(Date.now() - SP_OFFSET_HOURS * 60 * 60 * 1000)
 }
 
-function isWithinBusinessHours(spDate: Date): boolean {
+export function isWithinBusinessHours(spDate: Date): boolean {
   const h = spDate.getUTCHours()
   return h >= 10 && h < 22
 }
 
-function nextTenAmUtc(spNow: Date): Date {
+export function nextTenAmUtc(spNow: Date): Date {
   const y = spNow.getUTCFullYear()
   const m = spNow.getUTCMonth()
   const d = spNow.getUTCDate()
