@@ -291,7 +291,7 @@ function HomePage() {
         </div>
       )}
 
-      {myTasks && myTasks.length > 0 && (
+      {isSup && myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -333,6 +333,136 @@ function HomePage() {
           </ul>
         </section>
       )}
+
+      {!isSup && (() => {
+        const now = Date.now();
+        type Item = {
+          key: string;
+          kind: "inventario" | "checklist" | "manutencao";
+          title: string;
+          deadlineMs: number | null;
+          deadlineLabel: string | null;
+          overdue: boolean;
+          render: () => JSX.Element;
+        };
+        const items: Item[] = [];
+        (myTasks ?? []).forEach((t) => {
+          const dMs = t.deadline_at ? new Date(t.deadline_at).getTime() : null;
+          const overdue = dMs != null && dMs < now;
+          items.push({
+            key: `inv-${t.id}`,
+            kind: "inventario",
+            title: t.name,
+            deadlineMs: dMs,
+            deadlineLabel: t.deadline_at ? `Prazo: ${fmtDateTime(t.deadline_at)}` : null,
+            overdue,
+            render: () => (
+              <Link to="/inventarios/$id" params={{ id: t.id }}>
+                <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+              </Link>
+            ),
+          });
+        });
+        (myChecklistsToday ?? []).forEach((c) => {
+          const dMs = c.scheduled_time ? new Date(`${todayISO}T${c.scheduled_time}`).getTime() : null;
+          const overdue = dMs != null && dMs < now && c.run_status !== "aprovado";
+          items.push({
+            key: `chk-${c.template_id}`,
+            kind: "checklist",
+            title: c.name,
+            deadlineMs: dMs,
+            deadlineLabel: c.scheduled_time ? `Hoje às ${c.scheduled_time.slice(0, 5)}` : "Hoje",
+            overdue,
+            render: () =>
+              c.run_id ? (
+                <Link to="/checklists/$runId" params={{ runId: c.run_id }}>
+                  <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                </Link>
+              ) : (
+                <Link to="/checklists">
+                  <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                </Link>
+              ),
+          });
+        });
+        (pendingMaintenanceTickets ?? []).forEach((t) => {
+          items.push({
+            key: `mnt-${t.id}`,
+            kind: "manutencao",
+            title: t.title,
+            deadlineMs: new Date(t.created_at).getTime(),
+            deadlineLabel: t.status === "aberto" ? "Aberto" : "Em andamento",
+            overdue: false,
+            render: () => (
+              <Link to="/manutencao">
+                <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+              </Link>
+            ),
+          });
+        });
+        if (items.length === 0) return null;
+        items.sort((a, b) => {
+          if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+          if (a.deadlineMs == null && b.deadlineMs == null) return 0;
+          if (a.deadlineMs == null) return 1;
+          if (b.deadlineMs == null) return -1;
+          return a.deadlineMs - b.deadlineMs;
+        });
+        const badgeFor = (kind: Item["kind"]) => {
+          if (kind === "inventario")
+            return { label: "Inventário", Icon: Package, cls: "bg-primary/15 text-primary" };
+          if (kind === "checklist")
+            return { label: "Checklist", Icon: CheckSquare, cls: "bg-emerald-500/15 text-emerald-600" };
+          return { label: "Manutenção", Icon: Wrench, cls: "bg-amber-500/15 text-amber-600" };
+        };
+        return (
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Bell className="h-4 w-4 text-primary" /> Minhas tarefas de hoje
+              </h2>
+              <span className="rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5">
+                {items.length}
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {items.map((it) => {
+                const b = badgeFor(it.kind);
+                const Icon = b.Icon;
+                return (
+                  <li
+                    key={it.key}
+                    className={`rounded-2xl bg-surface border p-3 flex items-center justify-between gap-2 ${
+                      it.overdue ? "border-destructive/60" : "border-primary/40"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${b.cls}`}>
+                          <Icon className="h-3 w-3" /> {b.label}
+                        </span>
+                        {it.overdue && (
+                          <span className="text-[10px] uppercase tracking-wide rounded-full bg-destructive/20 text-destructive px-2 py-0.5 font-semibold">
+                            Atrasada
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm font-medium truncate mt-1">{it.title}</div>
+                      {it.deadlineLabel && (
+                        <div className={`text-[11px] ${it.overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                          {it.deadlineLabel}
+                        </div>
+                      )}
+                    </div>
+                    {it.render()}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })()}
+
 
       {isSup && (
         <section className="space-y-2">
