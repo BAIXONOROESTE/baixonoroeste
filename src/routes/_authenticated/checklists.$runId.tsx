@@ -389,6 +389,10 @@ function RunPage() {
     onError: (e: any) => toast.error(e?.message ?? "Erro ao registrar revisão."),
   });
 
+  const notifySubmittedPushFn = useServerFn(notifyChecklistSubmittedPush);
+  const notifyApprovedPushFn = useServerFn(notifyChecklistApprovedPush);
+  const notifyRejectedPushFn = useServerFn(notifyChecklistRejectedPush);
+
   const submitForApproval = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -399,6 +403,10 @@ function RunPage() {
     },
     onSuccess: () => {
       toast.success("Checklist enviado para aprovação");
+      // Push aos aprovadores — não bloqueante.
+      notifySubmittedPushFn({ data: { run_id: runId } }).catch(() => {
+        /* falha silenciosa */
+      });
       queryClient.invalidateQueries({ queryKey: ["checklists"] });
       navigate({ to: "/checklists" });
     },
@@ -414,14 +422,27 @@ function RunPage() {
         .update({ status: finalStatus })
         .eq("id", runId);
       if (error) throw error;
+      return { finalStatus } as const;
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success("Revisão concluída");
+      // Push a quem enviou — não bloqueante.
+      if (res.finalStatus === "aprovado") {
+        notifyApprovedPushFn({ data: { run_id: runId } }).catch(() => {
+          /* falha silenciosa */
+        });
+      } else {
+        const firstReason = items.find((i) => i.review_status === "reprovado" && (i as any).justificativa)?.justificativa as string | undefined;
+        notifyRejectedPushFn({ data: { run_id: runId, reason: firstReason } }).catch(() => {
+          /* falha silenciosa */
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["checklists"] });
       navigate({ to: "/checklists" });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao concluir."),
   });
+
 
   if (runQuery.isLoading) return <div className="p-6 text-sm text-muted-foreground">Carregando…</div>;
   if (runQuery.isError) return <div className="p-6 text-sm text-destructive">Erro: {(runQuery.error as Error).message}</div>;
