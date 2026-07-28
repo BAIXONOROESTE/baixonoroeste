@@ -483,7 +483,7 @@ function InventoryDetail() {
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
           <span>Progresso</span>
-          <span className="font-medium">{countedIds.size}/{activeProducts.length} ({progress}%)</span>
+          <span className="font-medium">{countedIds.size}/{totalScope} ({progress}%)</span>
         </div>
         <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
