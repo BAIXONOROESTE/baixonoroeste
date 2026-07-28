@@ -230,6 +230,69 @@ function HomePage() {
         </div>
       )}
 
+      {isSup && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-primary" /> Hoje em resumo
+          </h2>
+          <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <CheckSquare className="h-4 w-4 text-primary" /> Checklists de hoje
+                </div>
+                {checklistsToday ? (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {checklistsToday.aprovados} aprovado{checklistsToday.aprovados === 1 ? "" : "s"}
+                    {" · "}{checklistsToday.aguardando} aguardando
+                    {" · "}{checklistsToday.naoIniciados} não iniciado{checklistsToday.naoIniciados === 1 ? "" : "s"}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Carregando…</div>
+                )}
+              </div>
+              <Link to="/checklists" className="text-xs text-primary hover:underline shrink-0">Ver checklists</Link>
+            </div>
+
+            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-primary" /> Atividade fora do turno
+                </div>
+                {outOfShift24h && outOfShift24h > 0 ? (
+                  <div className="text-xs text-warning mt-0.5">
+                    {outOfShift24h} atividade{outOfShift24h === 1 ? "" : "s"} fora do turno nas últimas 24h
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Tudo dentro do horário ✓</div>
+                )}
+              </div>
+              {outOfShift24h && outOfShift24h > 0 ? (
+                <Link to="/atividade-fora-turno" className="text-xs text-primary hover:underline shrink-0">
+                  Ver detalhes
+                </Link>
+              ) : null}
+            </div>
+
+            {topWeekly && (
+              <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+                <div className="min-w-0">
+                  <div className="font-medium flex items-center gap-1.5">
+                    <Trophy className="h-4 w-4 text-primary" /> Destaque da semana
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {topWeekly.name} · {topWeekly.score.toFixed(1)}%
+                  </div>
+                </div>
+                <Link to="/ranking" className="text-xs text-primary hover:underline shrink-0">Ver ranking</Link>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+
+
       {myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
