@@ -136,10 +136,14 @@ export const sendPush = createServerFn({ method: "POST" })
       try {
         const payload = await buildPushPayload(
           message,
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          {
+            endpoint: sub.endpoint,
+            expirationTime: null,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
           vapid,
         );
-        const res = await fetch(sub.endpoint, payload);
+        const res = await fetch(sub.endpoint, payload as unknown as RequestInit);
         if (res.status === 404 || res.status === 410) {
           staleEndpoints.push(sub.endpoint);
           removed++;
