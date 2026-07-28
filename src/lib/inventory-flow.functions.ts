@@ -161,12 +161,14 @@ export const submitForValidation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => submitValidationSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: inv } = await supabase.from("inventories").select("id, name, tolerance_pct, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("id, name, tolerance_pct, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
-    const { data: items } = await supabase.from("count_items")
+    const { data: items, error: itemsErr } = await supabase.from("count_items")
       .select("id, product_id, quantity_before, quantity_counted, difference, financial_diff, status, product:products(name, code)")
       .eq("inventory_id", data.inventory_id);
+    if (itemsErr) throw new Error(`Falha ao buscar itens para validação: ${itemsErr.message}`);
 
     const tol = Number(inv.tolerance_pct ?? 0);
     const diverg = (items ?? []).filter((i) => {
@@ -235,7 +237,8 @@ export const reviewCountItems = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     if (!await ensureRole(supabase, userId, ["admin", "supervisor"])) throw new Error("Apenas admin/supervisor podem revisar.");
 
-    const { data: inv } = await supabase.from("inventories").select("id, name, assigned_counter_id").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("id, name, assigned_counter_id").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
     for (const dec of data.decisions) {
@@ -264,9 +267,10 @@ export const reviewCountItems = createServerFn({ method: "POST" })
     const affectedIds = data.decisions.filter((d) => d.action === "recontagem" || d.action === "ajuste").map((d) => d.count_item_id);
     let itemDetails: Array<{ product: string; code?: string; expected: number; counted: number; diff: number }> = [];
     if (affectedIds.length) {
-      const { data: rows } = await supabase.from("count_items")
+      const { data: rows, error: rowsErr } = await supabase.from("count_items")
         .select("id, quantity_before, quantity_counted, difference, product:products(name, code)")
         .in("id", affectedIds);
+      if (rowsErr) throw new Error(`Falha ao buscar itens afetados pela revisão: ${rowsErr.message}`);
       itemDetails = (rows ?? []).map((r) => ({
         product: (r.product as { name: string }).name,
         code: (r.product as { code?: string }).code,
@@ -315,11 +319,13 @@ export const submitRecountOrAdjust = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => resubmitSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: inv } = await supabase.from("inventories").select("id, name, status, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("id, name, status, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
     for (const it of data.items) {
-      const { data: cur } = await supabase.from("count_items").select("*").eq("id", it.count_item_id).maybeSingle();
+      const { data: cur, error: curErr } = await supabase.from("count_items").select("*").eq("id", it.count_item_id).maybeSingle();
+      if (curErr) throw new Error(`Falha ao buscar item para recontagem: ${curErr.message}`);
       if (!cur) continue;
       const action = cur.needs_recount ? "recontagem" : cur.needs_adjust ? "ajuste" : "revisao";
       await supabase.from("count_item_history").insert({
@@ -364,16 +370,18 @@ export const approveInventoryTask = createServerFn({ method: "POST" })
     if (!await ensureRole(supabase, userId, ["admin", "supervisor"])) throw new Error("Apenas admin/supervisor podem aprovar.");
 
     // Verifica que não há itens divergentes sem revisão
-    const { data: items } = await supabase.from("count_items")
+    const { data: items, error: itemsErr } = await supabase.from("count_items")
       .select("id, status, needs_recount, needs_adjust")
       .eq("inventory_id", data.inventory_id);
+    if (itemsErr) throw new Error(`Falha ao buscar itens para aprovação: ${itemsErr.message}`);
     const pendentes = (items ?? []).filter((i) => i.needs_recount || i.needs_adjust);
     if (pendentes.length > 0) throw new Error(`Ainda há ${pendentes.length} item(ns) aguardando ação do colaborador.`);
 
     await supabase.from("inventories").update({ status: "aprovada", closed_at: new Date().toISOString() }).eq("id", data.inventory_id);
     await supabase.from("logs").insert({ user_id: userId, action: "inventario_aprovado", entity: "inventory", details: { id: data.inventory_id } });
 
-    const { data: inv } = await supabase.from("inventories").select("assigned_counter_id, assigned_supervisor_id, assigned_admin_id, name").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("assigned_counter_id, assigned_supervisor_id, assigned_admin_id, name").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário aprovado: ${invErr.message}`);
     const emails = await profileEmails([inv?.assigned_counter_id, inv?.assigned_supervisor_id, inv?.assigned_admin_id]);
     await notifyEmail("task-approved", emails, { inventory_name: inv?.name ?? "" }, `approved-${data.inventory_id}`);
     await fireEvent(data.inventory_id, "tarefa_aprovada");
@@ -397,9 +405,10 @@ export const rejectInventoryTask = createServerFn({ method: "POST" })
       throw new Error("Apenas admin/supervisor podem recusar inventário.");
     }
 
-    const { data: inv } = await supabase.from("inventories")
+    const { data: inv, error: invErr } = await supabase.from("inventories")
       .select("id, name, assigned_counter_id, assigned_supervisor_id, assigned_admin_id")
       .eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário para recusa: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
     // Registra a recusa
@@ -414,10 +423,11 @@ export const rejectInventoryTask = createServerFn({ method: "POST" })
     if (rejErr) throw new Error(`Falha ao registrar recusa: ${rejErr.message}`);
 
     // Busca count_items correspondentes aos product_ids
-    const { data: affected } = await supabase.from("count_items")
+    const { data: affected, error: affectedErr } = await supabase.from("count_items")
       .select("id, product_id, quantity_before, quantity_counted, difference, round, product:products(name, code)")
       .eq("inventory_id", data.inventory_id)
       .in("product_id", data.product_ids);
+    if (affectedErr) throw new Error(`Falha ao buscar itens afetados pela recusa: ${affectedErr.message}`);
 
     // Marca para recontagem + histórico + review
     for (const ci of affected ?? []) {
