@@ -746,7 +746,7 @@ function InventoryDetail() {
 }
 
 function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, onClose, onSaved, onOpenLoss }: {
-  product: { id: string; name: string; code: string; family_name: string | null; unit: string | null; stock_omie: number; cost: number };
+  product: { id: string; name: string; code: string; barcode: string | null; family_name: string | null; unit: string | null; stock_omie: number; cost: number };
   inventoryId: string;
   currentItem: { id: string; quantity_counted: number; difference: number; financial_diff: number; status: string } | undefined;
   blind: boolean;
@@ -758,6 +758,13 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   const { enqueue, flush, online } = useOfflineCountQueue(inventoryId);
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
+  const [barcodeCheck, setBarcodeCheck] = useState<
+    | null
+    | { kind: "match" }
+    | { kind: "mismatch"; scanned: string }
+    | { kind: "missing"; scanned: string; reported: boolean }
+  >(null);
+  const [scanningProduct, setScanningProduct] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
   const [revealed, setRevealed] = useState<null | { diff: number; finDiff: number; status: string; itemId: string }>(null);
   // Só escondemos estoque/diferença enquanto o item ainda NÃO foi salvo nesta sessão.
