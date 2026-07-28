@@ -178,7 +178,8 @@ export const notifyMaintenanceTicketCreatedPush = createServerFn({ method: "POST
         body,
         url: ticketUrl(),
         tag: `maint-created-${ticket.id}`,
-      });
+      }, "maintenance");
+
       return { ok: true, sent: r.sent, targets: r.targets };
     } catch (e) {
       console.error("[notifyMaintenanceTicketCreatedPush] falhou", e);
