@@ -161,12 +161,14 @@ export const submitForValidation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => submitValidationSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: inv } = await supabase.from("inventories").select("id, name, tolerance_pct, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("id, name, tolerance_pct, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
-    const { data: items } = await supabase.from("count_items")
+    const { data: items, error: itemsErr } = await supabase.from("count_items")
       .select("id, product_id, quantity_before, quantity_counted, difference, financial_diff, status, product:products(name, code)")
       .eq("inventory_id", data.inventory_id);
+    if (itemsErr) throw new Error(`Falha ao buscar itens para validação: ${itemsErr.message}`);
 
     const tol = Number(inv.tolerance_pct ?? 0);
     const diverg = (items ?? []).filter((i) => {
