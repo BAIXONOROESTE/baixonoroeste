@@ -203,6 +203,8 @@ function HomePage() {
   const visible = tiles.filter((t) => (t.roles as readonly string[]).includes(role));
 
 
+  const firstPendingCloseToken = pendingCloses?.[0]?.approval_token;
+
   return (
     <div className="mx-auto max-w-md px-4 pt-4 space-y-4">
       <div>
@@ -229,69 +231,6 @@ function HomePage() {
           </div>
         </div>
       )}
-
-      {isSup && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <CalendarCheck className="h-4 w-4 text-primary" /> Hoje em resumo
-          </h2>
-          <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 text-sm">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="font-medium flex items-center gap-1.5">
-                  <CheckSquare className="h-4 w-4 text-primary" /> Checklists de hoje
-                </div>
-                {checklistsToday ? (
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {checklistsToday.aprovados} aprovado{checklistsToday.aprovados === 1 ? "" : "s"}
-                    {" · "}{checklistsToday.aguardando} aguardando
-                    {" · "}{checklistsToday.naoIniciados} não iniciado{checklistsToday.naoIniciados === 1 ? "" : "s"}
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground mt-0.5">Carregando…</div>
-                )}
-              </div>
-              <Link to="/checklists" className="text-xs text-primary hover:underline shrink-0">Ver checklists</Link>
-            </div>
-
-            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
-              <div className="min-w-0">
-                <div className="font-medium flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-primary" /> Atividade fora do turno
-                </div>
-                {outOfShift24h && outOfShift24h > 0 ? (
-                  <div className="text-xs text-warning mt-0.5">
-                    {outOfShift24h} atividade{outOfShift24h === 1 ? "" : "s"} fora do turno nas últimas 24h
-                  </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground mt-0.5">Tudo dentro do horário ✓</div>
-                )}
-              </div>
-              {outOfShift24h && outOfShift24h > 0 ? (
-                <Link to="/atividade-fora-turno" className="text-xs text-primary hover:underline shrink-0">
-                  Ver detalhes
-                </Link>
-              ) : null}
-            </div>
-
-            {topWeekly && (
-              <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
-                <div className="min-w-0">
-                  <div className="font-medium flex items-center gap-1.5">
-                    <Trophy className="h-4 w-4 text-primary" /> Destaque da semana
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {topWeekly.name} · {topWeekly.score.toFixed(1)}%
-                  </div>
-                </div>
-                <Link to="/ranking" className="text-xs text-primary hover:underline shrink-0">Ver ranking</Link>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-
 
       {myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
@@ -336,81 +275,116 @@ function HomePage() {
         </section>
       )}
 
-
-      {role === "admin" && (
+      {isSup && (
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">Sincronização</h2>
-          <div className="rounded-2xl bg-surface border border-border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">Sincronização com Omie</div>
-                <div className="text-xs text-muted-foreground">Última: {fmtDateTime(lastSync?.started_at)}</div>
+          <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-primary" /> Hoje em resumo
+          </h2>
+          <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <CheckSquare className="h-4 w-4 text-primary" /> Checklists de hoje
+                </div>
+                {checklistsToday ? (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {checklistsToday.aprovados} aprovado{checklistsToday.aprovados === 1 ? "" : "s"}
+                    {" · "}{checklistsToday.aguardando} aguardando
+                    {" · "}{checklistsToday.naoIniciados} não iniciado{checklistsToday.naoIniciados === 1 ? "" : "s"}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Carregando…</div>
+                )}
               </div>
-              <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending}>
-                <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} />
-                {sync.isPending ? "Sincronizando" : "Sincronizar"}
-              </Button>
+              <Link to="/checklists" className="text-xs text-primary hover:underline shrink-0">Ver</Link>
             </div>
+
+            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-primary" /> Atividade fora do turno
+                </div>
+                {outOfShift24h && outOfShift24h > 0 ? (
+                  <div className="text-xs text-warning mt-0.5">
+                    {outOfShift24h} atividade{outOfShift24h === 1 ? "" : "s"} fora do turno nas últimas 24h
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Tudo dentro do horário ✓</div>
+                )}
+              </div>
+              {outOfShift24h && outOfShift24h > 0 ? (
+                <Link to="/atividade-fora-turno" className="text-xs text-primary hover:underline shrink-0">
+                  Ver
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <Wrench className="h-4 w-4 text-primary" /> Manutenção pendente
+                </div>
+                {pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 ? (
+                  <div className="text-xs text-warning mt-0.5">
+                    {pendingMaintenanceTickets.length} chamado{pendingMaintenanceTickets.length === 1 ? "" : "s"} em aberto
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Nenhum chamado pendente ✓</div>
+                )}
+              </div>
+              {pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 ? (
+                <Link to="/manutencao" className="text-xs text-primary hover:underline shrink-0">Ver</Link>
+              ) : null}
+            </div>
+
+            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <Inbox className="h-4 w-4 text-primary" /> Pedidos de fechamento
+                </div>
+                {pendingCloses && pendingCloses.length > 0 ? (
+                  <div className="text-xs text-warning mt-0.5">
+                    {pendingCloses.length} pedido{pendingCloses.length === 1 ? "" : "s"} aguardando aprovação
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Nenhum pedido pendente ✓</div>
+                )}
+              </div>
+              {pendingCloses && pendingCloses.length > 0 ? (
+                firstPendingCloseToken ? (
+                  <Link to="/aprovar/$token" params={{ token: firstPendingCloseToken }} className="text-xs text-primary hover:underline shrink-0">
+                    Ver
+                  </Link>
+                ) : (
+                  <Link to="/inventarios" className="text-xs text-primary hover:underline shrink-0">Ver</Link>
+                )
+              ) : null}
+            </div>
+
+            {topWeekly && (
+              <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+                <div className="min-w-0">
+                  <div className="font-medium flex items-center gap-1.5">
+                    <Trophy className="h-4 w-4 text-primary" /> Destaque da semana
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {topWeekly.name} · {topWeekly.score.toFixed(1)}%
+                  </div>
+                </div>
+                <Link to="/ranking" className="text-xs text-primary hover:underline shrink-0">Ver</Link>
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Manutenção</h2>
-        <Button
-          onClick={() => setTicketOpen(true)}
-          variant="outline"
-          className="w-full justify-start rounded-2xl h-auto py-3"
-        >
-          <Wrench className="h-4 w-4 mr-2 text-primary" />
-          <div className="text-left">
-            <div className="text-sm font-medium">Reportar problema</div>
-            <div className="text-xs text-muted-foreground">Abrir um chamado de manutenção</div>
-          </div>
-        </Button>
-      </section>
-
-      <MaintenanceTicketDialog
-        open={ticketOpen}
-        onOpenChange={setTicketOpen}
-        onCreated={() => qc.invalidateQueries({ queryKey: ["pending-maintenance-tickets"] })}
-      />
-
-      {isSup && pendingCloses && pendingCloses.length > 0 && (
-        <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <Inbox className="h-4 w-4 text-warning" />
-            <div className="text-sm font-medium">Pedidos de fechamento pendentes ({pendingCloses.length})</div>
-          </div>
-          <ul className="space-y-2">
-            {pendingCloses.map((r) => {
-              const inv = r.inventory as { name?: string } | null;
-              const req = { full_name: r.requester_name };
-              return (
-                <li key={r.id} className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2">
-                  <div className="min-w-0">
-                    <div className="text-sm truncate">{inv?.name ?? "Inventário"}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {req?.full_name ?? "—"} · {fmtDateTime(r.created_at)}
-                    </div>
-                  </div>
-                  <Link to="/aprovar/$token" params={{ token: r.approval_token }}>
-                    <Button size="sm" variant="outline">Abrir</Button>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
+      {!isSup && pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
         <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-warning" />
               <div className="text-sm font-medium">
-                {isSup ? "Manutenção pendente" : "Meus chamados"} ({pendingMaintenanceTickets.length})
+                Meus chamados ({pendingMaintenanceTickets.length})
               </div>
             </div>
             {pendingMaintenanceTickets.length > 5 && (
@@ -451,9 +425,44 @@ function HomePage() {
         </div>
       )}
 
+      {role === "admin" && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">Sincronização</h2>
+          <div className="rounded-2xl bg-surface border border-border p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">Sincronização com Omie</div>
+                <div className="text-xs text-muted-foreground">Última: {fmtDateTime(lastSync?.started_at)}</div>
+              </div>
+              <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} />
+                {sync.isPending ? "Sincronizando" : "Sincronizar"}
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Manutenção</h2>
+        <Button
+          onClick={() => setTicketOpen(true)}
+          variant="outline"
+          className="w-full justify-start rounded-2xl h-auto py-3"
+        >
+          <Wrench className="h-4 w-4 mr-2 text-primary" />
+          <div className="text-left">
+            <div className="text-sm font-medium">Reportar problema</div>
+            <div className="text-xs text-muted-foreground">Abrir um chamado de manutenção</div>
+          </div>
+        </Button>
+      </section>
 
-
+      <MaintenanceTicketDialog
+        open={ticketOpen}
+        onOpenChange={setTicketOpen}
+        onCreated={() => qc.invalidateQueries({ queryKey: ["pending-maintenance-tickets"] })}
+      />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Navegação</h2>
