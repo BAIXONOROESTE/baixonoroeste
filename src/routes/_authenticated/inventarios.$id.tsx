@@ -915,6 +915,39 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
           </div>
         )}
       </div>
+      {scanningProduct && (
+        <BarcodeScanner
+          onClose={() => setScanningProduct(false)}
+          onScan={async (code) => {
+            setScanningProduct(false);
+            const scanned = code.trim();
+            const productBarcode = (product.barcode ?? "").trim();
+            if (!productBarcode) {
+              // Sem barcode cadastrado: registra relato para avisar responsável.
+              let reported = false;
+              try {
+                const { data: u } = await supabase.auth.getUser();
+                if (u.user) {
+                  const { error } = await supabase.from("missing_barcode_reports").insert({
+                    product_id: product.id,
+                    reported_by: u.user.id,
+                  });
+                  if (!error) reported = true;
+                }
+              } catch (e) {
+                console.warn("missing_barcode_reports insert:", e);
+              }
+              setBarcodeCheck({ kind: "missing", scanned, reported });
+              return;
+            }
+            if (scanned === productBarcode) {
+              setBarcodeCheck({ kind: "match" });
+            } else {
+              setBarcodeCheck({ kind: "mismatch", scanned });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
