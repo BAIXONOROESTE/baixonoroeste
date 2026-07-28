@@ -423,10 +423,11 @@ export const rejectInventoryTask = createServerFn({ method: "POST" })
     if (rejErr) throw new Error(`Falha ao registrar recusa: ${rejErr.message}`);
 
     // Busca count_items correspondentes aos product_ids
-    const { data: affected } = await supabase.from("count_items")
+    const { data: affected, error: affectedErr } = await supabase.from("count_items")
       .select("id, product_id, quantity_before, quantity_counted, difference, round, product:products(name, code)")
       .eq("inventory_id", data.inventory_id)
       .in("product_id", data.product_ids);
+    if (affectedErr) throw new Error(`Falha ao buscar itens afetados pela recusa: ${affectedErr.message}`);
 
     // Marca para recontagem + histórico + review
     for (const ci of affected ?? []) {
