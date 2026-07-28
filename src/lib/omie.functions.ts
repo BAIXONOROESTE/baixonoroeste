@@ -230,7 +230,10 @@ export const closeInventory = createServerFn({ method: "POST" })
     const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
 
 
-    if (data.push_to_omie) {
+    // Fechar inventário sempre empurra as divergências pendentes para o Omie.
+    // O parâmetro `push_to_omie` é mantido para compatibilidade e para o log,
+    // mas não gate mais o envio — se está fechando é porque o revisor aprovou.
+    {
       const { data: inv, error: invErr } = await supabase
         .from("inventories")
         .select("name, assigned_counter_id")
@@ -250,14 +253,17 @@ export const closeInventory = createServerFn({ method: "POST" })
         .select("*, product:products(omie_id, name)")
         .eq("inventory_id", data.inventory_id)
         .eq("status", "divergencia");
-      if (pendingErr) throw new Error(`Falha ao buscar itens divergentes: ${pendingErr.message}`);
+      if (pendingErr) {
+        throw new Error(`Falha ao buscar itens divergentes para envio ao Omie: ${pendingErr.message}`);
+      }
 
       // Prefetch counter names to avoid N+1 without breaking on missing FK embed.
       const counterIds = Array.from(new Set((pending ?? []).map((p) => p.counted_by).filter(Boolean) as string[]));
       const counterNameById = new Map<string, string>();
       if (counterIds.length) {
-        const { data: counterProfiles } = await supabase
+        const { data: counterProfiles, error: cpErr } = await supabase
           .from("profiles").select("id, full_name").in("id", counterIds);
+        if (cpErr) throw new Error(`Falha ao buscar contadores: ${cpErr.message}`);
         for (const c of counterProfiles ?? []) {
           if (c.id && c.full_name) counterNameById.set(c.id, c.full_name);
         }
