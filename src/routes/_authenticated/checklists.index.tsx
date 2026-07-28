@@ -160,6 +160,50 @@ function ChecklistsPage() {
         }),
       );
 
+      // 3ª prioridade: descobrir esperado por turno para templates sem manual/recorrente ativo.
+      const expectedByTemplate: Record<string, ExpectedByShift | null> = {};
+      const needsShiftLookup = (data ?? []).filter((t: any) => {
+        if (!t.scheduled_time) return false;
+        if ((t.assignments ?? []).length > 0) return false;
+        const rec = (t.recurring ?? [])[0];
+        if (rec && worksToday[rec.user_id]) return false;
+        return true;
+      });
+      const shiftIdsNeeded = new Set<string>();
+      const shiftIdsPerTemplate: Record<string, string[]> = {};
+      await Promise.all(
+        needsShiftLookup.map(async (t: any) => {
+          const { data: ids, error: rpcErr } = await supabase.rpc(
+            "expected_checklist_assignees",
+            { p_template_id: t.id, p_check_date: todayISO },
+          );
+          if (rpcErr) throw rpcErr;
+          const uids = ((ids ?? []) as any[]).map((r) => r.user_id as string);
+          shiftIdsPerTemplate[t.id] = uids;
+          for (const u of uids) shiftIdsNeeded.add(u);
+        }),
+      );
+      const shiftNamesById: Record<string, string | null> = {};
+      if (shiftIdsNeeded.size > 0) {
+        const { data: profs2, error: prof2Err } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", Array.from(shiftIdsNeeded));
+        if (prof2Err) throw prof2Err;
+        for (const p of profs2 ?? [])
+          shiftNamesById[p.id as string] = p.full_name as string | null;
+      }
+      for (const [tid, uids] of Object.entries(shiftIdsPerTemplate)) {
+        if (uids.length === 0) {
+          expectedByTemplate[tid] = null;
+        } else {
+          expectedByTemplate[tid] = {
+            userIds: uids,
+            names: uids.map((u) => shiftNamesById[u] ?? "").filter(Boolean),
+          };
+        }
+      }
+
       return (data ?? []).map((t: any) => {
         const rec = (t.recurring ?? [])[0];
         const recurring: RecurringAssignee | null =
@@ -176,6 +220,7 @@ function ChecklistsPage() {
             assignee: { full_name: namesById[a.assigned_to] ?? null },
           })) as Assignment[],
           recurring,
+          expectedByShift: expectedByTemplate[t.id] ?? null,
         };
       });
     },
