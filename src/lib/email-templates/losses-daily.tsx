@@ -23,6 +23,13 @@ interface CountFamilyRow {
   diff_value: number
 }
 
+interface MissingBarcodeRow {
+  product: string
+  code: string
+  times: number
+  reporters: string[]
+}
+
 interface Props {
   date_label?: string
   rows?: Row[]
@@ -31,6 +38,7 @@ interface Props {
   counts_total_items?: number
   counts_total_divergences?: number
   counts_total_diff_value?: number
+  missing_barcodes?: MissingBarcodeRow[]
 }
 
 const LossesDaily = ({
@@ -41,6 +49,7 @@ const LossesDaily = ({
   counts_total_items = 0,
   counts_total_divergences = 0,
   counts_total_diff_value = 0,
+  missing_barcodes = [],
 }: Props) => (
   <Html lang="pt-BR" dir="ltr">
     <Head />
