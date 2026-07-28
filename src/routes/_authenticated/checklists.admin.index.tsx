@@ -266,46 +266,71 @@ function ChecklistAdminPage() {
       )}
 
       <div className="space-y-2">
-        {sorted.map((t) => (
-          <Card key={t.id} className="p-3 flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-mono text-muted-foreground w-12 shrink-0">
-                  {t.scheduled_time ? t.scheduled_time.slice(0, 5) : "—"}
-                </span>
-                <span className="font-medium truncate">{t.name}</span>
-                {!t.active && <Badge variant="outline">Inativo</Badge>}
+        {sorted.map((t) => {
+          const recurringUserId = recurringQ.data?.[t.id] ?? "";
+          return (
+          <Card key={t.id} className="p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-mono text-muted-foreground w-12 shrink-0">
+                    {t.scheduled_time ? t.scheduled_time.slice(0, 5) : "—"}
+                  </span>
+                  <span className="font-medium truncate">{t.name}</span>
+                  {!t.active && <Badge variant="outline">Inativo</Badge>}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 ml-14">
+                  {t.items?.length ?? 0} itens
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground mt-1 ml-14">
-                {t.items?.length ?? 0} itens
+              <div className="flex items-center gap-2 shrink-0">
+                <Switch
+                  checked={t.active}
+                  onCheckedChange={(v) => toggleActive.mutate({ id: t.id, active: v })}
+                  aria-label="Ativo"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAssignFor(t);
+                    setAssignDate(todayLocalISO());
+                    setAssignUserId("");
+                  }}
+                >
+                  <UserCheck className="h-4 w-4 mr-1.5" /> Atribuir
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/checklists/admin/$templateId" params={{ templateId: t.id }}>
+                    <Pencil className="h-4 w-4 mr-1.5" /> Editar
+                  </Link>
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Switch
-                checked={t.active}
-                onCheckedChange={(v) => toggleActive.mutate({ id: t.id, active: v })}
-                aria-label="Ativo"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setAssignFor(t);
-                  setAssignDate(todayLocalISO());
-                  setAssignUserId("");
-                }}
+            <div className="flex items-center gap-2 pl-14">
+              <label className="text-xs text-muted-foreground shrink-0">Padrão:</label>
+              <Select
+                value={recurringUserId || "none"}
+                onValueChange={(v) =>
+                  upsertRecurring.mutate({ templateId: t.id, userId: v === "none" ? "" : v })
+                }
               >
-                <UserCheck className="h-4 w-4 mr-1.5" /> Atribuir
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link to="/checklists/admin/$templateId" params={{ templateId: t.id }}>
-                  <Pencil className="h-4 w-4 mr-1.5" /> Editar
-                </Link>
-              </Button>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Sem responsável padrão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem responsável padrão</SelectItem>
+                  {(activeProfilesQ.data ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </Card>
-        ))}
+          );
+        })}
       </div>
+
 
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent className="max-w-md">
