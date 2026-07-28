@@ -343,7 +343,7 @@ function HomePage() {
           deadlineMs: number | null;
           deadlineLabel: string | null;
           overdue: boolean;
-          render: () => JSX.Element;
+          render: () => React.ReactElement;
         };
         const items: Item[] = [];
         (myTasks ?? []).forEach((t) => {
