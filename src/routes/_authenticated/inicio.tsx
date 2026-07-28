@@ -172,6 +172,20 @@ function HomePage() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: inventoriesInProgress } = useQuery({
+    queryKey: ["home-inventories-in-progress"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("inventories")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["aberto", "em_andamento", "pendente", "recontagem_solicitada", "ajuste_solicitado"]);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchOnWindowFocus: true,
+  });
+
   const { data: topWeekly } = useQuery({
     queryKey: ["home-top-weekly"],
     enabled: isSup,
