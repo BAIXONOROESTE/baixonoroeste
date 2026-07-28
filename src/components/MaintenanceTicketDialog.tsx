@@ -23,7 +23,10 @@ import { Camera, Wrench, X } from "lucide-react";
 import { toast } from "sonner";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 import { useServerFn } from "@tanstack/react-start";
-import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
+import {
+  notifyMaintenanceTicketAssigned,
+  notifyMaintenanceTicketCreatedPush,
+} from "@/lib/maintenance.functions";
 import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 type CapturedEvidence = {
