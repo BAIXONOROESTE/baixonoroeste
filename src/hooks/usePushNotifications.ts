@@ -95,7 +95,7 @@ export function usePushNotifications() {
       if (!sub) {
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
+          applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
         });
       }
       const p256dh = arrayBufferToBase64Url(sub.getKey("p256dh"));
