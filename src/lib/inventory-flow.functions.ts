@@ -380,7 +380,8 @@ export const approveInventoryTask = createServerFn({ method: "POST" })
     await supabase.from("inventories").update({ status: "aprovada", closed_at: new Date().toISOString() }).eq("id", data.inventory_id);
     await supabase.from("logs").insert({ user_id: userId, action: "inventario_aprovado", entity: "inventory", details: { id: data.inventory_id } });
 
-    const { data: inv } = await supabase.from("inventories").select("assigned_counter_id, assigned_supervisor_id, assigned_admin_id, name").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("assigned_counter_id, assigned_supervisor_id, assigned_admin_id, name").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário aprovado: ${invErr.message}`);
     const emails = await profileEmails([inv?.assigned_counter_id, inv?.assigned_supervisor_id, inv?.assigned_admin_id]);
     await notifyEmail("task-approved", emails, { inventory_name: inv?.name ?? "" }, `approved-${data.inventory_id}`);
     await fireEvent(data.inventory_id, "tarefa_aprovada");
