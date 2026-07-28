@@ -70,8 +70,8 @@ type Assignment = {
 };
 
 type RecurringAssignee = {
-  user_id: string;
-  assignee: { full_name: string | null } | null;
+  userIds: string[];
+  names: string[];
 };
 
 type ExpectedByShift = {
@@ -122,7 +122,7 @@ function ChecklistsPage() {
           `id, name, scheduled_time,
            runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done)),
            assignments:checklist_assignments(id, assigned_to, assignment_date),
-           recurring:checklist_recurring_assignments(user_id)`,
+           recurring:checklist_recurring_assignments(user_id, team_id)`,
         )
         .eq("active", true)
         .eq("runs.run_date", todayISO)
@@ -130,46 +130,50 @@ function ChecklistsPage() {
       if (error) throw error;
 
       const assignedIds = new Set<string>();
-      const recurringIds = new Set<string>();
+      const recurringUserIds = new Set<string>();
+      const recurringTeamIds = new Set<string>();
       for (const t of (data ?? []) as any[]) {
         for (const a of (t.assignments ?? [])) assignedIds.add(a.assigned_to as string);
         const rec = (t.recurring ?? [])[0];
-        if (rec) recurringIds.add(rec.user_id as string);
-      }
-      const allIds = Array.from(new Set([...assignedIds, ...recurringIds]));
-      const namesById: Record<string, string | null> = {};
-      if (allIds.length > 0) {
-        const { data: profs, error: profErr } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", allIds);
-        if (profErr) throw profErr;
-        for (const p of profs ?? []) namesById[p.id as string] = p.full_name as string | null;
+        if (rec?.user_id) recurringUserIds.add(rec.user_id as string);
+        if (rec?.team_id) recurringTeamIds.add(rec.team_id as string);
       }
 
-      // Recorrente só vale se a pessoa trabalha hoje.
+      // Recorrente pessoa: só vale se trabalha hoje.
       const worksToday: Record<string, boolean> = {};
       await Promise.all(
-        Array.from(recurringIds).map(async (uid) => {
+        Array.from(recurringUserIds).map(async (u) => {
           const { data: ok, error: fnErr } = await supabase.rpc("person_works_on_date", {
-            p_user_id: uid,
+            p_user_id: u,
             p_check_date: todayISO,
           });
           if (fnErr) throw fnErr;
-          worksToday[uid] = !!ok;
+          worksToday[u] = !!ok;
+        }),
+      );
+
+      // Recorrente equipe: expandir membros que trabalham hoje.
+      const teamMembers: Record<string, string[]> = {};
+      await Promise.all(
+        Array.from(recurringTeamIds).map(async (tid) => {
+          const { data: ids, error: teamErr } = await supabase.rpc("expected_team_assignees", {
+            p_team_id: tid,
+            p_check_date: todayISO,
+          });
+          if (teamErr) throw teamErr;
+          teamMembers[tid] = ((ids ?? []) as any[]).map((r) => r.user_id as string);
         }),
       );
 
       // 3ª prioridade: descobrir esperado por turno para templates sem manual/recorrente ativo.
-      const expectedByTemplate: Record<string, ExpectedByShift | null> = {};
       const needsShiftLookup = (data ?? []).filter((t: any) => {
         if (!t.scheduled_time) return false;
         if ((t.assignments ?? []).length > 0) return false;
         const rec = (t.recurring ?? [])[0];
-        if (rec && worksToday[rec.user_id]) return false;
+        if (rec?.user_id && worksToday[rec.user_id]) return false;
+        if (rec?.team_id && (teamMembers[rec.team_id]?.length ?? 0) > 0) return false;
         return true;
       });
-      const shiftIdsNeeded = new Set<string>();
       const shiftIdsPerTemplate: Record<string, string[]> = {};
       await Promise.all(
         needsShiftLookup.map(async (t: any) => {
@@ -178,38 +182,50 @@ function ChecklistsPage() {
             { p_template_id: t.id, p_check_date: todayISO },
           );
           if (rpcErr) throw rpcErr;
-          const uids = ((ids ?? []) as any[]).map((r) => r.user_id as string);
-          shiftIdsPerTemplate[t.id] = uids;
-          for (const u of uids) shiftIdsNeeded.add(u);
+          shiftIdsPerTemplate[t.id] = ((ids ?? []) as any[]).map((r) => r.user_id as string);
         }),
       );
-      const shiftNamesById: Record<string, string | null> = {};
-      if (shiftIdsNeeded.size > 0) {
-        const { data: profs2, error: prof2Err } = await supabase
+
+      // Coletar todos os ids para uma busca única de nomes.
+      const allIds = new Set<string>();
+      for (const u of assignedIds) allIds.add(u);
+      for (const u of recurringUserIds) if (worksToday[u]) allIds.add(u);
+      for (const uids of Object.values(teamMembers)) for (const u of uids) allIds.add(u);
+      for (const uids of Object.values(shiftIdsPerTemplate)) for (const u of uids) allIds.add(u);
+      const namesById: Record<string, string | null> = {};
+      if (allIds.size > 0) {
+        const { data: profs, error: profErr } = await supabase
           .from("profiles")
           .select("id, full_name")
-          .in("id", Array.from(shiftIdsNeeded));
-        if (prof2Err) throw prof2Err;
-        for (const p of profs2 ?? [])
-          shiftNamesById[p.id as string] = p.full_name as string | null;
+          .in("id", Array.from(allIds));
+        if (profErr) throw profErr;
+        for (const p of profs ?? []) namesById[p.id as string] = p.full_name as string | null;
       }
+
+      const expectedByTemplate: Record<string, ExpectedByShift | null> = {};
       for (const [tid, uids] of Object.entries(shiftIdsPerTemplate)) {
-        if (uids.length === 0) {
-          expectedByTemplate[tid] = null;
-        } else {
-          expectedByTemplate[tid] = {
-            userIds: uids,
-            names: uids.map((u) => shiftNamesById[u] ?? "").filter(Boolean),
-          };
-        }
+        expectedByTemplate[tid] = uids.length === 0
+          ? null
+          : { userIds: uids, names: uids.map((u) => namesById[u] ?? "").filter(Boolean) };
       }
 
       return (data ?? []).map((t: any) => {
         const rec = (t.recurring ?? [])[0];
-        const recurring: RecurringAssignee | null =
-          rec && worksToday[rec.user_id]
-            ? { user_id: rec.user_id, assignee: { full_name: namesById[rec.user_id] ?? null } }
-            : null;
+        let recurring: RecurringAssignee | null = null;
+        if (rec?.user_id && worksToday[rec.user_id]) {
+          recurring = {
+            userIds: [rec.user_id],
+            names: [namesById[rec.user_id] ?? ""].filter(Boolean),
+          };
+        } else if (rec?.team_id) {
+          const uids = teamMembers[rec.team_id] ?? [];
+          if (uids.length > 0) {
+            recurring = {
+              userIds: uids,
+              names: uids.map((u) => namesById[u] ?? "").filter(Boolean),
+            };
+          }
+        }
         return {
           id: t.id,
           name: t.name,
@@ -413,9 +429,9 @@ function ChecklistsPage() {
           if (assignment) {
             expectedUserIds = [assignment.assigned_to];
             expectedName = assignment.assignee?.full_name ?? null;
-          } else if (t.recurring) {
-            expectedUserIds = [t.recurring.user_id];
-            expectedName = t.recurring.assignee?.full_name ?? null;
+          } else if (t.recurring && t.recurring.userIds.length > 0) {
+            expectedUserIds = t.recurring.userIds;
+            expectedName = t.recurring.names.length > 0 ? t.recurring.names.join(" ou ") : null;
           } else if (t.expectedByShift && t.expectedByShift.userIds.length > 0) {
             expectedUserIds = t.expectedByShift.userIds;
             expectedName = t.expectedByShift.names.length > 0

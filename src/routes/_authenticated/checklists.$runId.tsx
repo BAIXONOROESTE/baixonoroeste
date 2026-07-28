@@ -160,15 +160,16 @@ function RunPage() {
         userIds = [(manual as any).assigned_to as string];
       }
 
-      // 2) Recorrente (se trabalha nesse dia)
+      // 2) Recorrente (pessoa se trabalha hoje, ou equipe se algum membro trabalha)
       if (userIds.length === 0) {
         const { data: rec, error: recErr } = await supabase
           .from("checklist_recurring_assignments")
-          .select("user_id")
+          .select("user_id, team_id")
           .eq("template_id", templateId)
           .maybeSingle();
         if (recErr) throw recErr;
         const recUserId = (rec as any)?.user_id ?? null;
+        const recTeamId = (rec as any)?.team_id ?? null;
         if (recUserId) {
           const { data: works, error: fnErr } = await supabase.rpc("person_works_on_date", {
             p_user_id: recUserId,
@@ -176,6 +177,13 @@ function RunPage() {
           });
           if (fnErr) throw fnErr;
           if (works) userIds = [recUserId];
+        } else if (recTeamId) {
+          const { data: ids, error: teamErr } = await supabase.rpc("expected_team_assignees", {
+            p_team_id: recTeamId,
+            p_check_date: runDate,
+          });
+          if (teamErr) throw teamErr;
+          userIds = ((ids ?? []) as any[]).map((r) => r.user_id as string);
         }
       }
 

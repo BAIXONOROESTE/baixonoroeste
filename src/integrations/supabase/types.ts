@@ -102,27 +102,37 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          team_id: string | null
           template_id: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           created_by: string
           id?: string
+          team_id?: string | null
           template_id: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string
           id?: string
+          team_id?: string | null
           template_id?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "checklist_recurring_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklist_recurring_assignments_template_id_fkey"
             columns: ["template_id"]
@@ -1742,6 +1752,12 @@ export type Database = {
       }
       expected_checklist_assignees: {
         Args: { p_check_date: string; p_template_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      expected_team_assignees: {
+        Args: { p_check_date: string; p_team_id: string }
         Returns: {
           user_id: string
         }[]

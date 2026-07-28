@@ -146,21 +146,45 @@ function ChecklistAdminPage() {
   const recurringQ = useQuery({
     queryKey: ["checklist-recurring-assignments"],
     enabled: canManage,
-    queryFn: async (): Promise<Record<string, string>> => {
+    queryFn: async (): Promise<Record<string, { user_id: string | null; team_id: string | null }>> => {
       const { data, error } = await supabase
         .from("checklist_recurring_assignments")
-        .select("template_id, user_id");
+        .select("template_id, user_id, team_id");
       if (error) throw error;
-      const map: Record<string, string> = {};
-      for (const r of (data ?? []) as any[]) map[r.template_id] = r.user_id;
+      const map: Record<string, { user_id: string | null; team_id: string | null }> = {};
+      for (const r of (data ?? []) as any[]) {
+        map[r.template_id] = { user_id: r.user_id ?? null, team_id: r.team_id ?? null };
+      }
       return map;
     },
   });
 
+  const teamsQ = useQuery({
+    queryKey: ["teams-active"],
+    enabled: canManage,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("teams")
+        .select("id, name")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string }[];
+    },
+  });
+
   const upsertRecurring = useMutation({
-    mutationFn: async ({ templateId, userId }: { templateId: string; userId: string }) => {
+    mutationFn: async ({
+      templateId,
+      userId,
+      teamId,
+    }: {
+      templateId: string;
+      userId: string | null;
+      teamId: string | null;
+    }) => {
       if (!profile?.id) throw new Error("Sem usuário autenticado.");
-      if (!userId) {
+      if (!userId && !teamId) {
         const { error } = await supabase
           .from("checklist_recurring_assignments")
           .delete()
@@ -171,7 +195,12 @@ function ChecklistAdminPage() {
       const { error } = await supabase
         .from("checklist_recurring_assignments")
         .upsert(
-          { template_id: templateId, user_id: userId, created_by: profile.id },
+          {
+            template_id: templateId,
+            user_id: userId,
+            team_id: teamId,
+            created_by: profile.id,
+          },
           { onConflict: "template_id" },
         );
       if (error) throw error;
@@ -183,6 +212,7 @@ function ChecklistAdminPage() {
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao atualizar responsável padrão"),
   });
+
 
 
   const toggleActive = useMutation({
@@ -267,7 +297,7 @@ function ChecklistAdminPage() {
 
       <div className="space-y-2">
         {sorted.map((t) => {
-          const recurringUserId = recurringQ.data?.[t.id] ?? "";
+          const recurring = recurringQ.data?.[t.id] ?? null;
           return (
           <Card key={t.id} className="p-3 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -307,29 +337,20 @@ function ChecklistAdminPage() {
                 </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 pl-14">
-              <label className="text-xs text-muted-foreground shrink-0">Padrão:</label>
-              <Select
-                value={recurringUserId || "none"}
-                onValueChange={(v) =>
-                  upsertRecurring.mutate({ templateId: t.id, userId: v === "none" ? "" : v })
-                }
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Sem responsável padrão" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem responsável padrão</SelectItem>
-                  {(activeProfilesQ.data ?? []).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <RecurringRow
+              templateId={t.id}
+              recurring={recurring}
+              profiles={activeProfilesQ.data ?? []}
+              teams={teamsQ.data ?? []}
+              onSave={(userId, teamId) =>
+                upsertRecurring.mutate({ templateId: t.id, userId, teamId })
+              }
+            />
           </Card>
           );
         })}
       </div>
+
 
 
       <Dialog open={creating} onOpenChange={setCreating}>
@@ -429,3 +450,80 @@ function ChecklistAdminPage() {
     </div>
   );
 }
+
+function RecurringRow({
+  templateId: _templateId,
+  recurring,
+  profiles,
+  teams,
+  onSave,
+}: {
+  templateId: string;
+  recurring: { user_id: string | null; team_id: string | null } | null;
+  profiles: { id: string; full_name: string }[];
+  teams: { id: string; name: string }[];
+  onSave: (userId: string | null, teamId: string | null) => void;
+}) {
+  const initialMode: "pessoa" | "equipe" = recurring?.team_id ? "equipe" : "pessoa";
+  const [mode, setMode] = useState<"pessoa" | "equipe">(initialMode);
+  useEffect(() => {
+    setMode(recurring?.team_id ? "equipe" : "pessoa");
+  }, [recurring?.team_id, recurring?.user_id]);
+
+  const currentUser = recurring?.user_id ?? "";
+  const currentTeam = recurring?.team_id ?? "";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 pl-14">
+      <label className="text-xs text-muted-foreground shrink-0">Padrão:</label>
+      <div className="inline-flex rounded-md border overflow-hidden">
+        <button
+          type="button"
+          className={`px-2 py-1 text-xs ${mode === "pessoa" ? "bg-primary text-primary-foreground" : "bg-background"}`}
+          onClick={() => setMode("pessoa")}
+        >
+          Pessoa
+        </button>
+        <button
+          type="button"
+          className={`px-2 py-1 text-xs border-l ${mode === "equipe" ? "bg-primary text-primary-foreground" : "bg-background"}`}
+          onClick={() => setMode("equipe")}
+        >
+          Equipe
+        </button>
+      </div>
+      {mode === "pessoa" ? (
+        <Select
+          value={currentUser || "none"}
+          onValueChange={(v) => onSave(v === "none" ? null : v, null)}
+        >
+          <SelectTrigger className="h-8 text-xs flex-1 min-w-40">
+            <SelectValue placeholder="Sem responsável padrão" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem responsável padrão</SelectItem>
+            {profiles.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Select
+          value={currentTeam || "none"}
+          onValueChange={(v) => onSave(null, v === "none" ? null : v)}
+        >
+          <SelectTrigger className="h-8 text-xs flex-1 min-w-40">
+            <SelectValue placeholder="Sem equipe padrão" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem equipe padrão</SelectItem>
+            {teams.map((tm) => (
+              <SelectItem key={tm.id} value={tm.id}>{tm.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+}
+
