@@ -700,8 +700,21 @@ function InventoryDetail() {
       {lossFor && <LossModal {...lossFor} onClose={() => setLossFor(null)} onDone={() => { setLossFor(null); qc.invalidateQueries(); }} />}
 
       {canEditCounts && (
-        <div className="pt-2">
-          {page + 1 >= totalPages ? (
+        <div className="pt-2 space-y-2">
+          {page + 1 < totalPages ? (
+            <div className="rounded-md border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
+              Veja todos os produtos antes de fechar (página {page + 1} de {totalPages}).
+            </div>
+          ) : remainingToCount > 0 ? (
+            <>
+              <Button className="w-full" variant="default" disabled>
+                <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
+              </Button>
+              <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-center text-xs text-warning-foreground">
+                Faltam <b>{remainingToCount}</b> produto{remainingToCount === 1 ? "" : "s"} para contar antes de poder fechar.
+              </div>
+            </>
+          ) : (
             <Button className="w-full" variant="default"
               onClick={async () => {
                 const isSup = profile?.role === "admin" || profile?.role === "supervisor";
@@ -724,10 +737,6 @@ function InventoryDetail() {
               }}>
               <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
             </Button>
-          ) : (
-            <div className="rounded-md border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
-              Veja todos os produtos antes de fechar (página {page + 1} de {totalPages}).
-            </div>
           )}
         </div>
       )}
