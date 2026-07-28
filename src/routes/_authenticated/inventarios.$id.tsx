@@ -232,8 +232,34 @@ function InventoryDetail() {
   }, [products, q]);
 
   const countedIds = new Set((items ?? []).map((i) => i.product_id));
-  const activeProducts = (products ?? []).filter((p) => p.active);
-  const progress = activeProducts.length ? Math.round((countedIds.size / activeProducts.length) * 100) : 0;
+
+  // Total de produtos ativos NO ESCOPO do inventário (independente da paginação/busca),
+  // usado para (a) barra de progresso e (b) bloquear o botão de fechar até 100% contado.
+  const { data: scopeTotal } = useQuery({
+    queryKey: ["inventory-scope-total", id, inv?.type, inv?.family_id, scope?.productIds?.length, scope?.familyIds?.length, nonCountableFamilyIds?.length],
+    queryFn: async () => {
+      let query = supabase.from("products").select("id", { count: "exact", head: true }).eq("active", true);
+      if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
+      if (inv?.type === "personalizado" || inv?.type === "produto") {
+        const pIds = scope?.productIds ?? [];
+        const fIds = scope?.familyIds ?? [];
+        if (pIds.length === 0 && fIds.length === 0) return 0;
+        const filters: string[] = [];
+        if (pIds.length) filters.push(`id.in.(${pIds.join(",")})`);
+        if (fIds.length) filters.push(`family_id.in.(${fIds.join(",")})`);
+        query = query.or(filters.join(","));
+      }
+      if (inv?.type === "geral" && (nonCountableFamilyIds?.length ?? 0) > 0) {
+        query = query.not("family_id", "in", `(${nonCountableFamilyIds!.join(",")})`);
+      }
+      const { count } = await query;
+      return count ?? 0;
+    },
+    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope) && (inv?.type !== "geral" || nonCountableFamilyIds !== undefined),
+  });
+  const totalScope = scopeTotal ?? 0;
+  const remainingToCount = Math.max(0, totalScope - countedIds.size);
+  const progress = totalScope ? Math.round((countedIds.size / totalScope) * 100) : 0;
   const divergencias = (items ?? []).filter((i) => i.status === "divergencia").length;
   const totalDiff = (items ?? []).reduce((acc, i) => acc + Number(i.financial_diff ?? 0), 0);
 
