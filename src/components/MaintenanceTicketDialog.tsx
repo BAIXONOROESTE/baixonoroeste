@@ -23,7 +23,10 @@ import { Camera, Wrench, X } from "lucide-react";
 import { toast } from "sonner";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 import { useServerFn } from "@tanstack/react-start";
-import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
+import {
+  notifyMaintenanceTicketAssigned,
+  notifyMaintenanceTicketCreatedPush,
+} from "@/lib/maintenance.functions";
 import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 type CapturedEvidence = {
@@ -49,6 +52,7 @@ export function MaintenanceTicketDialog({
   const uid = profile?.id ?? null;
   const qc = useQueryClient();
   const notifyAssigned = useServerFn(notifyMaintenanceTicketAssigned);
+  const notifyCreatedPush = useServerFn(notifyMaintenanceTicketCreatedPush);
   const listLoginProfilesFn = useServerFn(listLoginProfiles);
 
   const [title, setTitle] = useState("");
@@ -146,6 +150,10 @@ export function MaintenanceTicketDialog({
             console.error("[MaintenanceTicketDialog] notify falhou", err);
             toast.warning("Chamado criado, mas não foi possível notificar por e-mail.");
           });
+        // Push adicional (não-bloqueante, sem toast em caso de falha).
+        notifyCreatedPush({ data: { ticket_id: t.id } }).catch((err) => {
+          console.error("[MaintenanceTicketDialog] push falhou", err);
+        });
       }
     },
     onSuccess: () => {
