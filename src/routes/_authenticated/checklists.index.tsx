@@ -115,40 +115,66 @@ function ChecklistsPage() {
         .select(
           `id, name, scheduled_time,
            runs:checklist_runs(id, status, started_by, run_date, items:checklist_run_items(id, done)),
-           assignments:checklist_assignments(id, assigned_to, assignment_date)`,
+           assignments:checklist_assignments(id, assigned_to, assignment_date),
+           recurring:checklist_recurring_assignments(user_id)`,
         )
         .eq("active", true)
         .eq("runs.run_date", todayISO)
         .eq("assignments.assignment_date", todayISO);
       if (error) throw error;
 
-      const assignedIds = Array.from(
-        new Set(
-          (data ?? []).flatMap((t: any) => (t.assignments ?? []).map((a: any) => a.assigned_to as string)),
-        ),
-      );
+      const assignedIds = new Set<string>();
+      const recurringIds = new Set<string>();
+      for (const t of (data ?? []) as any[]) {
+        for (const a of (t.assignments ?? [])) assignedIds.add(a.assigned_to as string);
+        const rec = (t.recurring ?? [])[0];
+        if (rec) recurringIds.add(rec.user_id as string);
+      }
+      const allIds = Array.from(new Set([...assignedIds, ...recurringIds]));
       const namesById: Record<string, string | null> = {};
-      if (assignedIds.length > 0) {
+      if (allIds.length > 0) {
         const { data: profs, error: profErr } = await supabase
           .from("profiles")
           .select("id, full_name")
-          .in("id", assignedIds);
+          .in("id", allIds);
         if (profErr) throw profErr;
         for (const p of profs ?? []) namesById[p.id as string] = p.full_name as string | null;
       }
 
-      return (data ?? []).map((t: any) => ({
-        id: t.id,
-        name: t.name,
-        scheduled_time: t.scheduled_time,
-        runs: (t.runs ?? []) as RunSummary[],
-        assignments: (t.assignments ?? []).map((a: any) => ({
-          ...a,
-          assignee: { full_name: namesById[a.assigned_to] ?? null },
-        })) as Assignment[],
-      }));
+      // Recorrente só vale se a pessoa trabalha hoje.
+      const worksToday: Record<string, boolean> = {};
+      await Promise.all(
+        Array.from(recurringIds).map(async (uid) => {
+          const { data: ok, error: fnErr } = await supabase.rpc("person_works_on_date", {
+            p_user_id: uid,
+            p_check_date: todayISO,
+          });
+          if (fnErr) throw fnErr;
+          worksToday[uid] = !!ok;
+        }),
+      );
+
+      return (data ?? []).map((t: any) => {
+        const rec = (t.recurring ?? [])[0];
+        const recurring: RecurringAssignee | null =
+          rec && worksToday[rec.user_id]
+            ? { user_id: rec.user_id, assignee: { full_name: namesById[rec.user_id] ?? null } }
+            : null;
+        return {
+          id: t.id,
+          name: t.name,
+          scheduled_time: t.scheduled_time,
+          runs: (t.runs ?? []) as RunSummary[],
+          assignments: (t.assignments ?? []).map((a: any) => ({
+            ...a,
+            assignee: { full_name: namesById[a.assigned_to] ?? null },
+          })) as Assignment[],
+          recurring,
+        };
+      });
     },
   });
+
 
   const avgTimesQuery = useQuery({
     queryKey: ["checklists", "avg-times"],
