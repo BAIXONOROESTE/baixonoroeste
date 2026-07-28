@@ -774,32 +774,28 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
     const q = Number(qty.replace(",", "."));
     if (Number.isNaN(q)) { toast.error("Quantidade inválida"); return; }
     setSaving(true);
-    const { data: u } = await supabase.auth.getUser();
-    if (!u.user) { setSaving(false); toast.error("Sessão expirada. Entre novamente."); return; }
-    const stock = Number(product.stock_omie);
-    const status: "correto" | "divergencia" = q === stock ? "correto" : "divergencia";
-    const diff = q - stock;
-
-    // Salva na fila offline (grava localmente e tenta sincronizar imediatamente)
-    await enqueue({
-      inventory_id: inventoryId,
-      product_id: product.id,
-      counted_by: u.user!.id,
-      quantity_before: stock,
-      quantity_counted: q,
-      unit_cost: Number(product.cost),
-      status,
-    });
-
-    let realId = currentItem?.id ?? "";
-    if (online) {
-      const r = await flush();
-      if (!r.ok) {
-        setSaving(false);
-        toast.error(typeof r.reason === "string" ? r.reason : "Falha ao sincronizar a contagem.");
-        return;
-      }
-      if (r.ok) {
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { toast.error("Sessão expirada. Entre novamente."); return; }
+      const stock = Number(product.stock_omie);
+      const status: "correto" | "divergencia" = q === stock ? "correto" : "divergencia";
+      const diff = q - stock;
+      await enqueue({
+        inventory_id: inventoryId,
+        product_id: product.id,
+        counted_by: u.user!.id,
+        quantity_before: stock,
+        quantity_counted: q,
+        unit_cost: Number(product.cost),
+        status,
+      });
+      let realId = currentItem?.id ?? "";
+      if (online) {
+        const r = await flush();
+        if (!r.ok) {
+          toast.error(typeof r.reason === "string" ? r.reason : "Falha ao sincronizar a contagem.");
+          return;
+        }
         const { data: ci, error: ciErr } = await supabase.from("count_items").select("id").eq("inventory_id", inventoryId).eq("product_id", product.id).maybeSingle();
         if (ci?.id) {
           realId = ci.id;
@@ -812,12 +808,15 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
           });
         }
       }
+      toast.success(online ? "Contagem salva!" : "Salva offline · vai sincronizar sozinha");
+      setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: realId });
+      if (realId) onSaved(realId, status);
+    } catch (e) {
+      console.error("[inventarios.save] erro inesperado", e);
+      toast.error(e instanceof Error ? `Falha ao salvar: ${e.message}` : "Falha inesperada ao salvar a contagem. Tente de novo.");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    toast.success(online ? "Contagem salva!" : "Salva offline · vai sincronizar sozinha");
-    setRevealed({ diff, finDiff: diff * Number(product.cost), status, itemId: realId });
-    if (realId) onSaved(realId, status);
   }
 
   const qNum = Number(qty.replace(",", ".")) || 0;
