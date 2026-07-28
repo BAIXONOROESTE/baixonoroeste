@@ -112,8 +112,8 @@ async function handle(request: Request) {
     mbProductIds.length ? admin.from('products').select('id, code, name').in('id', mbProductIds) : Promise.resolve({ data: [] }),
     mbReporterIds.length ? admin.from('profiles').select('id, full_name, slug').in('id', mbReporterIds) : Promise.resolve({ data: [] }),
   ])
-  const mbProdMap = new Map((mbProds ?? []).map((p: any) => [p.id as string, { name: p.name as string, code: p.code as string }]))
-  const mbReporterMap = new Map((mbReporters ?? []).map((p: any) => [p.id as string, (p.full_name || p.slug || '—') as string]))
+  const mbProdMap = new Map<string, { name: string; code: string }>((mbProds ?? []).map((p: any) => [p.id as string, { name: p.name as string, code: p.code as string }]))
+  const mbReporterMap = new Map<string, string>((mbReporters ?? []).map((p: any) => [p.id as string, (p.full_name || p.slug || '—') as string]))
   const missingBarcodeByProduct = new Map<string, { product: string; code: string; times: number; reporters: Set<string> }>()
   for (const r of mbList) {
     const info = mbProdMap.get(r.product_id) ?? { name: '—', code: '—' }
