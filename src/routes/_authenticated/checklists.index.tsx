@@ -74,6 +74,11 @@ type RecurringAssignee = {
   assignee: { full_name: string | null } | null;
 };
 
+type ExpectedByShift = {
+  userIds: string[];
+  names: string[];
+};
+
 type TemplateRow = {
   id: string;
   name: string;
@@ -81,6 +86,7 @@ type TemplateRow = {
   runs: RunSummary[];
   assignments: Assignment[];
   recurring: RecurringAssignee | null;
+  expectedByShift: ExpectedByShift | null;
 };
 
 
@@ -154,6 +160,50 @@ function ChecklistsPage() {
         }),
       );
 
+      // 3ª prioridade: descobrir esperado por turno para templates sem manual/recorrente ativo.
+      const expectedByTemplate: Record<string, ExpectedByShift | null> = {};
+      const needsShiftLookup = (data ?? []).filter((t: any) => {
+        if (!t.scheduled_time) return false;
+        if ((t.assignments ?? []).length > 0) return false;
+        const rec = (t.recurring ?? [])[0];
+        if (rec && worksToday[rec.user_id]) return false;
+        return true;
+      });
+      const shiftIdsNeeded = new Set<string>();
+      const shiftIdsPerTemplate: Record<string, string[]> = {};
+      await Promise.all(
+        needsShiftLookup.map(async (t: any) => {
+          const { data: ids, error: rpcErr } = await supabase.rpc(
+            "expected_checklist_assignees",
+            { p_template_id: t.id, p_check_date: todayISO },
+          );
+          if (rpcErr) throw rpcErr;
+          const uids = ((ids ?? []) as any[]).map((r) => r.user_id as string);
+          shiftIdsPerTemplate[t.id] = uids;
+          for (const u of uids) shiftIdsNeeded.add(u);
+        }),
+      );
+      const shiftNamesById: Record<string, string | null> = {};
+      if (shiftIdsNeeded.size > 0) {
+        const { data: profs2, error: prof2Err } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", Array.from(shiftIdsNeeded));
+        if (prof2Err) throw prof2Err;
+        for (const p of profs2 ?? [])
+          shiftNamesById[p.id as string] = p.full_name as string | null;
+      }
+      for (const [tid, uids] of Object.entries(shiftIdsPerTemplate)) {
+        if (uids.length === 0) {
+          expectedByTemplate[tid] = null;
+        } else {
+          expectedByTemplate[tid] = {
+            userIds: uids,
+            names: uids.map((u) => shiftNamesById[u] ?? "").filter(Boolean),
+          };
+        }
+      }
+
       return (data ?? []).map((t: any) => {
         const rec = (t.recurring ?? [])[0];
         const recurring: RecurringAssignee | null =
@@ -170,6 +220,7 @@ function ChecklistsPage() {
             assignee: { full_name: namesById[a.assigned_to] ?? null },
           })) as Assignment[],
           recurring,
+          expectedByShift: expectedByTemplate[t.id] ?? null,
         };
       });
     },
@@ -357,9 +408,20 @@ function ChecklistsPage() {
             nowMinutes >= sched - 30 &&
             nowMinutes <= sched + 120;
           const assignment = t.assignments[0] ?? null;
-          const expectedUserId = assignment?.assigned_to ?? t.recurring?.user_id ?? null;
-          const expectedName =
-            assignment?.assignee?.full_name ?? t.recurring?.assignee?.full_name ?? null;
+          let expectedUserIds: string[] = [];
+          let expectedName: string | null = null;
+          if (assignment) {
+            expectedUserIds = [assignment.assigned_to];
+            expectedName = assignment.assignee?.full_name ?? null;
+          } else if (t.recurring) {
+            expectedUserIds = [t.recurring.user_id];
+            expectedName = t.recurring.assignee?.full_name ?? null;
+          } else if (t.expectedByShift && t.expectedByShift.userIds.length > 0) {
+            expectedUserIds = t.expectedByShift.userIds;
+            expectedName = t.expectedByShift.names.length > 0
+              ? t.expectedByShift.names.join(" ou ")
+              : null;
+          }
           const avgMin = avgTimesQuery.data?.[t.id];
 
           let badge: { label: string; className: string } | null = null;
@@ -367,9 +429,9 @@ function ChecklistsPage() {
 
           const handleStart = () => {
             if (
-              expectedUserId &&
+              expectedUserIds.length > 0 &&
               uid &&
-              expectedUserId !== uid &&
+              !expectedUserIds.includes(uid) &&
               expectedName
             ) {
               setAssignmentPrompt({ templateId: t.id, expectedName });
