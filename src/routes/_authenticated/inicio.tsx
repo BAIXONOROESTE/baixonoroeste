@@ -134,7 +134,61 @@ function HomePage() {
     },
     refetchOnWindowFocus: true,
   });
+  const todayISO = new Date().toISOString().slice(0, 10);
 
+  const { data: checklistsToday } = useQuery({
+    queryKey: ["home-checklists-today", todayISO],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("checklist_templates")
+        .select("id, runs:checklist_runs(id, status, run_date)")
+        .eq("active", true)
+        .eq("runs.run_date", todayISO);
+      if (error) throw error;
+      let aprovados = 0, aguardando = 0, naoIniciados = 0;
+      for (const t of (data ?? []) as Array<{ runs: Array<{ status: string }> }>) {
+        const run = (t.runs ?? [])[0];
+        if (!run) naoIniciados += 1;
+        else if (run.status === "aprovado") aprovados += 1;
+        else if (run.status === "aguardando_aprovacao") aguardando += 1;
+      }
+      return { aprovados, aguardando, naoIniciados };
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: outOfShift24h } = useQuery({
+    queryKey: ["home-out-of-shift-24h"],
+    enabled: isSup,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count, error } = await supabase
+        .from("out_of_shift_activity")
+        .select("user_id", { count: "exact", head: true })
+        .gte("created_at", since);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: topWeekly } = useQuery({
+    queryKey: ["home-top-weekly"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scoring_weekly")
+        .select("user_id, full_name, individual_score")
+        .order("individual_score", { ascending: false, nullsFirst: false })
+        .limit(1);
+      if (error) throw error;
+      const r = (data ?? [])[0] as { full_name?: string | null; individual_score?: number | null } | undefined;
+      if (!r || r.individual_score == null) return null;
+      return { name: r.full_name ?? "—", score: Number(r.individual_score) };
+    },
+    refetchOnWindowFocus: false,
+  });
 
 
   const sync = useMutation({
