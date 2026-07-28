@@ -25,6 +25,7 @@ import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedManutencaoRouteImport } from './routes/_authenticated/manutencao'
 import { Route as AuthenticatedPerdasRouteImport } from './routes/_authenticated/perdas'
+import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated/perfil'
 import { Route as AuthenticatedRankingRouteImport } from './routes/_authenticated/ranking'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
@@ -128,6 +129,11 @@ const AuthenticatedManutencaoRoute = AuthenticatedManutencaoRouteImport.update({
 const AuthenticatedPerdasRoute = AuthenticatedPerdasRouteImport.update({
   id: '/perdas',
   path: '/perdas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRankingRoute = AuthenticatedRankingRouteImport.update({
@@ -264,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/logs': typeof AuthenticatedLogsRoute
   '/manutencao': typeof AuthenticatedManutencaoRoute
   '/perdas': typeof AuthenticatedPerdasRoute
+  '/perfil': typeof AuthenticatedPerfilRoute
   '/ranking': typeof AuthenticatedRankingRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/logs': typeof AuthenticatedLogsRoute
   '/manutencao': typeof AuthenticatedManutencaoRoute
   '/perdas': typeof AuthenticatedPerdasRoute
+  '/perfil': typeof AuthenticatedPerfilRoute
   '/ranking': typeof AuthenticatedRankingRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -342,6 +350,7 @@ export interface FileRoutesById {
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/manutencao': typeof AuthenticatedManutencaoRoute
   '/_authenticated/perdas': typeof AuthenticatedPerdasRoute
+  '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/ranking': typeof AuthenticatedRankingRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
@@ -382,6 +391,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/manutencao'
     | '/perdas'
+    | '/perfil'
     | '/ranking'
     | '/relatorios'
     | '/usuarios'
@@ -420,6 +430,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/manutencao'
     | '/perdas'
+    | '/perfil'
     | '/ranking'
     | '/relatorios'
     | '/usuarios'
@@ -459,6 +470,7 @@ export interface FileRouteTypes {
     | '/_authenticated/logs'
     | '/_authenticated/manutencao'
     | '/_authenticated/perdas'
+    | '/_authenticated/perfil'
     | '/_authenticated/ranking'
     | '/_authenticated/relatorios'
     | '/_authenticated/usuarios'
@@ -617,6 +629,13 @@ declare module '@tanstack/react-router' {
       path: '/perdas'
       fullPath: '/perdas'
       preLoaderRoute: typeof AuthenticatedPerdasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/perfil': {
+      id: '/_authenticated/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof AuthenticatedPerfilRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/ranking': {
@@ -778,6 +797,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedManutencaoRoute: typeof AuthenticatedManutencaoRoute
   AuthenticatedPerdasRoute: typeof AuthenticatedPerdasRoute
+  AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedRankingRoute: typeof AuthenticatedRankingRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
@@ -798,6 +818,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedManutencaoRoute: AuthenticatedManutencaoRoute,
   AuthenticatedPerdasRoute: AuthenticatedPerdasRoute,
+  AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedRankingRoute: AuthenticatedRankingRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,

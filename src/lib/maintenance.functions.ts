@@ -178,7 +178,8 @@ export const notifyMaintenanceTicketCreatedPush = createServerFn({ method: "POST
         body,
         url: ticketUrl(),
         tag: `maint-created-${ticket.id}`,
-      });
+      }, "maintenance");
+
       return { ok: true, sent: r.sent, targets: r.targets };
     } catch (e) {
       console.error("[notifyMaintenanceTicketCreatedPush] falhou", e);
@@ -217,7 +218,8 @@ export const notifyMaintenanceTicketStatusPush = createServerFn({ method: "POST"
         body,
         url: ticketUrl(),
         tag: `maint-status-${ticket.id}`,
-      });
+      }, "maintenance");
+
       return { ok: true, sent: r.sent, targets: r.targets };
     } catch (e) {
       console.error("[notifyMaintenanceTicketStatusPush] falhou", e);
@@ -245,7 +247,8 @@ export const notifyMaintenanceTicketResolvedPush = createServerFn({ method: "POS
         body: ticket.title,
         url: ticketUrl(),
         tag: `maint-resolved-${ticket.id}`,
-      });
+      }, "maintenance");
+
       return { ok: true, sent: r.sent, targets: r.targets };
     } catch (e) {
       console.error("[notifyMaintenanceTicketResolvedPush] falhou", e);

@@ -21,8 +21,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Image as ImageIcon, Video as VideoIcon, Camera, X, ChevronDown, ChevronUp, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
+import {
+  notifyChecklistSubmittedPush,
+  notifyChecklistApprovedPush,
+  notifyChecklistRejectedPush,
+} from "@/lib/checklist-push.functions";
 
 
 export const Route = createFileRoute("/_authenticated/checklists/$runId")({
@@ -383,6 +389,10 @@ function RunPage() {
     onError: (e: any) => toast.error(e?.message ?? "Erro ao registrar revisão."),
   });
 
+  const notifySubmittedPushFn = useServerFn(notifyChecklistSubmittedPush);
+  const notifyApprovedPushFn = useServerFn(notifyChecklistApprovedPush);
+  const notifyRejectedPushFn = useServerFn(notifyChecklistRejectedPush);
+
   const submitForApproval = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -393,6 +403,10 @@ function RunPage() {
     },
     onSuccess: () => {
       toast.success("Checklist enviado para aprovação");
+      // Push aos aprovadores — não bloqueante.
+      notifySubmittedPushFn({ data: { run_id: runId } }).catch(() => {
+        /* falha silenciosa */
+      });
       queryClient.invalidateQueries({ queryKey: ["checklists"] });
       navigate({ to: "/checklists" });
     },
@@ -408,14 +422,27 @@ function RunPage() {
         .update({ status: finalStatus })
         .eq("id", runId);
       if (error) throw error;
+      return { finalStatus } as const;
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success("Revisão concluída");
+      // Push a quem enviou — não bloqueante.
+      if (res.finalStatus === "aprovado") {
+        notifyApprovedPushFn({ data: { run_id: runId } }).catch(() => {
+          /* falha silenciosa */
+        });
+      } else {
+        notifyRejectedPushFn({ data: { run_id: runId } }).catch(() => {
+          /* falha silenciosa */
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["checklists"] });
       navigate({ to: "/checklists" });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao concluir."),
   });
+
 
   if (runQuery.isLoading) return <div className="p-6 text-sm text-muted-foreground">Carregando…</div>;
   if (runQuery.isError) return <div className="p-6 text-sm text-destructive">Erro: {(runQuery.error as Error).message}</div>;

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
-import { Home, ClipboardList, BarChart3, Menu, LogOut, X, Package, Trophy, FileText, ScrollText, Users, Settings, AlertTriangle, ChevronLeft, CheckSquare, Wrench, Clock } from "lucide-react";
+import { Home, ClipboardList, BarChart3, Menu, LogOut, X, Package, Trophy, FileText, ScrollText, Users, Settings, AlertTriangle, ChevronLeft, CheckSquare, Wrench, Clock, User } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ const drawerLinks = [
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin","supervisor"] },
   { to: "/logs", label: "Logs", icon: ScrollText, roles: ["admin","supervisor"] },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["admin"] },
+  { to: "/perfil", label: "Perfil", icon: User, roles: ["admin","supervisor","contador"] },
   { to: "/configuracoes", label: "Configurações", icon: Settings, roles: ["admin"] },
 ] as const;
 
