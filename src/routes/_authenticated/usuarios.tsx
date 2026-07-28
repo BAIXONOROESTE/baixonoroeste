@@ -34,6 +34,8 @@ function UsuariosPage() {
   const [role, setRole] = useState<"admin" | "supervisor" | "contador">("contador");
   const [showInactive, setShowInactive] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newUserOpen, setNewUserOpen] = useState(false);
+
 
   const isAdmin = me?.role === "admin";
   const isSupOrAdmin = me?.role === "admin" || me?.role === "supervisor";
