@@ -162,7 +162,20 @@ export function useOfflineCountQueue(inventoryId?: string) {
   }, [online, flush]);
 
   const enqueue = useCallback(async (mutation: Omit<QueuedCount, "created_at" | "synced_at" | "client_mutation_id"> & { client_mutation_id?: string }) => {
-    const client_mutation_id = mutation.client_mutation_id ?? crypto.randomUUID();
+    // Dedupe on enqueue: if a pending (unsynced) entry already exists for the
+    // same (inventory_id, product_id), overwrite it in place — reuse its
+    // client_mutation_id so the queue never holds two pending ops for the
+    // same logical key. This keeps IndexedDB lean and guarantees the flush
+    // batch is unique by conflict target even before the defensive dedupe.
+    const all = await readAll();
+    const existing = all.find(
+      (q) => !q.synced_at
+        && q.inventory_id === mutation.inventory_id
+        && q.product_id === mutation.product_id,
+    );
+    const client_mutation_id = existing?.client_mutation_id
+      ?? mutation.client_mutation_id
+      ?? crypto.randomUUID();
     const record: QueuedCount = {
       ...mutation,
       client_mutation_id,
