@@ -21,8 +21,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Image as ImageIcon, Video as VideoIcon, Camera, X, ChevronDown, ChevronUp, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { CameraCaptureModal } from "@/components/CameraCaptureModal";
 import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
+import {
+  notifyChecklistSubmittedPush,
+  notifyChecklistApprovedPush,
+  notifyChecklistRejectedPush,
+} from "@/lib/checklist-push.functions";
 
 
 export const Route = createFileRoute("/_authenticated/checklists/$runId")({
