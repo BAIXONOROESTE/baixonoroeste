@@ -297,7 +297,7 @@ function ChecklistAdminPage() {
 
       <div className="space-y-2">
         {sorted.map((t) => {
-          const recurringUserId = recurringQ.data?.[t.id] ?? "";
+          const recurring = recurringQ.data?.[t.id] ?? null;
           return (
           <Card key={t.id} className="p-3 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -337,29 +337,20 @@ function ChecklistAdminPage() {
                 </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 pl-14">
-              <label className="text-xs text-muted-foreground shrink-0">Padrão:</label>
-              <Select
-                value={recurringUserId || "none"}
-                onValueChange={(v) =>
-                  upsertRecurring.mutate({ templateId: t.id, userId: v === "none" ? "" : v })
-                }
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Sem responsável padrão" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem responsável padrão</SelectItem>
-                  {(activeProfilesQ.data ?? []).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <RecurringRow
+              templateId={t.id}
+              recurring={recurring}
+              profiles={activeProfilesQ.data ?? []}
+              teams={teamsQ.data ?? []}
+              onSave={(userId, teamId) =>
+                upsertRecurring.mutate({ templateId: t.id, userId, teamId })
+              }
+            />
           </Card>
           );
         })}
       </div>
+
 
 
       <Dialog open={creating} onOpenChange={setCreating}>
