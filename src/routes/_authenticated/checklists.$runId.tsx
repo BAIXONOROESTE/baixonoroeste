@@ -432,11 +432,11 @@ function RunPage() {
           /* falha silenciosa */
         });
       } else {
-        const firstReason = items.find((i) => i.review_status === "reprovado" && (i as any).justificativa)?.justificativa as string | undefined;
-        notifyRejectedPushFn({ data: { run_id: runId, reason: firstReason } }).catch(() => {
+        notifyRejectedPushFn({ data: { run_id: runId } }).catch(() => {
           /* falha silenciosa */
         });
       }
+
       queryClient.invalidateQueries({ queryKey: ["checklists"] });
       navigate({ to: "/checklists" });
     },
