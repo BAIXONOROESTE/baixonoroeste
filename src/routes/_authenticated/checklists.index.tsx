@@ -408,9 +408,20 @@ function ChecklistsPage() {
             nowMinutes >= sched - 30 &&
             nowMinutes <= sched + 120;
           const assignment = t.assignments[0] ?? null;
-          const expectedUserId = assignment?.assigned_to ?? t.recurring?.user_id ?? null;
-          const expectedName =
-            assignment?.assignee?.full_name ?? t.recurring?.assignee?.full_name ?? null;
+          let expectedUserIds: string[] = [];
+          let expectedName: string | null = null;
+          if (assignment) {
+            expectedUserIds = [assignment.assigned_to];
+            expectedName = assignment.assignee?.full_name ?? null;
+          } else if (t.recurring) {
+            expectedUserIds = [t.recurring.user_id];
+            expectedName = t.recurring.assignee?.full_name ?? null;
+          } else if (t.expectedByShift && t.expectedByShift.userIds.length > 0) {
+            expectedUserIds = t.expectedByShift.userIds;
+            expectedName = t.expectedByShift.names.length > 0
+              ? t.expectedByShift.names.join(" ou ")
+              : null;
+          }
           const avgMin = avgTimesQuery.data?.[t.id];
 
           let badge: { label: string; className: string } | null = null;
@@ -418,9 +429,9 @@ function ChecklistsPage() {
 
           const handleStart = () => {
             if (
-              expectedUserId &&
+              expectedUserIds.length > 0 &&
               uid &&
-              expectedUserId !== uid &&
+              !expectedUserIds.includes(uid) &&
               expectedName
             ) {
               setAssignmentPrompt({ templateId: t.id, expectedName });
