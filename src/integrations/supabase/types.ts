@@ -97,6 +97,41 @@ export type Database = {
           },
         ]
       }
+      checklist_recurring_assignments: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          template_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          template_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          template_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_recurring_assignments_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: true
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_run_item_evidence: {
         Row: {
           created_at: string
@@ -1751,6 +1786,10 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      person_works_on_date: {
+        Args: { p_check_date: string; p_user_id: string }
+        Returns: boolean
       }
       queue_transactional_email: { Args: { _payload: Json }; Returns: Json }
       read_email_batch: {
