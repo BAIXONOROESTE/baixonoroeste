@@ -41,6 +41,18 @@ function ContarPage() {
     }
   }, [profile, navigate]);
 
+  // Pré-seleção: supervisor logado vira supervisor da contagem; admin logado vira admin.
+  // Continua editável se quiser trocar.
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.role === "supervisor") {
+      setSupervisorId((prev) => prev || profile.id);
+    } else if (profile.role === "admin") {
+      setAdminId((prev) => prev || profile.id);
+    }
+  }, [profile]);
+
+
   const { data: families } = useQuery({
     queryKey: ["families", "countable"],
     queryFn: async () => (await supabase.from("families").select("id, name").eq("countable", true).order("name")).data ?? [],

@@ -34,6 +34,8 @@ function UsuariosPage() {
   const [role, setRole] = useState<"admin" | "supervisor" | "contador">("contador");
   const [showInactive, setShowInactive] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newUserOpen, setNewUserOpen] = useState(false);
+
 
   const isAdmin = me?.role === "admin";
   const isSupOrAdmin = me?.role === "admin" || me?.role === "supervisor";
@@ -78,11 +80,13 @@ function UsuariosPage() {
     },
     onSuccess: () => {
       toast.success("Usuário criado.");
-      setName(""); setPin(""); setPhone(""); setEmail("");
+      setName(""); setPin(""); setPhone(""); setEmail(""); setRole("contador");
+      setNewUserOpen(false);
       qc.invalidateQueries();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
   });
+
 
   const createTeam = useMutation({
     mutationFn: async () => {
@@ -103,20 +107,35 @@ function UsuariosPage() {
 
   return (
     <div className="mx-auto max-w-md px-4 pt-4 space-y-4 pb-8">
-      <h1 className="text-2xl font-display font-semibold">Usuários</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-display font-semibold">Usuários</h1>
+        {isAdmin && (
+          <Button size="sm" onClick={() => setNewUserOpen(true)}>Novo funcionário</Button>
+        )}
+      </div>
       {isAdmin && (
-        <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
-          <div className="font-medium text-sm">Novo funcionário</div>
-          <Input placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input type="password" inputMode="numeric" placeholder="PIN (6 a 8 dígitos)" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} maxLength={8} />
-          <Input type="email" inputMode="email" placeholder="Email (para reset de PIN e notificações)" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <Input inputMode="tel" placeholder="Telefone (opcional, ex: +5511999999999)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <select value={role} onChange={(e) => setRole(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
-            <option value="contador">Contador</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option>
-          </select>
-          <Button className="w-full" onClick={() => create.mutate()} disabled={create.isPending}>Criar</Button>
-        </div>
+        <Dialog open={newUserOpen} onOpenChange={setNewUserOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Novo funcionário</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Input placeholder="Nome" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input type="password" inputMode="numeric" placeholder="PIN (6 a 8 dígitos)" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} maxLength={8} />
+              <Input type="email" inputMode="email" placeholder="Email (para reset de PIN e notificações)" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input inputMode="tel" placeholder="Telefone (opcional, ex: +5511999999999)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <select value={role} onChange={(e) => setRole(e.target.value as never)} className="w-full h-10 rounded-md bg-input border border-border px-3 text-sm">
+                <option value="contador">Contador</option><option value="supervisor">Supervisor</option><option value="admin">Admin</option>
+              </select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNewUserOpen(false)}>Cancelar</Button>
+              <Button onClick={() => create.mutate()} disabled={create.isPending}>{create.isPending ? "Criando..." : "Criar"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
+
 
       {/* Equipes */}
       <div className="rounded-2xl bg-surface border border-border p-4 space-y-3">

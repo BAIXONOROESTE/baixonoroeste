@@ -143,24 +143,51 @@ function RunPage() {
     queryKey: ["checklists", "run-assignment", runQuery.data?.template_id, runQuery.data?.run_date],
     enabled: !!runQuery.data?.template_id && !!runQuery.data?.run_date,
     queryFn: async (): Promise<AssignmentInfo | null> => {
-      const { data, error } = await supabase
+      const templateId = runQuery.data!.template_id;
+      const runDate = runQuery.data!.run_date;
+
+      // 1) Atribuição manual do dia (prioridade)
+      const { data: manual, error: manualErr } = await supabase
         .from("checklist_assignments")
         .select("assigned_to")
-        .eq("template_id", runQuery.data!.template_id)
-        .eq("assignment_date", runQuery.data!.run_date)
+        .eq("template_id", templateId)
+        .eq("assignment_date", runDate)
         .maybeSingle();
-      if (error) throw error;
-      if (!data) return null;
+      if (manualErr) throw manualErr;
+
+      let userId: string | null = (manual as any)?.assigned_to ?? null;
+
+      // 2) Se não houver manual, tenta responsável recorrente (se trabalha nesse dia)
+      if (!userId) {
+        const { data: rec, error: recErr } = await supabase
+          .from("checklist_recurring_assignments")
+          .select("user_id")
+          .eq("template_id", templateId)
+          .maybeSingle();
+        if (recErr) throw recErr;
+        const recUserId = (rec as any)?.user_id ?? null;
+        if (recUserId) {
+          const { data: works, error: fnErr } = await supabase.rpc("person_works_on_date", {
+            p_user_id: recUserId,
+            p_check_date: runDate,
+          });
+          if (fnErr) throw fnErr;
+          if (works) userId = recUserId;
+        }
+      }
+
+      if (!userId) return null;
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", (data as any).assigned_to)
+        .eq("id", userId)
         .maybeSingle();
       if (profErr) throw profErr;
       return { assignee: { full_name: prof?.full_name ?? null } } as AssignmentInfo;
     },
   });
+
 
   const run = runQuery.data;
   const items = run?.items ?? [];
