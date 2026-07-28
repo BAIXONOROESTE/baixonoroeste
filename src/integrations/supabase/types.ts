@@ -1740,6 +1740,12 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      expected_checklist_assignees: {
+        Args: { p_check_date: string; p_template_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       get_loss_notification_context: {
         Args: { _loss_id: string }
         Returns: Json
