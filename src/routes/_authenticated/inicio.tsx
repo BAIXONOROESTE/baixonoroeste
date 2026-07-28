@@ -504,6 +504,22 @@ function HomePage() {
             <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
               <div className="min-w-0">
                 <div className="font-medium flex items-center gap-1.5">
+                  <Package className="h-4 w-4 text-primary" /> Inventários em andamento
+                </div>
+                {inventoriesInProgress && inventoriesInProgress > 0 ? (
+                  <div className="text-xs text-warning mt-0.5">
+                    {inventoriesInProgress} em andamento
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Tudo fechado ✓</div>
+                )}
+              </div>
+              <Link to="/inventarios" className="text-xs text-primary hover:underline shrink-0">Ver</Link>
+            </div>
+
+            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
                   <Clock className="h-4 w-4 text-primary" /> Atividade fora do turno
                 </div>
                 {outOfShift24h && outOfShift24h > 0 ? (
