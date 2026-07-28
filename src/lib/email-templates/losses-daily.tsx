@@ -215,5 +215,8 @@ export const template = {
     counts_total_items: 20,
     counts_total_divergences: 3,
     counts_total_diff_value: -45.6,
+    missing_barcodes: [
+      { product: 'CACHAÇA 51 965ml', code: 'PRD00123', times: 2, reporters: ['PEDROHMG', 'ANA'] },
+    ],
   },
 } satisfies TemplateEntry
