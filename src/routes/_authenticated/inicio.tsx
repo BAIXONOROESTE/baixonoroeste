@@ -598,37 +598,33 @@ function HomePage() {
 
 
 
-      {role === "admin" && (
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">Sincronização</h2>
-          <div className="rounded-2xl bg-surface border border-border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">Sincronização com Omie</div>
-                <div className="text-xs text-muted-foreground">Última: {fmtDateTime(lastSync?.started_at)}</div>
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Atalhos rápidos</h2>
+        <div className="rounded-2xl bg-surface border border-border p-3 space-y-2">
+          <Button
+            onClick={() => setTicketOpen(true)}
+            variant="outline"
+            className="w-full justify-start h-auto py-2.5"
+          >
+            <Wrench className="h-4 w-4 mr-2 text-primary" />
+            <div className="text-left">
+              <div className="text-sm font-medium">Reportar problema</div>
+              <div className="text-xs text-muted-foreground">Abrir chamado de manutenção</div>
+            </div>
+          </Button>
+          {role === "admin" && (
+            <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">Sincronizar com Omie</div>
+                <div className="text-xs text-muted-foreground truncate">Última: {fmtDateTime(lastSync?.started_at)}</div>
               </div>
               <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${sync.isPending ? "animate-spin" : ""}`} />
                 {sync.isPending ? "Sincronizando" : "Sincronizar"}
               </Button>
             </div>
-          </div>
-        </section>
-      )}
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Manutenção</h2>
-        <Button
-          onClick={() => setTicketOpen(true)}
-          variant="outline"
-          className="w-full justify-start rounded-2xl h-auto py-3"
-        >
-          <Wrench className="h-4 w-4 mr-2 text-primary" />
-          <div className="text-left">
-            <div className="text-sm font-medium">Reportar problema</div>
-            <div className="text-xs text-muted-foreground">Abrir um chamado de manutenção</div>
-          </div>
-        </Button>
+          )}
+        </div>
       </section>
 
       <MaintenanceTicketDialog
