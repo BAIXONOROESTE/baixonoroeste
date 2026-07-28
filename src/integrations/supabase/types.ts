@@ -1286,6 +1286,30 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          approvals_enabled: boolean
+          created_at: string
+          maintenance_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approvals_enabled?: boolean
+          created_at?: string
+          maintenance_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approvals_enabled?: boolean
+          created_at?: string
+          maintenance_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_notifications: {
         Row: {
           created_at: string
