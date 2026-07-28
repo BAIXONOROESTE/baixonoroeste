@@ -405,9 +405,10 @@ export const rejectInventoryTask = createServerFn({ method: "POST" })
       throw new Error("Apenas admin/supervisor podem recusar inventário.");
     }
 
-    const { data: inv } = await supabase.from("inventories")
+    const { data: inv, error: invErr } = await supabase.from("inventories")
       .select("id, name, assigned_counter_id, assigned_supervisor_id, assigned_admin_id")
       .eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário para recusa: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
     // Registra a recusa
