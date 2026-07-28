@@ -319,11 +319,13 @@ export const submitRecountOrAdjust = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => resubmitSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: inv } = await supabase.from("inventories").select("id, name, status, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    const { data: inv, error: invErr } = await supabase.from("inventories").select("id, name, status, assigned_supervisor_id, assigned_admin_id").eq("id", data.inventory_id).maybeSingle();
+    if (invErr) throw new Error(`Falha ao buscar inventário: ${invErr.message}`);
     if (!inv) throw new Error("Inventário não encontrado.");
 
     for (const it of data.items) {
-      const { data: cur } = await supabase.from("count_items").select("*").eq("id", it.count_item_id).maybeSingle();
+      const { data: cur, error: curErr } = await supabase.from("count_items").select("*").eq("id", it.count_item_id).maybeSingle();
+      if (curErr) throw new Error(`Falha ao buscar item para recontagem: ${curErr.message}`);
       if (!cur) continue;
       const action = cur.needs_recount ? "recontagem" : cur.needs_adjust ? "ajuste" : "revisao";
       await supabase.from("count_item_history").insert({
