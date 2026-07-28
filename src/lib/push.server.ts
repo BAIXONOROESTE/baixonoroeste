@@ -11,24 +11,51 @@ export type PushPayload = {
   tag?: string;
 };
 
+export type PushCategory = "maintenance" | "approvals";
+
 export type PushResult = {
   sent: number;
   failed: number;
   removed: number;
   targets: number;
+  skipped?: "category_disabled";
 };
 
 /**
  * Envia uma notificação push para todas as inscrições ativas de um usuário.
  * Remove endpoints expirados (404/410). Nunca lança — captura tudo e retorna o
  * resumo, para poder ser chamado como side-effect não-bloqueante.
+ *
+ * Se `category` for informada, respeita as preferências em
+ * `notification_preferences` — quando o usuário desativou aquela categoria,
+ * retorna sem enviar (skipped: "category_disabled").
  */
 export async function sendPushToUser(
   userId: string,
   payload: PushPayload,
+  category?: PushCategory,
 ): Promise<PushResult> {
   const result: PushResult = { sent: 0, failed: 0, removed: 0, targets: 0 };
   try {
+    if (category) {
+      const { data: prefs } = await supabaseAdmin
+        .from("notification_preferences")
+        .select("maintenance_enabled, approvals_enabled")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (prefs) {
+        const enabled =
+          category === "maintenance"
+            ? prefs.maintenance_enabled
+            : prefs.approvals_enabled;
+        if (!enabled) {
+          result.skipped = "category_disabled";
+          return result;
+        }
+      }
+      // sem linha => defaults (true/true) => envia
+    }
+
     const { data: subs, error } = await supabaseAdmin
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth")
