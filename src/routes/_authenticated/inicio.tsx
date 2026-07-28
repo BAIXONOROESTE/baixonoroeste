@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare, Clock } from "lucide-react";
+import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare, Clock, CalendarCheck } from "lucide-react";
 import { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -134,7 +134,61 @@ function HomePage() {
     },
     refetchOnWindowFocus: true,
   });
+  const todayISO = new Date().toISOString().slice(0, 10);
 
+  const { data: checklistsToday } = useQuery({
+    queryKey: ["home-checklists-today", todayISO],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("checklist_templates")
+        .select("id, runs:checklist_runs(id, status, run_date)")
+        .eq("active", true)
+        .eq("runs.run_date", todayISO);
+      if (error) throw error;
+      let aprovados = 0, aguardando = 0, naoIniciados = 0;
+      for (const t of (data ?? []) as Array<{ runs: Array<{ status: string }> }>) {
+        const run = (t.runs ?? [])[0];
+        if (!run) naoIniciados += 1;
+        else if (run.status === "aprovado") aprovados += 1;
+        else if (run.status === "aguardando_aprovacao") aguardando += 1;
+      }
+      return { aprovados, aguardando, naoIniciados };
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: outOfShift24h } = useQuery({
+    queryKey: ["home-out-of-shift-24h"],
+    enabled: isSup,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count, error } = await supabase
+        .from("out_of_shift_activity")
+        .select("user_id", { count: "exact", head: true })
+        .gte("created_at", since);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: topWeekly } = useQuery({
+    queryKey: ["home-top-weekly"],
+    enabled: isSup,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scoring_weekly")
+        .select("user_id, full_name, individual_score")
+        .order("individual_score", { ascending: false, nullsFirst: false })
+        .limit(1);
+      if (error) throw error;
+      const r = (data ?? [])[0] as { full_name?: string | null; individual_score?: number | null } | undefined;
+      if (!r || r.individual_score == null) return null;
+      return { name: r.full_name ?? "—", score: Number(r.individual_score) };
+    },
+    refetchOnWindowFocus: false,
+  });
 
 
   const sync = useMutation({
@@ -175,6 +229,69 @@ function HomePage() {
           </div>
         </div>
       )}
+
+      {isSup && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CalendarCheck className="h-4 w-4 text-primary" /> Hoje em resumo
+          </h2>
+          <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <CheckSquare className="h-4 w-4 text-primary" /> Checklists de hoje
+                </div>
+                {checklistsToday ? (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {checklistsToday.aprovados} aprovado{checklistsToday.aprovados === 1 ? "" : "s"}
+                    {" · "}{checklistsToday.aguardando} aguardando
+                    {" · "}{checklistsToday.naoIniciados} não iniciado{checklistsToday.naoIniciados === 1 ? "" : "s"}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Carregando…</div>
+                )}
+              </div>
+              <Link to="/checklists" className="text-xs text-primary hover:underline shrink-0">Ver checklists</Link>
+            </div>
+
+            <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+              <div className="min-w-0">
+                <div className="font-medium flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-primary" /> Atividade fora do turno
+                </div>
+                {outOfShift24h && outOfShift24h > 0 ? (
+                  <div className="text-xs text-warning mt-0.5">
+                    {outOfShift24h} atividade{outOfShift24h === 1 ? "" : "s"} fora do turno nas últimas 24h
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-0.5">Tudo dentro do horário ✓</div>
+                )}
+              </div>
+              {outOfShift24h && outOfShift24h > 0 ? (
+                <Link to="/atividade-fora-turno" className="text-xs text-primary hover:underline shrink-0">
+                  Ver detalhes
+                </Link>
+              ) : null}
+            </div>
+
+            {topWeekly && (
+              <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
+                <div className="min-w-0">
+                  <div className="font-medium flex items-center gap-1.5">
+                    <Trophy className="h-4 w-4 text-primary" /> Destaque da semana
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {topWeekly.name} · {topWeekly.score.toFixed(1)}%
+                  </div>
+                </div>
+                <Link to="/ranking" className="text-xs text-primary hover:underline shrink-0">Ver ranking</Link>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+
 
       {myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
