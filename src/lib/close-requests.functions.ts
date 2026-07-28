@@ -127,29 +127,39 @@ export const respondCloseRequest = createServerFn({ method: "POST" })
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { ajustarEstoqueOmie } = await import("@/lib/omie.server");
 
-      if (req.push_to_omie) {
-        const { data: pending } = await supabaseAdmin
-          .from("count_items")
-          .select("*, product:products(omie_id, name)")
-          .eq("inventory_id", req.inventory_id).eq("status", "divergencia");
-        for (const item of pending ?? []) {
-          const diff = Number(item.difference);
-          if (diff === 0) continue;
-          try {
-            const resp = await ajustarEstoqueOmie({
-              codigo_produto: Number((item.product as { omie_id: string }).omie_id),
-              quantidade: diff,
-              observacao: `Fechamento inventário ${req.inventory_id}`,
-            });
-            await supabaseAdmin.from("count_items").update({
-              status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as never,
-            }).eq("id", item.id);
-          } catch (e) {
-            await supabaseAdmin.from("logs").insert({
-              user_id: userId, action: "omie_ajuste_erro", entity: "count_item",
-              details: { id: item.id, erro: e instanceof Error ? e.message : String(e) },
-            });
-          }
+      // Ao aprovar o fechamento, SEMPRE empurramos as divergências pendentes
+      // para o Omie — o flag `push_to_omie` do pedido é irrelevante nesse ponto:
+      // se está fechando é porque o revisor aprovou os ajustes. Sem isso,
+      // inventários no modo "imediato" perdem os ajustes dos itens divergentes.
+      const { data: pending, error: pendingErr } = await supabaseAdmin
+        .from("count_items")
+        .select("*, product:products(omie_id, name)")
+        .eq("inventory_id", req.inventory_id).eq("status", "divergencia");
+      if (pendingErr) {
+        throw new Error(`Falha ao buscar itens divergentes para envio ao Omie: ${pendingErr.message}`);
+      }
+      const { data: invRow, error: invRowErr } = await supabaseAdmin
+        .from("inventories").select("name").eq("id", req.inventory_id).maybeSingle();
+      if (invRowErr) throw new Error(`Falha ao buscar inventário: ${invRowErr.message}`);
+      const invName = invRow?.name ?? `inventario ${req.inventory_id}`;
+      for (const item of pending ?? []) {
+        const diff = Number(item.difference);
+        if (diff === 0) continue;
+        try {
+          const resp = await ajustarEstoqueOmie({
+            codigo_produto: Number((item.product as { omie_id: string }).omie_id),
+            quantidade: diff,
+            observacao: `Fechamento: ${invName}`,
+            valor_unitario: Number(item.unit_cost) || 0,
+          });
+          await supabaseAdmin.from("count_items").update({
+            status: "atualizado", omie_updated_at: new Date().toISOString(), omie_response: resp as never,
+          }).eq("id", item.id);
+        } catch (e) {
+          await supabaseAdmin.from("logs").insert({
+            user_id: userId, action: "omie_ajuste_erro", entity: "count_item",
+            details: { id: item.id, erro: e instanceof Error ? e.message : String(e) },
+          });
         }
       }
       const { error: updErr } = await supabase.from("inventories").update({
