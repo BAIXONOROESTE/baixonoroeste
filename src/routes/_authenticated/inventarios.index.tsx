@@ -5,7 +5,7 @@ import { fmtDateTime } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Clock, ArrowRight } from "lucide-react";
+import { AlertTriangle, Clock, ArrowRight, Plus } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { DeleteInventoryButton } from "@/components/DeleteInventoryButton";
 
