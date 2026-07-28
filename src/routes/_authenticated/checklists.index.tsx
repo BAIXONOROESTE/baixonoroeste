@@ -429,9 +429,9 @@ function ChecklistsPage() {
           if (assignment) {
             expectedUserIds = [assignment.assigned_to];
             expectedName = assignment.assignee?.full_name ?? null;
-          } else if (t.recurring) {
-            expectedUserIds = [t.recurring.user_id];
-            expectedName = t.recurring.assignee?.full_name ?? null;
+          } else if (t.recurring && t.recurring.userIds.length > 0) {
+            expectedUserIds = t.recurring.userIds;
+            expectedName = t.recurring.names.length > 0 ? t.recurring.names.join(" ou ") : null;
           } else if (t.expectedByShift && t.expectedByShift.userIds.length > 0) {
             expectedUserIds = t.expectedByShift.userIds;
             expectedName = t.expectedByShift.names.length > 0
