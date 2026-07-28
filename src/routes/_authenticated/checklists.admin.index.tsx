@@ -143,6 +143,48 @@ function ChecklistAdminPage() {
     },
   });
 
+  const recurringQ = useQuery({
+    queryKey: ["checklist-recurring-assignments"],
+    enabled: canManage,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase
+        .from("checklist_recurring_assignments")
+        .select("template_id, user_id");
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      for (const r of (data ?? []) as any[]) map[r.template_id] = r.user_id;
+      return map;
+    },
+  });
+
+  const upsertRecurring = useMutation({
+    mutationFn: async ({ templateId, userId }: { templateId: string; userId: string }) => {
+      if (!profile?.id) throw new Error("Sem usuário autenticado.");
+      if (!userId) {
+        const { error } = await supabase
+          .from("checklist_recurring_assignments")
+          .delete()
+          .eq("template_id", templateId);
+        if (error) throw error;
+        return;
+      }
+      const { error } = await supabase
+        .from("checklist_recurring_assignments")
+        .upsert(
+          { template_id: templateId, user_id: userId, created_by: profile.id },
+          { onConflict: "template_id" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Responsável padrão atualizado");
+      qc.invalidateQueries({ queryKey: ["checklist-recurring-assignments"] });
+      qc.invalidateQueries({ queryKey: ["checklists"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao atualizar responsável padrão"),
+  });
+
+
   const toggleActive = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
       const { error } = await supabase
