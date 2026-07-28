@@ -52,6 +52,7 @@ export function MaintenanceTicketDialog({
   const uid = profile?.id ?? null;
   const qc = useQueryClient();
   const notifyAssigned = useServerFn(notifyMaintenanceTicketAssigned);
+  const notifyCreatedPush = useServerFn(notifyMaintenanceTicketCreatedPush);
   const listLoginProfilesFn = useServerFn(listLoginProfiles);
 
   const [title, setTitle] = useState("");
@@ -149,6 +150,10 @@ export function MaintenanceTicketDialog({
             console.error("[MaintenanceTicketDialog] notify falhou", err);
             toast.warning("Chamado criado, mas não foi possível notificar por e-mail.");
           });
+        // Push adicional (não-bloqueante, sem toast em caso de falha).
+        notifyCreatedPush({ data: { ticket_id: t.id } }).catch((err) => {
+          console.error("[MaintenanceTicketDialog] push falhou", err);
+        });
       }
     },
     onSuccess: () => {

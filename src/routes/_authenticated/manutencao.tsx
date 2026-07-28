@@ -19,7 +19,12 @@ import { toast } from "sonner";
 import { Wrench, Plus } from "lucide-react";
 import { MaintenanceTicketDialog } from "@/components/MaintenanceTicketDialog";
 import { useServerFn } from "@tanstack/react-start";
-import { notifyMaintenanceTicketAssigned } from "@/lib/maintenance.functions";
+import {
+  notifyMaintenanceTicketAssigned,
+  notifyMaintenanceTicketCreatedPush,
+  notifyMaintenanceTicketStatusPush,
+  notifyMaintenanceTicketResolvedPush,
+} from "@/lib/maintenance.functions";
 import { listLoginProfiles } from "@/lib/login-profiles.functions";
 
 type Status = "aberto" | "em_andamento" | "resolvido";
@@ -68,6 +73,9 @@ function MaintenancePage() {
   const [newTicketOpen, setNewTicketOpen] = useState(false);
   const canManage = profile?.role === "admin" || profile?.role === "supervisor";
   const notifyAssigned = useServerFn(notifyMaintenanceTicketAssigned);
+  const notifyCreatedPush = useServerFn(notifyMaintenanceTicketCreatedPush);
+  const notifyStatusPush = useServerFn(notifyMaintenanceTicketStatusPush);
+  const notifyResolvedPush = useServerFn(notifyMaintenanceTicketResolvedPush);
   const listLoginProfilesFn = useServerFn(listLoginProfiles);
 
   const assignable = useQuery({
@@ -131,6 +139,9 @@ function MaintenancePage() {
         .update({ status: "em_andamento", assigned_to: t.assigned_to ?? uid })
         .eq("id", t.id);
       if (error) throw error;
+      notifyStatusPush({ data: { ticket_id: t.id, new_status: "em_andamento" } }).catch((err) =>
+        console.error("[maintenance] status push falhou", err),
+      );
     },
     onSuccess: () => {
       toast.success("Atendimento iniciado");
@@ -151,6 +162,9 @@ function MaintenancePage() {
         })
         .eq("id", id);
       if (error) throw error;
+      notifyResolvedPush({ data: { ticket_id: id } }).catch((err) =>
+        console.error("[maintenance] resolved push falhou", err),
+      );
     },
     onSuccess: () => {
       toast.success("Chamado resolvido");
@@ -169,6 +183,10 @@ function MaintenancePage() {
         .eq("id", ticket.id);
       if (error) throw error;
       const r = await notifyAssigned({ data: { ticket_id: ticket.id } });
+      // Push adicional ao novo responsável — não-bloqueante.
+      notifyCreatedPush({ data: { ticket_id: ticket.id } }).catch((err) =>
+        console.error("[maintenance] reassign push falhou", err),
+      );
       return r;
     },
     onSuccess: (r) => {
