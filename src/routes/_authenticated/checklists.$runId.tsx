@@ -155,10 +155,13 @@ function RunPage() {
         .maybeSingle();
       if (manualErr) throw manualErr;
 
-      let userId: string | null = (manual as any)?.assigned_to ?? null;
+      let userIds: string[] = [];
+      if ((manual as any)?.assigned_to) {
+        userIds = [(manual as any).assigned_to as string];
+      }
 
-      // 2) Se não houver manual, tenta responsável recorrente (se trabalha nesse dia)
-      if (!userId) {
+      // 2) Recorrente (se trabalha nesse dia)
+      if (userIds.length === 0) {
         const { data: rec, error: recErr } = await supabase
           .from("checklist_recurring_assignments")
           .select("user_id")
@@ -172,19 +175,32 @@ function RunPage() {
             p_check_date: runDate,
           });
           if (fnErr) throw fnErr;
-          if (works) userId = recUserId;
+          if (works) userIds = [recUserId];
         }
       }
 
-      if (!userId) return null;
+      // 3) Esperado por turno
+      if (userIds.length === 0) {
+        const { data: ids, error: rpcErr } = await supabase.rpc(
+          "expected_checklist_assignees",
+          { p_template_id: templateId, p_check_date: runDate },
+        );
+        if (rpcErr) throw rpcErr;
+        userIds = ((ids ?? []) as any[]).map((r) => r.user_id as string);
+      }
 
-      const { data: prof, error: profErr } = await supabase
+      if (userIds.length === 0) return null;
+
+      const { data: profs, error: profErr } = await supabase
         .from("profiles")
-        .select("full_name")
-        .eq("id", userId)
-        .maybeSingle();
+        .select("id, full_name")
+        .in("id", userIds);
       if (profErr) throw profErr;
-      return { assignee: { full_name: prof?.full_name ?? null } } as AssignmentInfo;
+      const names = (profs ?? [])
+        .map((p: any) => p.full_name as string | null)
+        .filter((n): n is string => !!n);
+      const joined = names.length > 0 ? names.join(" ou ") : null;
+      return { assignee: { full_name: joined } } as AssignmentInfo;
     },
   });
 
