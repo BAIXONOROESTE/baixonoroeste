@@ -16,14 +16,13 @@ import { fmtDateTime } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/inicio")({ component: HomePage });
 
 const tiles = [
-  { to: "/contar", label: "Nova contagem", icon: ClipboardList, roles: ["admin","supervisor"] as const },
   { to: "/inventarios", label: "Inventários", icon: Package, roles: ["admin","supervisor","contador"] as const },
   { to: "/checklists", label: "Checklists", icon: CheckSquare, roles: ["admin","supervisor","contador"] as const },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin","supervisor"] as const },
   { to: "/ranking", label: "Ranking", icon: Trophy, roles: ["admin","supervisor","contador"] as const },
   { to: "/perdas", label: "Perdas & Quebras", icon: AlertTriangle, roles: ["admin","supervisor","contador"] as const },
   { to: "/manutencao", label: "Manutenção", icon: Wrench, roles: ["admin","supervisor"] as const },
-  { to: "/atividade-fora-turno", label: "Fora de turno", icon: Clock, roles: ["admin","supervisor"] as const },
+  { to: "/atividade-fora-turno", label: "Atividade fora do turno", icon: Clock, roles: ["admin","supervisor"] as const },
   { to: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin","supervisor"] as const },
   { to: "/usuarios", label: "Usuários", icon: Users, roles: ["admin"] as const },
   { to: "/logs", label: "Logs", icon: ScrollText, roles: ["admin","supervisor"] as const },
