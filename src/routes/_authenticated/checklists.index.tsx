@@ -74,6 +74,11 @@ type RecurringAssignee = {
   assignee: { full_name: string | null } | null;
 };
 
+type ExpectedByShift = {
+  userIds: string[];
+  names: string[];
+};
+
 type TemplateRow = {
   id: string;
   name: string;
@@ -81,6 +86,7 @@ type TemplateRow = {
   runs: RunSummary[];
   assignments: Assignment[];
   recurring: RecurringAssignee | null;
+  expectedByShift: ExpectedByShift | null;
 };
 
 
