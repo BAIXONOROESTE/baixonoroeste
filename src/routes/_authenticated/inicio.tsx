@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Package, ClipboardList, BarChart3, Trophy, AlertTriangle, FileText, Users, Settings, ScrollText, RefreshCw, Inbox, ArrowRight, Bell, Wrench, CheckSquare, Clock, CalendarCheck } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -190,6 +190,65 @@ function HomePage() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: myChecklistsToday } = useQuery({
+    queryKey: ["my-checklists-today", uid, todayISO],
+    enabled: !!uid && !isSup,
+    queryFn: async () => {
+      // 1) Assignments for me today
+      const { data: assigns, error: aErr } = await supabase
+        .from("checklist_assignments")
+        .select("template_id")
+        .eq("assignment_date", todayISO)
+        .eq("assigned_to", uid!);
+      if (aErr) throw aErr;
+
+      let templates: Array<{ id: string; name: string; scheduled_time: string | null }> = [];
+      if (assigns && assigns.length > 0) {
+        const ids = assigns.map((a) => a.template_id);
+        const { data: t, error: tErr } = await supabase
+          .from("checklist_templates")
+          .select("id, name, scheduled_time")
+          .in("id", ids)
+          .eq("active", true);
+        if (tErr) throw tErr;
+        templates = (t ?? []) as typeof templates;
+      } else {
+        // Fallback: any active template not yet started/approved today
+        const { data: t, error: tErr } = await supabase
+          .from("checklist_templates")
+          .select("id, name, scheduled_time")
+          .eq("active", true);
+        if (tErr) throw tErr;
+        templates = (t ?? []) as typeof templates;
+      }
+      if (templates.length === 0) return [];
+
+      const { data: runs, error: rErr } = await supabase
+        .from("checklist_runs")
+        .select("id, template_id, status")
+        .eq("run_date", todayISO)
+        .in("template_id", templates.map((t) => t.id));
+      if (rErr) throw rErr;
+      const byTpl = new Map<string, { id: string; status: string }>();
+      (runs ?? []).forEach((r) => byTpl.set(r.template_id, { id: r.id, status: r.status as string }));
+
+      return templates
+        .filter((t) => {
+          const r = byTpl.get(t.id);
+          return !r || r.status !== "aprovado";
+        })
+        .map((t) => ({
+          template_id: t.id,
+          name: t.name,
+          scheduled_time: t.scheduled_time,
+          run_id: byTpl.get(t.id)?.id ?? null,
+          run_status: byTpl.get(t.id)?.status ?? null,
+        }));
+    },
+    refetchOnWindowFocus: true,
+  });
+
+
 
   const sync = useMutation({
     mutationFn: () => syncFn(),
@@ -232,7 +291,7 @@ function HomePage() {
         </div>
       )}
 
-      {myTasks && myTasks.length > 0 && (
+      {isSup && myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -274,6 +333,136 @@ function HomePage() {
           </ul>
         </section>
       )}
+
+      {!isSup && (() => {
+        const now = Date.now();
+        type Item = {
+          key: string;
+          kind: "inventario" | "checklist" | "manutencao";
+          title: string;
+          deadlineMs: number | null;
+          deadlineLabel: string | null;
+          overdue: boolean;
+          render: () => React.ReactElement;
+        };
+        const items: Item[] = [];
+        (myTasks ?? []).forEach((t) => {
+          const dMs = t.deadline_at ? new Date(t.deadline_at).getTime() : null;
+          const overdue = dMs != null && dMs < now;
+          items.push({
+            key: `inv-${t.id}`,
+            kind: "inventario",
+            title: t.name,
+            deadlineMs: dMs,
+            deadlineLabel: t.deadline_at ? `Prazo: ${fmtDateTime(t.deadline_at)}` : null,
+            overdue,
+            render: () => (
+              <Link to="/inventarios/$id" params={{ id: t.id }}>
+                <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+              </Link>
+            ),
+          });
+        });
+        (myChecklistsToday ?? []).forEach((c) => {
+          const dMs = c.scheduled_time ? new Date(`${todayISO}T${c.scheduled_time}`).getTime() : null;
+          const overdue = dMs != null && dMs < now && c.run_status !== "aprovado";
+          items.push({
+            key: `chk-${c.template_id}`,
+            kind: "checklist",
+            title: c.name,
+            deadlineMs: dMs,
+            deadlineLabel: c.scheduled_time ? `Hoje às ${c.scheduled_time.slice(0, 5)}` : "Hoje",
+            overdue,
+            render: () =>
+              c.run_id ? (
+                <Link to="/checklists/$runId" params={{ runId: c.run_id }}>
+                  <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                </Link>
+              ) : (
+                <Link to="/checklists">
+                  <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+                </Link>
+              ),
+          });
+        });
+        (pendingMaintenanceTickets ?? []).forEach((t) => {
+          items.push({
+            key: `mnt-${t.id}`,
+            kind: "manutencao",
+            title: t.title,
+            deadlineMs: new Date(t.created_at).getTime(),
+            deadlineLabel: t.status === "aberto" ? "Aberto" : "Em andamento",
+            overdue: false,
+            render: () => (
+              <Link to="/manutencao">
+                <Button size="sm">Abrir <ArrowRight className="h-3 w-3 ml-1" /></Button>
+              </Link>
+            ),
+          });
+        });
+        if (items.length === 0) return null;
+        items.sort((a, b) => {
+          if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+          if (a.deadlineMs == null && b.deadlineMs == null) return 0;
+          if (a.deadlineMs == null) return 1;
+          if (b.deadlineMs == null) return -1;
+          return a.deadlineMs - b.deadlineMs;
+        });
+        const badgeFor = (kind: Item["kind"]) => {
+          if (kind === "inventario")
+            return { label: "Inventário", Icon: Package, cls: "bg-primary/15 text-primary" };
+          if (kind === "checklist")
+            return { label: "Checklist", Icon: CheckSquare, cls: "bg-emerald-500/15 text-emerald-600" };
+          return { label: "Manutenção", Icon: Wrench, cls: "bg-amber-500/15 text-amber-600" };
+        };
+        return (
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Bell className="h-4 w-4 text-primary" /> Minhas tarefas de hoje
+              </h2>
+              <span className="rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5">
+                {items.length}
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {items.map((it) => {
+                const b = badgeFor(it.kind);
+                const Icon = b.Icon;
+                return (
+                  <li
+                    key={it.key}
+                    className={`rounded-2xl bg-surface border p-3 flex items-center justify-between gap-2 ${
+                      it.overdue ? "border-destructive/60" : "border-primary/40"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${b.cls}`}>
+                          <Icon className="h-3 w-3" /> {b.label}
+                        </span>
+                        {it.overdue && (
+                          <span className="text-[10px] uppercase tracking-wide rounded-full bg-destructive/20 text-destructive px-2 py-0.5 font-semibold">
+                            Atrasada
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm font-medium truncate mt-1">{it.title}</div>
+                      {it.deadlineLabel && (
+                        <div className={`text-[11px] ${it.overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                          {it.deadlineLabel}
+                        </div>
+                      )}
+                    </div>
+                    {it.render()}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })()}
+
 
       {isSup && (
         <section className="space-y-2">
@@ -378,52 +567,7 @@ function HomePage() {
         </section>
       )}
 
-      {!isSup && pendingMaintenanceTickets && pendingMaintenanceTickets.length > 0 && (
-        <div className="rounded-2xl bg-surface border border-warning/40 p-4 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-warning" />
-              <div className="text-sm font-medium">
-                Meus chamados ({pendingMaintenanceTickets.length})
-              </div>
-            </div>
-            {pendingMaintenanceTickets.length > 5 && (
-              <Link to="/manutencao" className="text-xs text-primary hover:underline">
-                Ver todos
-              </Link>
-            )}
-          </div>
-          <ul className="space-y-2">
-            {pendingMaintenanceTickets.slice(0, 5).map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center justify-between gap-2 rounded-xl bg-background/40 p-2"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm truncate">{t.title}</div>
-                  <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    <span
-                      className={`text-[10px] uppercase tracking-wide rounded-full px-1.5 py-0.5 font-semibold ${
-                        t.status === "aberto"
-                          ? "bg-amber-500/15 text-amber-600"
-                          : "bg-blue-500/15 text-blue-600"
-                      }`}
-                    >
-                      {t.status === "aberto" ? "Aberto" : "Em andamento"}
-                    </span>
-                    <span className="truncate">
-                      {t.assigned_name ?? "Sem responsável"}
-                    </span>
-                  </div>
-                </div>
-                <Link to="/manutencao">
-                  <Button size="sm" variant="outline">Abrir</Button>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+
 
       {role === "admin" && (
         <section className="space-y-2">
