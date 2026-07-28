@@ -357,7 +357,9 @@ function ChecklistsPage() {
             nowMinutes >= sched - 30 &&
             nowMinutes <= sched + 120;
           const assignment = t.assignments[0] ?? null;
-          const expectedName = assignment?.assignee?.full_name ?? null;
+          const expectedUserId = assignment?.assigned_to ?? t.recurring?.user_id ?? null;
+          const expectedName =
+            assignment?.assignee?.full_name ?? t.recurring?.assignee?.full_name ?? null;
           const avgMin = avgTimesQuery.data?.[t.id];
 
           let badge: { label: string; className: string } | null = null;
@@ -365,9 +367,9 @@ function ChecklistsPage() {
 
           const handleStart = () => {
             if (
-              assignment &&
+              expectedUserId &&
               uid &&
-              assignment.assigned_to !== uid &&
+              expectedUserId !== uid &&
               expectedName
             ) {
               setAssignmentPrompt({ templateId: t.id, expectedName });
@@ -375,6 +377,7 @@ function ChecklistsPage() {
             }
             startRun.mutate(t.id);
           };
+
 
           if (!run) {
             if (isNowWindow) badge = { label: "Agora", className: "bg-primary text-primary-foreground" };
