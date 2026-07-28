@@ -267,9 +267,10 @@ export const reviewCountItems = createServerFn({ method: "POST" })
     const affectedIds = data.decisions.filter((d) => d.action === "recontagem" || d.action === "ajuste").map((d) => d.count_item_id);
     let itemDetails: Array<{ product: string; code?: string; expected: number; counted: number; diff: number }> = [];
     if (affectedIds.length) {
-      const { data: rows } = await supabase.from("count_items")
+      const { data: rows, error: rowsErr } = await supabase.from("count_items")
         .select("id, quantity_before, quantity_counted, difference, product:products(name, code)")
         .in("id", affectedIds);
+      if (rowsErr) throw new Error(`Falha ao buscar itens afetados pela revisão: ${rowsErr.message}`);
       itemDetails = (rows ?? []).map((r) => ({
         product: (r.product as { name: string }).name,
         code: (r.product as { code?: string }).code,
