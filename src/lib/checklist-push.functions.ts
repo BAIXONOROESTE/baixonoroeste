@@ -142,7 +142,20 @@ export const notifyChecklistRejectedPush = createServerFn({ method: "POST" })
         .eq("id", run.template_id)
         .maybeSingle();
       const base = template?.name ?? "Checklist";
-      const body = data.reason ? `${base} — ${data.reason.slice(0, 160)}` : base;
+      let reason = data.reason;
+      if (!reason) {
+        const { data: reviews } = await supabaseAdmin
+          .from("checklist_run_item_reviews")
+          .select("reason")
+          .eq("run_id", run.id)
+          .eq("action", "reprovar")
+          .not("reason", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        reason = reviews?.[0]?.reason ?? undefined;
+      }
+      const body = reason ? `${base} — ${reason.slice(0, 160)}` : base;
+
       const r = await sendPushToUser(
         run.started_by,
         {
