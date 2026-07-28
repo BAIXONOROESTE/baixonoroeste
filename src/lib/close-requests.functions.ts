@@ -136,7 +136,11 @@ export const respondCloseRequest = createServerFn({ method: "POST" })
         .select("*, product:products(omie_id, name)")
         .eq("inventory_id", req.inventory_id).eq("status", "divergencia");
       if (pendingErr) {
-        throw new Error(`Falha ao buscar itens divergentes para envio ao Omie: ${pendingErr.message}`);
+        await supabaseAdmin.from("logs").insert({
+          user_id: userId, action: "omie_ajuste_erro", entity: "inventory",
+          details: { inventory_id: req.inventory_id, erro: `Falha ao buscar itens divergentes: ${pendingErr.message}` },
+        });
+        throw new Error(`Falha ao buscar itens divergentes: ${pendingErr.message}`);
       }
       const { data: invRow, error: invRowErr } = await supabaseAdmin
         .from("inventories").select("name").eq("id", req.inventory_id).maybeSingle();

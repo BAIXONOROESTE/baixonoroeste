@@ -14,6 +14,14 @@ export const Route = createFileRoute("/aprovar/$token")({
   component: AprovarPage,
 });
 
+type DivItem = {
+  id: string;
+  product_name: string;
+  expected: number;
+  counted: number;
+  diff: number;
+};
+
 function AprovarPage() {
   const { token } = Route.useParams();
   const navigate = useNavigate();
@@ -24,6 +32,7 @@ function AprovarPage() {
     inventory_name: string; requester_name: string;
     divergencias: number; total_diff: number;
   } | null>(null);
+  const [items, setItems] = useState<DivItem[]>([]);
   const respondFn = useServerFn(respondCloseRequest);
   const [busy, setBusy] = useState(false);
 
@@ -34,21 +43,36 @@ function AprovarPage() {
         .select("id, inventory_id, status, requested_by, inventory:inventories(name)")
         .eq("approval_token", token).maybeSingle();
       if (!r) { setLoading(false); return; }
-      const [profs, { count: divCount }, { data: items }] = await Promise.all([
+      const [profs, { count: divCount }, { data: allItems }, { data: divItems }] = await Promise.all([
         listLoginProfiles(),
         supabase.from("count_items").select("id", { count: "exact", head: true })
           .eq("inventory_id", r.inventory_id).eq("status", "divergencia"),
         supabase.from("count_items").select("financial_diff").eq("inventory_id", r.inventory_id),
+        supabase.from("count_items")
+          .select("id, quantity_before, quantity_counted, difference, product:products(name)")
+          .eq("inventory_id", r.inventory_id).eq("status", "divergencia")
+          .order("difference", { ascending: true }),
       ]);
       const prof = (profs ?? []).find((p) => p.id === r.requested_by);
-      const totalDiff = (items ?? []).reduce((acc, i) => acc + Number(i.financial_diff ?? 0), 0);
+      const totalDiff = (allItems ?? []).reduce((acc, i) => acc + Number(i.financial_diff ?? 0), 0);
       setReq({
         id: r.id, inventory_id: r.inventory_id, status: r.status,
         inventory_name: (r.inventory as { name?: string } | null)?.name ?? "",
         requester_name: prof?.full_name ?? "—",
-
         divergencias: divCount ?? 0, total_diff: totalDiff,
       });
+      setItems(
+        (divItems ?? []).map((i) => {
+          const prod = i.product as { name?: string } | null;
+          return {
+            id: i.id as string,
+            product_name: prod?.name ?? "—",
+            expected: Number(i.quantity_before),
+            counted: Number(i.quantity_counted),
+            diff: Number(i.difference),
+          };
+        }),
+      );
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) setNeedsLogin(true);
       setLoading(false);
@@ -102,6 +126,25 @@ function AprovarPage() {
           </div>
         )}
 
+        {req && items.length > 0 && (
+          <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
+            <div className="text-sm font-medium">Itens com divergência</div>
+            <div className="space-y-1.5 max-h-72 overflow-auto">
+              {items.map((it) => (
+                <div key={it.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 p-2 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{it.product_name}</div>
+                    <div className="text-xs text-muted-foreground">Esperado {it.expected} · Contado {it.counted}</div>
+                  </div>
+                  <div className={`text-sm font-semibold shrink-0 ${it.diff < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                    {it.diff > 0 ? "+" : ""}{it.diff}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {req && needsLogin && (
           <div className="rounded-2xl bg-warning/10 border border-warning/40 p-4 text-sm space-y-2">
             <div>Você precisa entrar como supervisor ou admin para responder.</div>
@@ -118,6 +161,21 @@ function AprovarPage() {
               <Check className="h-4 w-4 mr-1" /> Aprovar
             </Button>
           </div>
+        )}
+
+        {req && !needsLogin && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate({ to: "/inventarios/$id", params: { id: req.inventory_id } })}
+          >
+            Ir para o inventário
+          </Button>
+        )}
+        {!needsLogin && (
+          <Button variant="ghost" className="w-full" onClick={() => navigate({ to: "/inicio" })}>
+            Voltar para o início
+          </Button>
         )}
       </div>
     </div>
