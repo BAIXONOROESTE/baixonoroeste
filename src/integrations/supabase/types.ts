@@ -1168,6 +1168,35 @@ export type Database = {
           },
         ]
       }
+      missing_barcode_reports: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          reported_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          reported_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          reported_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missing_barcode_reports_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_outbox: {
         Row: {
           attempts: number

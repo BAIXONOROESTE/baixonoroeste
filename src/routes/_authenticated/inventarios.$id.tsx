@@ -232,8 +232,34 @@ function InventoryDetail() {
   }, [products, q]);
 
   const countedIds = new Set((items ?? []).map((i) => i.product_id));
-  const activeProducts = (products ?? []).filter((p) => p.active);
-  const progress = activeProducts.length ? Math.round((countedIds.size / activeProducts.length) * 100) : 0;
+
+  // Total de produtos ativos NO ESCOPO do inventário (independente da paginação/busca),
+  // usado para (a) barra de progresso e (b) bloquear o botão de fechar até 100% contado.
+  const { data: scopeTotal } = useQuery({
+    queryKey: ["inventory-scope-total", id, inv?.type, inv?.family_id, scope?.productIds?.length, scope?.familyIds?.length, nonCountableFamilyIds?.length],
+    queryFn: async () => {
+      let query = supabase.from("products").select("id", { count: "exact", head: true }).eq("active", true);
+      if (inv?.type === "familia" && inv?.family_id) query = query.eq("family_id", inv.family_id);
+      if (inv?.type === "personalizado" || inv?.type === "produto") {
+        const pIds = scope?.productIds ?? [];
+        const fIds = scope?.familyIds ?? [];
+        if (pIds.length === 0 && fIds.length === 0) return 0;
+        const filters: string[] = [];
+        if (pIds.length) filters.push(`id.in.(${pIds.join(",")})`);
+        if (fIds.length) filters.push(`family_id.in.(${fIds.join(",")})`);
+        query = query.or(filters.join(","));
+      }
+      if (inv?.type === "geral" && (nonCountableFamilyIds?.length ?? 0) > 0) {
+        query = query.not("family_id", "in", `(${nonCountableFamilyIds!.join(",")})`);
+      }
+      const { count } = await query;
+      return count ?? 0;
+    },
+    enabled: !!inv && (inv.type === "geral" || inv.type === "familia" || !!scope) && (inv?.type !== "geral" || nonCountableFamilyIds !== undefined),
+  });
+  const totalScope = scopeTotal ?? 0;
+  const remainingToCount = Math.max(0, totalScope - countedIds.size);
+  const progress = totalScope ? Math.round((countedIds.size / totalScope) * 100) : 0;
   const divergencias = (items ?? []).filter((i) => i.status === "divergencia").length;
   const totalDiff = (items ?? []).reduce((acc, i) => acc + Number(i.financial_diff ?? 0), 0);
 
@@ -457,7 +483,7 @@ function InventoryDetail() {
       <div className="rounded-2xl bg-surface border border-border p-4">
         <div className="flex items-center justify-between text-sm">
           <span>Progresso</span>
-          <span className="font-medium">{countedIds.size}/{activeProducts.length} ({progress}%)</span>
+          <span className="font-medium">{countedIds.size}/{totalScope} ({progress}%)</span>
         </div>
         <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
           <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
@@ -674,8 +700,21 @@ function InventoryDetail() {
       {lossFor && <LossModal {...lossFor} onClose={() => setLossFor(null)} onDone={() => { setLossFor(null); qc.invalidateQueries(); }} />}
 
       {canEditCounts && (
-        <div className="pt-2">
-          {page + 1 >= totalPages ? (
+        <div className="pt-2 space-y-2">
+          {page + 1 < totalPages ? (
+            <div className="rounded-md border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
+              Veja todos os produtos antes de fechar (página {page + 1} de {totalPages}).
+            </div>
+          ) : remainingToCount > 0 ? (
+            <>
+              <Button className="w-full" variant="default" disabled>
+                <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
+              </Button>
+              <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-center text-xs text-warning-foreground">
+                Faltam <b>{remainingToCount}</b> produto{remainingToCount === 1 ? "" : "s"} para contar antes de poder fechar.
+              </div>
+            </>
+          ) : (
             <Button className="w-full" variant="default"
               onClick={async () => {
                 const isSup = profile?.role === "admin" || profile?.role === "supervisor";
@@ -698,10 +737,6 @@ function InventoryDetail() {
               }}>
               <Lock className="h-4 w-4 mr-2" /> {profile?.role === "contador" ? "Pedir fechamento" : "Fechar inventário"}
             </Button>
-          ) : (
-            <div className="rounded-md border border-dashed border-border bg-muted/40 p-3 text-center text-xs text-muted-foreground">
-              Veja todos os produtos antes de fechar (página {page + 1} de {totalPages}).
-            </div>
           )}
         </div>
       )}
@@ -711,7 +746,7 @@ function InventoryDetail() {
 }
 
 function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, onClose, onSaved, onOpenLoss }: {
-  product: { id: string; name: string; code: string; family_name: string | null; unit: string | null; stock_omie: number; cost: number };
+  product: { id: string; name: string; code: string; barcode: string | null; family_name: string | null; unit: string | null; stock_omie: number; cost: number };
   inventoryId: string;
   currentItem: { id: string; quantity_counted: number; difference: number; financial_diff: number; status: string } | undefined;
   blind: boolean;
@@ -723,6 +758,13 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
   const { enqueue, flush, online } = useOfflineCountQueue(inventoryId);
   const [qty, setQty] = useState(currentItem ? String(currentItem.quantity_counted) : "");
   const [saving, setSaving] = useState(false);
+  const [barcodeCheck, setBarcodeCheck] = useState<
+    | null
+    | { kind: "match" }
+    | { kind: "mismatch"; scanned: string }
+    | { kind: "missing"; scanned: string; reported: boolean }
+  >(null);
+  const [scanningProduct, setScanningProduct] = useState(false);
   // Depois de salvar, revelamos o resultado mesmo no modo às cegas.
   const [revealed, setRevealed] = useState<null | { diff: number; finDiff: number; status: string; itemId: string }>(null);
   // Só escondemos estoque/diferença enquanto o item ainda NÃO foi salvo nesta sessão.
@@ -811,6 +853,35 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
             <div className="font-semibold">{fmtMoney(product.cost)}</div>
           </div>
         </div>
+
+        <div className="space-y-1">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setScanningProduct(true)}
+          >
+            <Camera className="h-4 w-4 mr-2" /> Conferir código de barras
+          </Button>
+          {barcodeCheck?.kind === "match" && (
+            <div className="rounded-lg bg-success/15 text-success p-2 text-xs flex items-center gap-1">
+              <CheckCircle2 className="h-4 w-4" /> Código confere
+            </div>
+          )}
+          {barcodeCheck?.kind === "mismatch" && (
+            <div className="rounded-lg bg-warning/15 text-warning-foreground border border-warning/40 p-2 text-xs flex items-start gap-1">
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+              <span>Código de barras <b>{barcodeCheck.scanned}</b> não confere com este produto — confirme se pegou o produto certo.</span>
+            </div>
+          )}
+          {barcodeCheck?.kind === "missing" && (
+            <div className="rounded-lg bg-primary/10 border border-primary/40 p-2 text-xs flex items-start gap-1">
+              <AlertTriangle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <span>Este produto não tem código de barras cadastrado. O responsável foi avisado para cadastrar na Omie.</span>
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="text-xs text-muted-foreground">Quantidade contada</label>
           <Input type="number" step="any" inputMode="decimal" autoFocus value={qty} onChange={(e) => { setQty(e.target.value); if (revealed) setRevealed(null); }} className="text-2xl h-14 text-center" disabled={!!revealed} />
@@ -844,6 +915,39 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
           </div>
         )}
       </div>
+      {scanningProduct && (
+        <BarcodeScanner
+          onClose={() => setScanningProduct(false)}
+          onScan={async (code) => {
+            setScanningProduct(false);
+            const scanned = code.trim();
+            const productBarcode = (product.barcode ?? "").trim();
+            if (!productBarcode) {
+              // Sem barcode cadastrado: registra relato para avisar responsável.
+              let reported = false;
+              try {
+                const { data: u } = await supabase.auth.getUser();
+                if (u.user) {
+                  const { error } = await supabase.from("missing_barcode_reports").insert({
+                    product_id: product.id,
+                    reported_by: u.user.id,
+                  });
+                  if (!error) reported = true;
+                }
+              } catch (e) {
+                console.warn("missing_barcode_reports insert:", e);
+              }
+              setBarcodeCheck({ kind: "missing", scanned, reported });
+              return;
+            }
+            if (scanned === productBarcode) {
+              setBarcodeCheck({ kind: "match" });
+            } else {
+              setBarcodeCheck({ kind: "mismatch", scanned });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

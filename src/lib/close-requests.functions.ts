@@ -38,9 +38,10 @@ export const requestCloseInventory = createServerFn({ method: "POST" })
       token = created.approval_token;
     }
 
-    // Notifica supervisor/admin por e-mail.
+    // Notifica supervisor/admin por e-mail, respeitando janela de 30 min por destinatário.
     let sent = 0;
     let targets = 0;
+    let throttled = 0;
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const { sendTemplateEmail, loadNotificationRecipients } = await import(
@@ -50,9 +51,27 @@ export const requestCloseInventory = createServerFn({ method: "POST" })
         supabaseAdmin.from("inventories").select("name").eq("id", data.inventory_id).maybeSingle(),
         supabaseAdmin.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
       ]);
-      const recipients = await loadNotificationRecipients();
-      targets = recipients.length;
-      if (targets > 0) {
+      const allRecipients = await loadNotificationRecipients();
+      targets = allRecipients.length;
+
+      // Consulta email_send_log: qualquer envio recente de "count-completed" (template
+      // usado para pedido de fechamento) para estes destinatários nos últimos 30 min.
+      const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      let recipients = allRecipients;
+      if (allRecipients.length > 0) {
+        const { data: recent } = await supabaseAdmin
+          .from("email_send_log")
+          .select("recipient_email")
+          .eq("template_name", "count-completed")
+          .in("status", ["pending", "enqueued", "sent"])
+          .gte("created_at", since)
+          .in("recipient_email", allRecipients);
+        const throttledSet = new Set((recent ?? []).map((r) => (r.recipient_email as string).toLowerCase()));
+        recipients = allRecipients.filter((r) => !throttledSet.has(r.toLowerCase()));
+        throttled = allRecipients.length - recipients.length;
+      }
+
+      if (recipients.length > 0) {
         const origin =
           process.env.PUBLIC_SITE_URL ||
           "https://baixonoroeste.lovable.app";
@@ -78,7 +97,7 @@ export const requestCloseInventory = createServerFn({ method: "POST" })
       console.error("[requestCloseInventory] notify falhou", e);
     }
 
-    return { ok: true, token, sent, targets };
+    return { ok: true, token, sent, targets, throttled };
   });
 
 

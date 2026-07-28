@@ -23,6 +23,13 @@ interface CountFamilyRow {
   diff_value: number
 }
 
+interface MissingBarcodeRow {
+  product: string
+  code: string
+  times: number
+  reporters: string[]
+}
+
 interface Props {
   date_label?: string
   rows?: Row[]
@@ -31,6 +38,7 @@ interface Props {
   counts_total_items?: number
   counts_total_divergences?: number
   counts_total_diff_value?: number
+  missing_barcodes?: MissingBarcodeRow[]
 }
 
 const LossesDaily = ({
@@ -41,6 +49,7 @@ const LossesDaily = ({
   counts_total_items = 0,
   counts_total_divergences = 0,
   counts_total_diff_value = 0,
+  missing_barcodes = [],
 }: Props) => (
   <Html lang="pt-BR" dir="ltr">
     <Head />
@@ -128,6 +137,36 @@ const LossesDaily = ({
           )}
         </Section>
 
+        <Section>
+          <Heading as="h2" style={h2}>Produtos sem código de barras reportados</Heading>
+          {missing_barcodes.length === 0 ? (
+            <Text style={muted}>Nenhum produto reportado sem código de barras.</Text>
+          ) : (
+            <table style={table} cellPadding={0} cellSpacing={0}>
+              <thead>
+                <tr>
+                  <th style={th}>Produto</th>
+                  <th style={th}>Código interno</th>
+                  <th style={thNum}>Relatos</th>
+                  <th style={th}>Reportado por</th>
+                </tr>
+              </thead>
+              <tbody>
+                {missing_barcodes.map((m, i) => (
+                  <tr key={i} style={i % 2 ? trAlt : trS}>
+                    <td style={td}>{m.product}</td>
+                    <td style={td}>{m.code}</td>
+                    <td style={tdNum}>{m.times}</td>
+                    <td style={td}>{m.reporters.join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Section>
+
+
+
         <Hr style={hr} />
         <Text style={footer}>Gerado automaticamente às 05:00 (horário de Brasília).</Text>
       </Container>
@@ -176,5 +215,8 @@ export const template = {
     counts_total_items: 20,
     counts_total_divergences: 3,
     counts_total_diff_value: -45.6,
+    missing_barcodes: [
+      { product: 'CACHAÇA 51 965ml', code: 'PRD00123', times: 2, reporters: ['PEDROHMG', 'ANA'] },
+    ],
   },
 } satisfies TemplateEntry

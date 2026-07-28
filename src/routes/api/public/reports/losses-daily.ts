@@ -99,6 +99,33 @@ async function handle(request: Request) {
   const counts_total_divergences = ciList.filter((r) => Number(r.difference ?? 0) !== 0).length
   const counts_total_diff_value = ciList.reduce((s, r) => s + Number(r.financial_diff ?? 0), 0)
 
+  // ---- Produtos sem código de barras reportados ----
+  const { data: mbReports } = await admin
+    .from('missing_barcode_reports')
+    .select('product_id, reported_by, created_at')
+    .gte('created_at', startUtc)
+    .lt('created_at', endUtc)
+  const mbList = (mbReports ?? []) as Array<{ product_id: string; reported_by: string; created_at: string }>
+  const mbProductIds = Array.from(new Set(mbList.map((r) => r.product_id)))
+  const mbReporterIds = Array.from(new Set(mbList.map((r) => r.reported_by)))
+  const [{ data: mbProds }, { data: mbReporters }] = await Promise.all([
+    mbProductIds.length ? admin.from('products').select('id, code, name').in('id', mbProductIds) : Promise.resolve({ data: [] }),
+    mbReporterIds.length ? admin.from('profiles').select('id, full_name, slug').in('id', mbReporterIds) : Promise.resolve({ data: [] }),
+  ])
+  const mbProdMap = new Map<string, { name: string; code: string }>((mbProds ?? []).map((p: any) => [p.id as string, { name: p.name as string, code: p.code as string }]))
+  const mbReporterMap = new Map<string, string>((mbReporters ?? []).map((p: any) => [p.id as string, (p.full_name || p.slug || '—') as string]))
+  const missingBarcodeByProduct = new Map<string, { product: string; code: string; times: number; reporters: Set<string> }>()
+  for (const r of mbList) {
+    const info = mbProdMap.get(r.product_id) ?? { name: '—', code: '—' }
+    const cur = missingBarcodeByProduct.get(r.product_id) ?? { product: info.name, code: info.code, times: 0, reporters: new Set<string>() }
+    cur.times += 1
+    cur.reporters.add(mbReporterMap.get(r.reported_by) ?? '—')
+    missingBarcodeByProduct.set(r.product_id, cur)
+  }
+  const missing_barcodes = Array.from(missingBarcodeByProduct.values())
+    .map((r) => ({ product: r.product, code: r.code, times: r.times, reporters: Array.from(r.reporters) }))
+    .sort((a, b) => b.times - a.times || a.product.localeCompare(b.product))
+
   // Only admins receive this report
   const { data: adminRoles } = await admin.from('user_roles').select('user_id').eq('role', 'admin')
   const adminIds = (adminRoles ?? []).map((r: any) => r.user_id)
@@ -120,11 +147,12 @@ async function handle(request: Request) {
       counts_total_items,
       counts_total_divergences,
       counts_total_diff_value,
+      missing_barcodes,
     },
     idempotencyKeyPrefix: `daily-summary-${label}`,
   })
 
-  return new Response(JSON.stringify({ ok: true, ...result, losses: rows.length, counts: counts_total_items, label }), {
+  return new Response(JSON.stringify({ ok: true, ...result, losses: rows.length, counts: counts_total_items, missing_barcodes: missing_barcodes.length, label }), {
     headers: { 'Content-Type': 'application/json' },
   })
 }
