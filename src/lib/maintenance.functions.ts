@@ -140,3 +140,115 @@ export const notifyMaintenanceTicketAssigned = createServerFn({ method: "POST" }
       return { ok: false, sent: 0, targets: 0, reason: "error" as const };
     }
   });
+
+/**
+ * Push helpers — canal adicional aos e-mails de manutenção.
+ * Nunca lançam; falha silenciosa para não quebrar o fluxo principal.
+ */
+function ticketUrl(): string {
+  const origin = process.env.PUBLIC_SITE_URL || "https://baixonoroeste.lovable.app";
+  return `${origin.replace(/\/$/, "")}/manutencao`;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  aberto: "Aberto",
+  em_andamento: "Em andamento",
+  resolvido: "Resolvido",
+};
+
+/** Push ao responsável quando um chamado é criado (mesma regra do e-mail). */
+export const notifyMaintenanceTicketCreatedPush = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { ticket_id: string }) => ({ ticket_id: String(d.ticket_id) }))
+  .handler(async ({ data }) => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { sendPushToUser } = await import("@/lib/push.server");
+      const { data: ticket } = await supabaseAdmin
+        .from("maintenance_tickets")
+        .select("id, title, description, assigned_to")
+        .eq("id", data.ticket_id)
+        .maybeSingle();
+      if (!ticket?.assigned_to) return { ok: true, sent: 0, targets: 0 };
+      const body = ticket.description
+        ? `${ticket.title} — ${ticket.description.slice(0, 120)}`
+        : ticket.title;
+      const r = await sendPushToUser(ticket.assigned_to, {
+        title: "Novo chamado de manutenção",
+        body,
+        url: ticketUrl(),
+        tag: `maint-created-${ticket.id}`,
+      });
+      return { ok: true, sent: r.sent, targets: r.targets };
+    } catch (e) {
+      console.error("[notifyMaintenanceTicketCreatedPush] falhou", e);
+      return { ok: false, sent: 0, targets: 0 };
+    }
+  });
+
+/** Push a quem abriu o chamado quando o status muda. */
+export const notifyMaintenanceTicketStatusPush = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { ticket_id: string; new_status: string }) => ({
+    ticket_id: String(d.ticket_id),
+    new_status: String(d.new_status),
+  }))
+  .handler(async ({ data, context }) => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { sendPushToUser } = await import("@/lib/push.server");
+      const { data: ticket } = await supabaseAdmin
+        .from("maintenance_tickets")
+        .select("id, title, reported_by")
+        .eq("id", data.ticket_id)
+        .maybeSingle();
+      if (!ticket?.reported_by) return { ok: true, sent: 0, targets: 0 };
+      // Não notifica quem fez a própria ação.
+      if (ticket.reported_by === context.userId) return { ok: true, sent: 0, targets: 0 };
+      const { data: actor } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", context.userId)
+        .maybeSingle();
+      const statusLabel = STATUS_LABEL[data.new_status] ?? data.new_status;
+      const body = `${ticket.title} — ${statusLabel}${actor?.full_name ? ` (por ${actor.full_name})` : ""}`;
+      const r = await sendPushToUser(ticket.reported_by, {
+        title: "Chamado atualizado",
+        body,
+        url: ticketUrl(),
+        tag: `maint-status-${ticket.id}`,
+      });
+      return { ok: true, sent: r.sent, targets: r.targets };
+    } catch (e) {
+      console.error("[notifyMaintenanceTicketStatusPush] falhou", e);
+      return { ok: false, sent: 0, targets: 0 };
+    }
+  });
+
+/** Push a quem abriu o chamado quando é concluído. */
+export const notifyMaintenanceTicketResolvedPush = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { ticket_id: string }) => ({ ticket_id: String(d.ticket_id) }))
+  .handler(async ({ data, context }) => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { sendPushToUser } = await import("@/lib/push.server");
+      const { data: ticket } = await supabaseAdmin
+        .from("maintenance_tickets")
+        .select("id, title, reported_by")
+        .eq("id", data.ticket_id)
+        .maybeSingle();
+      if (!ticket?.reported_by) return { ok: true, sent: 0, targets: 0 };
+      if (ticket.reported_by === context.userId) return { ok: true, sent: 0, targets: 0 };
+      const r = await sendPushToUser(ticket.reported_by, {
+        title: "Chamado concluído",
+        body: ticket.title,
+        url: ticketUrl(),
+        tag: `maint-resolved-${ticket.id}`,
+      });
+      return { ok: true, sent: r.sent, targets: r.targets };
+    } catch (e) {
+      console.error("[notifyMaintenanceTicketResolvedPush] falhou", e);
+      return { ok: false, sent: 0, targets: 0 };
+    }
+  });
