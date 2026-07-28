@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useEffect, useState } from "react";
+import { PushNotificationsToggle } from "@/components/PushNotificationsToggle";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({ component: ConfigPage });
 
@@ -35,6 +36,9 @@ function ConfigPage() {
   return (
     <div className="mx-auto max-w-md px-4 pt-4 pb-8 space-y-4">
       <h1 className="text-2xl font-display font-semibold">Configurações</h1>
+
+      <PushNotificationsToggle />
+
 
       <div className="rounded-2xl bg-surface border border-border p-4 space-y-2">
         <div className="font-medium text-sm">Modo de atualização do Omie</div>
