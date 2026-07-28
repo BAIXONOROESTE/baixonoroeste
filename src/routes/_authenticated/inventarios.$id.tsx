@@ -853,6 +853,35 @@ function CountForm({ product, inventoryId, currentItem, blind, canRegisterLoss, 
             <div className="font-semibold">{fmtMoney(product.cost)}</div>
           </div>
         </div>
+
+        <div className="space-y-1">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setScanningProduct(true)}
+          >
+            <Camera className="h-4 w-4 mr-2" /> Conferir código de barras
+          </Button>
+          {barcodeCheck?.kind === "match" && (
+            <div className="rounded-lg bg-success/15 text-success p-2 text-xs flex items-center gap-1">
+              <CheckCircle2 className="h-4 w-4" /> Código confere
+            </div>
+          )}
+          {barcodeCheck?.kind === "mismatch" && (
+            <div className="rounded-lg bg-warning/15 text-warning-foreground border border-warning/40 p-2 text-xs flex items-start gap-1">
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+              <span>Código de barras <b>{barcodeCheck.scanned}</b> não confere com este produto — confirme se pegou o produto certo.</span>
+            </div>
+          )}
+          {barcodeCheck?.kind === "missing" && (
+            <div className="rounded-lg bg-primary/10 border border-primary/40 p-2 text-xs flex items-start gap-1">
+              <AlertTriangle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <span>Este produto não tem código de barras cadastrado. O responsável foi avisado para cadastrar na Omie.</span>
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="text-xs text-muted-foreground">Quantidade contada</label>
           <Input type="number" step="any" inputMode="decimal" autoFocus value={qty} onChange={(e) => { setQty(e.target.value); if (revealed) setRevealed(null); }} className="text-2xl h-14 text-center" disabled={!!revealed} />
