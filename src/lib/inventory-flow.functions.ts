@@ -370,9 +370,10 @@ export const approveInventoryTask = createServerFn({ method: "POST" })
     if (!await ensureRole(supabase, userId, ["admin", "supervisor"])) throw new Error("Apenas admin/supervisor podem aprovar.");
 
     // Verifica que não há itens divergentes sem revisão
-    const { data: items } = await supabase.from("count_items")
+    const { data: items, error: itemsErr } = await supabase.from("count_items")
       .select("id, status, needs_recount, needs_adjust")
       .eq("inventory_id", data.inventory_id);
+    if (itemsErr) throw new Error(`Falha ao buscar itens para aprovação: ${itemsErr.message}`);
     const pendentes = (items ?? []).filter((i) => i.needs_recount || i.needs_adjust);
     if (pendentes.length > 0) throw new Error(`Ainda há ${pendentes.length} item(ns) aguardando ação do colaborador.`);
 
