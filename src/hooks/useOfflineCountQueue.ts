@@ -64,13 +64,35 @@ export function useOfflineCountQueue(inventoryId?: string) {
 
     const run = async (): Promise<{ ok: boolean; synced: number; reason?: string }> => {
       const all = await readAll();
-      const todo = all.filter((q) => !q.synced_at);
-      if (!todo.length) return { ok: true, synced: 0 };
+      const pendingAll = all.filter((q) => !q.synced_at);
+      if (!pendingAll.length) return { ok: true, synced: 0 };
+
+      // Dedupe por (inventory_id, product_id): mantém apenas a entrada mais
+      // recente e marca as anteriores como sincronizadas (superadas). Sem isso,
+      // um mesmo batch com duas linhas para a mesma chave dispara
+      // "ON CONFLICT DO UPDATE command cannot affect row a second time".
+      const latestByKey = new Map<string, QueuedCount>();
+      const superseded: QueuedCount[] = [];
+      const sorted = [...pendingAll].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
+      for (const q of sorted) {
+        const key = `${q.inventory_id}:${q.product_id}`;
+        const prev = latestByKey.get(key);
+        if (prev) superseded.push(prev);
+        latestByKey.set(key, q);
+      }
+      const todo = Array.from(latestByKey.values());
 
       setFlushing(true);
       let synced = 0;
       try {
-        // Upsert in batches; unique index on client_mutation_id dedupes retries.
+        const supersededAt = new Date().toISOString();
+        for (const q of superseded) {
+          await set(makeKey(q.client_mutation_id), { ...q, synced_at: supersededAt, error: undefined });
+        }
+
+        // Upsert in batches; unique index on (inventory_id, product_id) dedupes retries.
         for (let i = 0; i < todo.length; i += 25) {
           const batch = todo.slice(i, i + 25);
           const rows = batch.map((q) => ({
