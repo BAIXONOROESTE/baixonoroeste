@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
+import { PushOptInPrompt } from "@/components/PushOptInPrompt";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/_authenticated")({
   component: () => (
     <AppShell>
       <Outlet />
+      <PushOptInPrompt />
     </AppShell>
   ),
 });
