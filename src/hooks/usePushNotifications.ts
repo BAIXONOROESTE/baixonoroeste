@@ -62,9 +62,21 @@ export function usePushNotifications() {
       }
       const reg = await navigator.serviceWorker.getRegistration(SW_URL);
       const sub = reg ? await reg.pushManager.getSubscription() : null;
-      if (permission === "granted" && sub) setStatus("granted-subscribed");
-      else if (permission === "granted") setStatus("granted-not-subscribed");
-      else setStatus("default");
+      if (permission === "granted" && sub) {
+        // Verifica se o endpoint está registrado no banco pro usuário atual —
+        // se o usuário desativou (banco vazio) mas o navegador ainda tem a sub,
+        // a UI precisa refletir "não ativado" para permitir reativar.
+        const { data } = await supabase
+          .from("push_subscriptions")
+          .select("id")
+          .eq("endpoint", sub.endpoint)
+          .maybeSingle();
+        setStatus(data ? "granted-subscribed" : "granted-not-subscribed");
+      } else if (permission === "granted") {
+        setStatus("granted-not-subscribed");
+      } else {
+        setStatus("default");
+      }
     } catch (e) {
       console.error("[usePushNotifications] refresh", e);
       setStatus("default");
