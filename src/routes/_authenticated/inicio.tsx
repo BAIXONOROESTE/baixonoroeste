@@ -334,6 +334,50 @@ function HomePage() {
         </div>
       )}
 
+      {isSup && pendingApprovals && pendingApprovals.length > 0 && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <CheckSquare className="h-4 w-4 text-amber-500" /> Checklists aguardando aprovação
+            </h2>
+            <span className="rounded-full bg-amber-500 text-white text-xs font-semibold px-2 py-0.5">
+              {pendingApprovals.length}
+            </span>
+          </div>
+          <ul className="space-y-2">
+            {pendingApprovals.map((r) => {
+              const ms = Date.now() - new Date(r.submittedAt).getTime();
+              const mins = Math.max(0, Math.floor(ms / 60000));
+              const hrs = Math.floor(mins / 60);
+              const days = Math.floor(hrs / 24);
+              const ago =
+                days > 0 ? `há ${days} dia${days > 1 ? "s" : ""}`
+                : hrs > 0 ? `há ${hrs} h`
+                : mins > 0 ? `há ${mins} min`
+                : "agora";
+              return (
+                <li
+                  key={r.id}
+                  className="rounded-2xl bg-surface border border-amber-500/40 p-3 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">{r.templateName}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      Enviado por {r.starterName} · {ago}
+                    </div>
+                  </div>
+                  <Link to="/checklists/$runId" params={{ runId: r.id }}>
+                    <Button size="sm" variant="outline">
+                      Revisar <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {isSup && myTasks && myTasks.length > 0 && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
