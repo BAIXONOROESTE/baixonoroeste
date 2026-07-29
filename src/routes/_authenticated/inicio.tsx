@@ -65,6 +65,36 @@ function HomePage() {
     },
   });
 
+  const { data: pendingApprovals } = useQuery({
+    queryKey: ["home-pending-checklist-approvals"],
+    enabled: isSup,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("checklist_runs")
+        .select("id, run_date, submitted_at, started_by, template:checklist_templates(name)")
+        .eq("status", "aguardando_aprovacao")
+        .order("submitted_at", { ascending: false, nullsFirst: false })
+        .limit(20);
+      if (error) throw error;
+      const starterIds = Array.from(new Set((data ?? []).map((r: any) => r.started_by as string)));
+      const names: Record<string, string | null> = {};
+      if (starterIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", starterIds);
+        for (const p of profs ?? []) names[p.id as string] = (p as any).full_name ?? null;
+      }
+      return (data ?? []).map((r: any) => ({
+        id: r.id as string,
+        templateName: r.template?.name ?? "Checklist",
+        starterName: names[r.started_by] ?? "—",
+        submittedAt: (r.submitted_at ?? r.run_date) as string,
+      }));
+    },
+  });
+
   const { data: missingEmails } = useQuery({
     queryKey: ["admins-missing-email"],
     enabled: role === "admin",
