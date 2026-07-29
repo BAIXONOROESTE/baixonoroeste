@@ -36,6 +36,7 @@ export async function sendPushToUser(
   category?: PushCategory,
 ): Promise<PushResult> {
   const result: PushResult = { sent: 0, failed: 0, removed: 0, targets: 0 };
+  console.info("[sendPushToUser] início", { userId, category, title: payload.title });
   try {
     if (category) {
       const { data: prefs } = await supabaseAdmin
