@@ -79,7 +79,9 @@ export function usePushNotifications() {
     setWorking(true);
     setError(null);
     try {
+      console.info("[push] enable: solicitando permissão");
       const permission = await Notification.requestPermission();
+      console.info("[push] enable: permission =", permission);
       if (permission !== "granted") {
         setStatus(permission === "denied" ? "denied" : "default");
         return;
@@ -87,20 +89,37 @@ export function usePushNotifications() {
       const reg =
         (await navigator.serviceWorker.getRegistration(SW_URL)) ??
         (await navigator.serviceWorker.register(SW_URL, { scope: "/" }));
+      // Força atualização do SW — evita ficar preso a uma versão antiga em cache
+      // que não recebe mais o evento 'push'.
+      try {
+        await reg.update();
+      } catch (e) {
+        console.warn("[push] enable: reg.update falhou", e);
+      }
       await navigator.serviceWorker.ready;
 
-      const existing = await reg.pushManager.getSubscription();
       const { publicKey } = await fetchPublicKey();
-      let sub = existing;
+      const appServerKey = urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer;
+
+      // Se já existe uma subscription no navegador, reutiliza. Só recria quando
+      // não há uma — isso evita o bug do Safari/iOS em que unsubscribe+subscribe
+      // no mesmo carregamento gera um endpoint aparentemente novo mas que o
+      // serviço de push responde 410 (Gone).
+      let sub = await reg.pushManager.getSubscription();
       if (!sub) {
+        console.info("[push] enable: criando nova subscription");
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
+          applicationServerKey: appServerKey,
         });
+      } else {
+        console.info("[push] enable: reutilizando subscription existente");
       }
+
       const p256dh = arrayBufferToBase64Url(sub.getKey("p256dh"));
       const auth = arrayBufferToBase64Url(sub.getKey("auth"));
 
+      console.info("[push] enable: salvando no banco endpoint=", sub.endpoint.slice(0, 60));
       await saveSub({
         data: {
           endpoint: sub.endpoint,
@@ -110,8 +129,9 @@ export function usePushNotifications() {
         },
       });
       setStatus("granted-subscribed");
+      console.info("[push] enable: OK");
     } catch (e) {
-      console.error("[usePushNotifications] enable", e);
+      console.error("[push] enable: falha", e);
       setError(e instanceof Error ? e.message : "Falha ao ativar notificações.");
     } finally {
       setWorking(false);
@@ -127,12 +147,22 @@ export function usePushNotifications() {
       const sub = reg ? await reg.pushManager.getSubscription() : null;
       if (sub) {
         const endpoint = sub.endpoint;
-        await sub.unsubscribe().catch(() => {});
-        await deleteSub({ data: { endpoint } }).catch(() => {});
+        console.info("[push] disable: removendo do banco endpoint=", endpoint.slice(0, 60));
+        // Remove primeiro do banco (fonte da verdade para o envio). Deixamos a
+        // subscription do navegador viva de propósito: se o usuário reativar
+        // agora, reaproveitamos o mesmo endpoint em vez de recriar (o que no
+        // Safari/iOS às vezes produz endpoints imediatamente inválidos).
+        try {
+          await deleteSub({ data: { endpoint } });
+        } catch (e) {
+          console.error("[push] disable: erro ao remover do banco", e);
+          throw e;
+        }
       }
       setStatus(Notification.permission === "granted" ? "granted-not-subscribed" : "default");
+      console.info("[push] disable: OK");
     } catch (e) {
-      console.error("[usePushNotifications] disable", e);
+      console.error("[push] disable: falha", e);
       setError(e instanceof Error ? e.message : "Falha ao desativar.");
     } finally {
       setWorking(false);
