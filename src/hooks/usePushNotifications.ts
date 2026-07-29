@@ -5,6 +5,7 @@ import {
   savePushSubscription,
   deletePushSubscription,
 } from "@/lib/push.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 const SW_URL = "/sw.js";
 
